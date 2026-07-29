@@ -8,6 +8,7 @@ import { NowPlaying } from './components/NowPlaying'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeSettings } from './components/ThemeSettings'
 import { AuthScreen } from './components/AuthScreen'
+import { SpotifyImportModal } from './components/SpotifyImportModal'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
@@ -15,6 +16,8 @@ import type { Track, YouTubeSearchItem } from './types'
 import './App.css'
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
+const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET as string | undefined
 
 function toTrack(item: YouTubeSearchItem): Track {
   return {
@@ -34,11 +37,12 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
+  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
 
   // FIX: Using null! satisfies both TypeScript and useYouTubePlayer
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const player = useYouTubePlayer(ytContainerRef)
-  const { playlists } = usePlaylists()
+  const { playlists, createPlaylist } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
 
   const search = async () => {
@@ -82,13 +86,27 @@ function App() {
     player.playTrack(track, resolvedSource)
   }
 
+  const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
+    const newPlaylist = createPlaylist(playlistName, tracks)
+    if (newPlaylist) {
+      setActivePlaylistId(newPlaylist.id)
+      setView('playlist')
+    }
+  }
+
   if (!user) {
     return <AuthScreen />
   }
 
   return (
     <div className="app-shell">
-      <Sidebar view={view} activePlaylistId={activePlaylistId} onNavigate={setView} onOpenPlaylist={handleOpenPlaylist} />
+      <Sidebar
+        view={view}
+        activePlaylistId={activePlaylistId}
+        onNavigate={setView}
+        onOpenPlaylist={handleOpenPlaylist}
+        onOpenSpotifyImport={() => setSpotifyModalOpen(true)}
+      />
 
       <div className="app-main">
         <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
@@ -199,6 +217,15 @@ function App() {
           />
         </ErrorBoundary>
       )}
+
+      <SpotifyImportModal
+        isOpen={spotifyModalOpen}
+        onClose={() => setSpotifyModalOpen(false)}
+        onImportSuccess={handleSpotifyImportSuccess}
+        youtubeApiKey={API_KEY}
+        spotifyClientId={SPOTIFY_CLIENT_ID}
+        spotifyClientSecret={SPOTIFY_CLIENT_SECRET}
+      />
 
       {/* Render off-screen so browser media policies stay happy */}
       <div 
