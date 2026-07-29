@@ -1,57 +1,74 @@
 // src/utils/spotify.ts
 
-/** Extracts playlist ID from a Spotify URL */
+export interface SpotifyTrack {
+  title: string
+  artist: string
+}
+
+export interface SpotifyPlaylistData {
+  name: string
+  tracks: SpotifyTrack[]
+}
+
+/** Extracts playlist ID from a Spotify URL or raw ID */
 export function parseSpotifyPlaylistId(url: string): string | null {
-  const match = url.match(/playlist\/([a-zA-Z0-9]+)/)
-  return match ? match[1] : null
+  if (!url) return null
+  const cleanInput = url.trim()
+  const match = cleanInput.match(/playlist\/([a-zA-Z0-9]+)/)
+  if (match) return match[1]
+  if (/^[a-zA-Z0-9]{22}$/.test(cleanInput)) return cleanInput
+  return null
 }
 
-/** Obtains an access token from Spotify using Client Credentials */
-async function getSpotifyToken(clientId: string, clientSecret: string): Promise<string> {
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: 'Basic ' + btoa(`${clientId}:${clientSecret}`),
-    },
-    body: 'grant_type=client_credentials',
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to authenticate with Spotify API.')
-  }
-
-  const data = await response.json()
-  return data.access_token
-}
-
-/** Fetches playlist details and tracks from Spotify */
+/** Fetches public playlist details and tracks without requiring Spotify credentials */
 export async function fetchSpotifyPlaylist(
-  playlistId: string,
-  clientId: string,
-  clientSecret: string
-): Promise<{ name: string; tracks: { title: string; artist: string }[] }> {
-  const token = await getSpotifyToken(clientId, clientSecret)
+  input: string,
+  _clientId?: string,
+  _clientSecret?: string
+): Promise<SpotifyPlaylistData> {
+  // Extract clean ID if full URL was passed directly
+  const playlistId = parseSpotifyPlaylistId(input) || input.trim()
 
-  const response = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  // 1. Fetch metadata (Title/Name) via Spotify's public oEmbed endpoint
+  const oembedUrl = `https://open.spotify.com/oembed?url=https://open.spotify.com/playlist/${playlistId}`
+  const oembedRes = await fetch(oembedUrl)
 
-  if (!response.ok) {
+  if (!oembedRes.ok) {
     throw new Error('Could not fetch Spotify playlist. Make sure it is public.')
   }
 
-  const data = await response.json()
+  const oembedData = await oembedRes.json()
 
-  const tracks = (data.tracks?.items || [])
-    .filter((item: any) => item.track)
-    .map((item: any) => ({
-      title: item.track.name,
-      artist: item.track.artists.map((a: any) => a.name).join(', '),
-    }))
+  // 2. Fetch track details by reading the public HTML page through a CORS proxy
+  let tracks: SpotifyTrack[] = []
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(
+      `https://open.spotify.com/playlist/${playlistId}`
+    )}`
+    const pageRes = await fetch(proxyUrl)
+
+    if (pageRes.ok) {
+      const pageData = await pageRes.json()
+      const html = pageData.contents
+
+      // Extract track names and artists from meta tags embedded in the page
+      const matches = [...html.matchAll(/<meta property="music:song" content="([^"]+)"\/>/g)]
+
+      tracks = matches.map((m) => {
+        const fullContent = m[1] // Format: "Track Name by Artist Name"
+        const parts = fullContent.split(' by ')
+        return {
+          title: parts[0] || fullContent,
+          artist: parts[1] || 'Unknown Artist',
+        }
+      })
+    }
+  } catch (err) {
+    console.warn('Could not scrape track list, returning playlist name only:', err)
+  }
 
   return {
-    name: data.name || 'Imported Spotify Playlist',
+    name: oembedData.title || 'Imported Spotify Playlist',
     tracks,
   }
 }
