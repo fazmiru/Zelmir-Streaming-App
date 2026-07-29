@@ -86,13 +86,13 @@ function App() {
     player.playTrack(track, resolvedSource)
   }
 
-  const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
-    const newPlaylist = createPlaylist(playlistName, tracks)
-    if (newPlaylist) {
-      setActivePlaylistId(newPlaylist.id)
-      setView('playlist')
-    }
+const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
+  const newPlaylistId = createPlaylist(playlistName, tracks)
+  if (newPlaylistId) {
+    setActivePlaylistId(newPlaylistId)
+    setView('playlist')
   }
+}
 
   if (!user) {
     return <AuthScreen />
