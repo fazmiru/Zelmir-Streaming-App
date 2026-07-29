@@ -1,0 +1,441 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #0b0b0d;
+  --surface: #141416;
+  --surface-2: #1b1b1e;
+  --surface-3: #232327;
+  --border: #29292d;
+  --text: #f2f2f0;
+  --text-dim: #96969c;
+
+  /* set at runtime by ThemeContext, these are just fallbacks */
+  --accent-solid: #f5f5f2;
+  --accent-a: #f5f5f2;
+  --accent-b: #7dd3fc;
+  --accent-speed: 6s;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+.wordmark {
+  font-family: 'Fraunces', Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input[type='text'] {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--accent-solid);
+  color: var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.accent-fill):not(.accent-text) {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/* Accent system: every themeable surface uses .accent-fill / .accent-text / .accent-range */
+/* ---------------------------------------------------------------- */
+
+@keyframes accent-slide {
+  0% {
+    background-position: 200% 0%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+.theme-solid .accent-fill {
+  background: var(--accent-solid);
+}
+.theme-solid .accent-text {
+  color: var(--accent-solid);
+}
+
+.theme-cycle .accent-fill {
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b), var(--accent-a));
+  background-size: 200% 100%;
+  animation: accent-slide var(--accent-speed) linear infinite;
+}
+.theme-cycle .accent-text {
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b), var(--accent-a));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: accent-slide var(--accent-speed) linear infinite;
+}
+
+.accent-fill {
+  color: #0b0b0d;
+}
+
+/* range inputs (seek bar, volume, speed slider) */
+.accent-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  /* Default Solid Progress Fill */
+  background: linear-gradient(
+    to right,
+    var(--accent-solid) 0%,
+    var(--accent-solid) var(--progress, 0%),
+    var(--surface-3) var(--progress, 0%),
+    var(--surface-3) 100%
+  );
+}
+
+/* Cycle theme accent fill for range inputs */
+.theme-cycle .accent-range {
+  background: linear-gradient(
+    to right,
+    var(--accent-a) 0%,
+    var(--accent-b) var(--progress, 0%),
+    var(--surface-3) var(--progress, 0%),
+    var(--surface-3) 100%
+  );
+}
+
+.accent-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent-solid);
+  cursor: pointer;
+}
+
+.theme-cycle .accent-range::-webkit-slider-thumb {
+  background: var(--accent-b);
+}
+
+.accent-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-solid);
+  cursor: pointer;
+}
+
+.theme-cycle .accent-range::-moz-range-thumb {
+  background: var(--accent-b);
+}
+
+/* ---------------------------------------------------------------- */
+/* Player layout containers */
+/* ---------------------------------------------------------------- */
+
+.seek-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.player-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 120px;
+}
+
+/* ---------------------------------------------------------------- */
+/* Spotify-style Track List Layout */
+/* ---------------------------------------------------------------- */
+
+.track-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.track-list-header {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  padding: 0 16px 8px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.track-row {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.track-row:hover {
+  background: var(--surface-2);
+}
+
+.track-row-active {
+  background: var(--surface-3);
+}
+
+.track-col-index {
+  display: flex;
+  align-items: center;
+  color: var(--text-dim);
+}
+
+.row-play-btn {
+  display: none;
+}
+
+.track-row:hover .row-number {
+  display: none;
+}
+
+.track-row:hover .row-play-btn {
+  display: flex;
+}
+
+.track-col-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.track-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.track-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.track-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artist {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-col-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+/* ================================================================== */
+/* Mobile layout: sidebar -> bottom nav, player bar -> mini-player     */
+/* ================================================================== */
+
+@media (max-width: 600px) {
+  /* ---- Shell: single column, reserve space for the two fixed bars ---- */
+  .app-shell {
+    grid-template-columns: 1fr !important;
+    padding-bottom: 128px !important; /* bottom nav (60px) + mini-player (64px) + a little breathing room */
+  }
+
+  /* ---- Sidebar -> fixed bottom navigation bar ---- */
+  .sidebar {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto !important;
+    width: 100%;
+    height: 60px;
+    padding: 0 !important;
+    gap: 0 !important;
+    flex-direction: row !important;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    z-index: 40;
+  }
+
+  /* Logo, playlist list, and footer are dropped on mobile to keep the bar compact */
+  .wordmark,
+  .sidebar-divider,
+  .playlists-section,
+  .sidebar-footer {
+    display: none !important;
+  }
+
+  .nav {
+    flex-direction: row !important;
+    width: 100%;
+    gap: 0 !important;
+  }
+
+  .nav-item {
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 4px;
+    border-radius: 0;
+    min-height: 48px; /* touch target */
+    font-size: 10.5px;
+  }
+
+  .nav-item span {
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .nav-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  /* ---- Player bar -> compact mini-player, sitting directly above the bottom nav ---- */
+  .player-bar {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: 60px !important; /* directly above the bottom nav */
+    top: auto !important;
+    height: 64px !important;
+    grid-template-columns: 1fr auto !important;
+    padding: 0 12px !important;
+    gap: 10px;
+    z-index: 39;
+  }
+
+  .player-thumb {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player-title {
+    font-size: 12.5px;
+  }
+
+  .player-artist {
+    font-size: 11px;
+  }
+
+  /* Keep only album art, title/artist, and play/pause — drop seek bar, volume, and every
+     other transport control (shuffle, prev, next, repeat) to fit narrow screens */
+  .seek-row,
+  .player-volume {
+    display: none !important;
+  }
+
+  .transport-button:not(.transport-button-main) {
+    display: none !important;
+  }
+
+  .transport-button-main {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  /* ---- Touch targets: bump every remaining interactive control to >= 40px ---- */
+  .add-to-playlist-trigger {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .search-button {
+    min-height: 44px;
+  }
+
+  .mode-button {
+    min-height: 40px;
+  }
+
+  .preset-swatch {
+    width: 40px;
+    height: 40px;
+  }
+
+  .color-row input[type='color'] {
+    width: 40px;
+    height: 40px;
+  }
+
+  .row-play-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+/* Now Playing overlay on small screens: stack cover above tabs instead of side-by-side */
+@media (max-width: 600px) {
+  .now-playing-overlay {
+    padding: 16px 16px 24px;
+  }
+
+  .now-playing-body {
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .now-playing-left {
+    width: 100% !important;
+  }
+
+  .now-playing-cover {
+    max-width: 260px;
+    margin: 0 auto;
+  }
+
+  .now-playing-panel {
+    overflow-y: visible;
+  }
+}
