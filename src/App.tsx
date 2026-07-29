@@ -35,7 +35,8 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
 
-  const ytContainerRef = useRef<HTMLDivElement>(null)
+  // FIX: Using null! satisfies both TypeScript and useYouTubePlayer
+  const ytContainerRef = useRef<HTMLDivElement>(null!)
   const player = useYouTubePlayer(ytContainerRef)
   const { playlists } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
