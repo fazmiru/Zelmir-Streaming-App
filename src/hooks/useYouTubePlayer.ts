@@ -77,20 +77,19 @@ export function useYouTubePlayer(containerRef: RefObject<HTMLDivElement>) {
 
   const current = queue[queueIndex] ?? null
 
-  useEffect(() => {
+useEffect(() => {
     let cancelled = false
     loadYouTubeApi().then(() => {
       if (cancelled || !containerRef.current) return
+
       // Create a plain DOM node for the YouTube API to take over and replace with its <iframe>.
-      // Crucially, this node is never rendered by React (it's appended imperatively, not via JSX),
-      // so React has no fiber pointing at it and can never try to insertBefore/removeChild it —
-      // that mismatch is what caused the "insertBefore ... not a child of this node" crash.
       const target = document.createElement('div')
       containerRef.current.appendChild(target)
 
       playerRef.current = new window.YT.Player(target, {
-        height: '0',
-        width: '0',
+        // FIX: Height/width set to '1' so browsers permit autoplay/audio playback
+        height: '1',
+        width: '1',
         playerVars: { playsinline: 1 },
         events: {
           onReady: (e: any) => {
@@ -122,8 +121,13 @@ export function useYouTubePlayer(containerRef: RefObject<HTMLDivElement>) {
         },
       })
     })
+
     return () => {
       cancelled = true
+      if (playerRef.current?.destroy) {
+        playerRef.current.destroy()
+        playerRef.current = null
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
