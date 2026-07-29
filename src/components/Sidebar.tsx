@@ -10,6 +10,7 @@ interface SidebarProps {
   activePlaylistId: string | null
   onNavigate: (v: View) => void
   onOpenPlaylist: (id: string) => void
+  onOpenSpotifyImport: () => void
 }
 
 const items: { key: View; label: string; icon: typeof HomeIcon }[] = [
@@ -19,20 +20,28 @@ const items: { key: View; label: string; icon: typeof HomeIcon }[] = [
   { key: 'settings', label: 'Appearance', icon: SettingsIcon },
 ]
 
-export function Sidebar({ view, activePlaylistId, onNavigate, onOpenPlaylist }: SidebarProps) {
+export function Sidebar({ 
+  view, 
+  activePlaylistId, 
+  onNavigate, 
+  onOpenPlaylist, 
+  onOpenSpotifyImport 
+}: SidebarProps) {
   const { playlists, createPlaylist, deletePlaylist } = usePlaylists()
   const { user, signout } = useAuth()
   const [creating, setCreating] = useState(false)
   const [draftName, setDraftName] = useState('')
 
-  const submitNewPlaylist = () => {
-    if (draftName.trim()) {
-      const id = createPlaylist(draftName)
+const submitNewPlaylist = () => {
+  if (draftName.trim()) {
+    const id = createPlaylist(draftName)
+    if (id) {
       onOpenPlaylist(id)
     }
-    setDraftName('')
-    setCreating(false)
   }
+  setDraftName('')
+  setCreating(false)
+}
 
   return (
     <aside className="sidebar">
@@ -58,9 +67,24 @@ export function Sidebar({ view, activePlaylistId, onNavigate, onOpenPlaylist }: 
       <div className="playlists-section">
         <div className="playlists-header">
           <span>Playlists</span>
-          <button className="playlist-add-button" onClick={() => setCreating(true)} aria-label="New playlist" title="New playlist">
-            <PlusIcon size={15} />
-          </button>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <button 
+              className="playlist-add-button" 
+              onClick={onOpenSpotifyImport} 
+              aria-label="Import Spotify playlist" 
+              title="Import Spotify playlist"
+            >
+              <span style={{ fontSize: '12px' }}>🟢</span>
+            </button>
+            <button 
+              className="playlist-add-button" 
+              onClick={() => setCreating(true)} 
+              aria-label="New playlist" 
+              title="New playlist"
+            >
+              <PlusIcon size={15} />
+            </button>
+          </div>
         </div>
 
         {creating && (
