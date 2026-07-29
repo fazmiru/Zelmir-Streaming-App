@@ -10,9 +10,10 @@ function storageKey(userId: string | null): string {
 
 interface PlaylistContextValue {
   playlists: Playlist[]
-  createPlaylist: (name: string) => string
+  createPlaylist: (name: string, initialTracks?: Track[]) => string
   deletePlaylist: (id: string) => void
   addTrackToPlaylist: (id: string, track: Track) => void
+  addTracksToPlaylist: (id: string, tracks: Track[]) => void
   removeTrackFromPlaylist: (id: string, videoId: string) => void
 }
 
@@ -40,9 +41,12 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(storageKey(user?.id ?? null), JSON.stringify(playlists))
   }, [playlists, user?.id])
 
-  const createPlaylist = (name: string) => {
+  const createPlaylist = (name: string, initialTracks: Track[] = []) => {
     const id = crypto.randomUUID()
-    setPlaylists((p) => [...p, { id, name: name.trim() || 'Untitled playlist', tracks: [] }])
+    setPlaylists((p) => [
+      ...p,
+      { id, name: name.trim() || 'Untitled playlist', tracks: initialTracks }
+    ])
     return id
   }
 
@@ -60,6 +64,17 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const addTracksToPlaylist = (id: string, tracks: Track[]) => {
+    setPlaylists((p) =>
+      p.map((pl) => {
+        if (pl.id !== id) return pl
+        const existingIds = new Set(pl.tracks.map((t) => t.videoId))
+        const newTracks = tracks.filter((t) => !existingIds.has(t.videoId))
+        return { ...pl, tracks: [...pl.tracks, ...newTracks] }
+      })
+    )
+  }
+
   const removeTrackFromPlaylist = (id: string, videoId: string) => {
     setPlaylists((p) =>
       p.map((pl) => (pl.id === id ? { ...pl, tracks: pl.tracks.filter((t) => t.videoId !== videoId) } : pl))
@@ -67,7 +82,14 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo(
-    () => ({ playlists, createPlaylist, deletePlaylist, addTrackToPlaylist, removeTrackFromPlaylist }),
+    () => ({
+      playlists,
+      createPlaylist,
+      deletePlaylist,
+      addTrackToPlaylist,
+      addTracksToPlaylist,
+      removeTrackFromPlaylist
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [playlists]
   )
