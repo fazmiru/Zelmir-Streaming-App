@@ -26,10 +26,9 @@ export async function fetchSpotifyPlaylist(
   _clientId?: string,
   _clientSecret?: string
 ): Promise<SpotifyPlaylistData> {
-  // Extract clean ID if full URL was passed directly
   const playlistId = parseSpotifyPlaylistId(input) || input.trim()
 
-  // 1. Fetch metadata (Title/Name) via Spotify's public oEmbed endpoint
+  // 1. Fetch playlist title via Spotify's public oEmbed API
   const oembedUrl = `https://open.spotify.com/oembed?url=https://open.spotify.com/playlist/${playlistId}`
   const oembedRes = await fetch(oembedUrl)
 
@@ -38,33 +37,56 @@ export async function fetchSpotifyPlaylist(
   }
 
   const oembedData = await oembedRes.json()
-
-  // 2. Fetch track details by reading the public HTML page through a CORS proxy
   let tracks: SpotifyTrack[] = []
+
+  // 2. Fetch tracklist directly from Spotify's public Embed API (No API key needed)
   try {
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(
-      `https://open.spotify.com/playlist/${playlistId}`
-    )}`
-    const pageRes = await fetch(proxyUrl)
-
-    if (pageRes.ok) {
-      const pageData = await pageRes.json()
-      const html = pageData.contents
-
-      // Extract track names and artists from meta tags embedded in the page
-      const matches = [...html.matchAll(/<meta property="music:song" content="([^"]+)"\/>/g)]
-
-      tracks = matches.map((m) => {
-        const fullContent = m[1] // Format: "Track Name by Artist Name"
-        const parts = fullContent.split(' by ')
-        return {
-          title: parts[0] || fullContent,
-          artist: parts[1] || 'Unknown Artist',
-        }
-      })
+    const embedRes = await fetch(`https://open.spotify.com/embed/playlist/${playlistId}`)
+    if (embedRes.ok) {
+      const html = await embedRes.text()
+      // Extract the embedded JSON state from the iframe source
+      const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+      
+      if (match && match[1]) {
+        const jsonData = JSON.parse(match[1])
+        const rawTracks = jsonData?.props?.pageProps?.state?.data?.entity?.trackList || []
+        
+        tracks = rawTracks.map((item: any) => ({
+          title: item.title || item.name || 'Unknown Track',
+          artist: item.subtitle || item.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+        }))
+      }
     }
   } catch (err) {
-    console.warn('Could not scrape track list, returning playlist name only:', err)
+    console.warn('Embed fetch failed, falling back to proxy:', err)
+  }
+
+  // Backup fallback using CORS proxy if direct embed fetch is blocked
+  if (tracks.length === 0) {
+    try {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(
+        `https://open.spotify.com/embed/playlist/${playlistId}`
+      )}`
+      const proxyRes = await fetch(proxyUrl)
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json()
+        const match = proxyData.contents.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+        if (match && match[1]) {
+          const jsonData = JSON.parse(match[1])
+          const rawTracks = jsonData?.props?.pageProps?.state?.data?.entity?.trackList || []
+          tracks = rawTracks.map((item: any) => ({
+            title: item.title || item.name || 'Unknown Track',
+            artist: item.subtitle || item.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+          }))
+        }
+      }
+    } catch (e) {
+      console.warn('Fallback failed as well:', e)
+    }
+  }
+
+  if (tracks.length === 0) {
+    throw new Error('No playable tracks found in this playlist.')
   }
 
   return {
