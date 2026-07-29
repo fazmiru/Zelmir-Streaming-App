@@ -200,10 +200,11 @@ function App() {
         </ErrorBoundary>
       )}
 
-      {/* Hidden YouTube player — audio only, no visible video. React renders this wrapper once and
-          never touches its contents again; the actual player node is created imperatively inside
-          useYouTubePlayer so React's reconciler never conflicts with the DOM node YouTube replaces. */}
-      <div ref={ytContainerRef} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} />
+      {/* Render off-screen so browser media policies stay happy */}
+      <div 
+        ref={ytContainerRef} 
+        style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, pointerEvents: 'none' }} 
+      />
     </div>
   )
 }
