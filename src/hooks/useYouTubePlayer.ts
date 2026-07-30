@@ -61,6 +61,9 @@ export function useYouTubePlayer(containerRef: RefObject<HTMLDivElement>) {
   const shuffleRef = useRef(shuffle)
   const repeatModeRef = useRef(repeatMode)
   const historyRef = useRef<number[]>([])
+  // Tracks whichever videoId we've already told the player to load, so the fallback
+  // effect below doesn't re-issue a redundant loadVideoById for the same track.
+  const requestedVideoIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     queueRef.current = queue
@@ -132,9 +135,26 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Load whichever track the queue points at.
+  // Mobile browsers only allow the YouTube iframe (via postMessage) to start playback when
+  // the play command happens synchronously inside a user gesture's call stack. Calling
+  // loadVideoById/playVideo from a useEffect after a state update loses that "user activation"
+  // on iOS Safari / mobile Chrome (desktop is more lenient, which is why "request desktop site"
+  // used to work around it). So callers that run directly from a click/tap (playTrack, next,
+  // prev) call this synchronously instead of relying solely on the effect below.
+  const loadAndPlay = useCallback((videoId: string) => {
+    const p = playerRef.current
+    if (!ready || !p?.loadVideoById) return
+    requestedVideoIdRef.current = videoId
+    p.loadVideoById(videoId)
+    p.playVideo()
+  }, [ready])
+
+  // Fallback: covers cases where the track changes without going through a direct gesture
+  // (e.g. the player only just finished initializing). Skips if we already handled it above.
   useEffect(() => {
     if (!ready || !current || !playerRef.current?.loadVideoById) return
+    if (requestedVideoIdRef.current === current.videoId) return
+    requestedVideoIdRef.current = current.videoId
     playerRef.current.loadVideoById(current.videoId)
     playerRef.current.playVideo()
   }, [ready, current?.videoId])
@@ -168,7 +188,10 @@ useEffect(() => {
         return [...q, track]
       })
     }
-  }, [])
+    // Whichever branch above ran, `track` is always what should start playing —
+    // fire it off now, synchronously, while we're still inside the click/tap handler.
+    loadAndPlay(track.videoId)
+  }, [loadAndPlay])
 
   const togglePlay = useCallback(() => {
     const p = playerRef.current
@@ -182,17 +205,24 @@ useEffect(() => {
     if (nextIndex !== null) {
       historyRef.current.push(queueIndexRef.current)
       setQueueIndex(nextIndex)
+      const nextTrack = queueRef.current[nextIndex]
+      if (nextTrack) loadAndPlay(nextTrack.videoId)
     }
-  }, [])
+  }, [loadAndPlay])
 
   const prev = useCallback(() => {
     if (shuffleRef.current && historyRef.current.length > 0) {
       const last = historyRef.current.pop()!
       setQueueIndex(last)
+      const track = queueRef.current[last]
+      if (track) loadAndPlay(track.videoId)
       return
     }
-    setQueueIndex((i) => Math.max(i - 1, 0))
-  }, [])
+    const targetIndex = Math.max(queueIndexRef.current - 1, 0)
+    setQueueIndex(targetIndex)
+    const track = queueRef.current[targetIndex]
+    if (track) loadAndPlay(track.videoId)
+  }, [loadAndPlay])
 
   const seekTo = useCallback((seconds: number) => {
     playerRef.current?.seekTo(seconds, true)

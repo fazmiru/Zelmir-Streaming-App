@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { Track, YouTubeSearchItem } from '../types'
 import { PlayIcon, PauseIcon, NextIcon, PrevIcon, CloseIcon } from './Icons'
 import { searchPipedTracksSimple } from '../utils/piped'
+import { fetchLyrics } from '../utils/lyrics'
+
+// YouTube always has hqdefault; maxres/sd only exist for some videos, so we
+// cascade down instead of stretching the small "medium" thumbnail we use elsewhere.
+const COVER_FALLBACKS = ['maxresdefault', 'sddefault', 'hqdefault'] as const
 
 type Tab = 'upnext' | 'lyrics' | 'recommended'
 
@@ -44,7 +49,39 @@ export function NowPlaying({
   const [loadingRecommended, setLoadingRecommended] = useState(false)
   const fetchedFor = useRef<string | null>(null)
 
+  const [coverStage, setCoverStage] = useState(0)
+  const coverSrc =
+    coverStage < COVER_FALLBACKS.length
+      ? `https://i.ytimg.com/vi/${track.videoId}/${COVER_FALLBACKS[coverStage]}.jpg`
+      : track.thumbnail
+
+  const [lyrics, setLyrics] = useState<string | null>(null)
+  const [lyricsNotFound, setLyricsNotFound] = useState(false)
+  const [loadingLyrics, setLoadingLyrics] = useState(false)
+  const lyricsFetchedFor = useRef<string | null>(null)
+
   const upNext = queue.slice(queueIndex + 1)
+
+  // Reset the cover fallback cascade whenever the track changes.
+  useEffect(() => {
+    setCoverStage(0)
+  }, [track.videoId])
+
+  useEffect(() => {
+    if (tab !== 'lyrics') return
+    if (lyricsFetchedFor.current === track.videoId) return
+    lyricsFetchedFor.current = track.videoId
+    setLoadingLyrics(true)
+    setLyrics(null)
+    setLyricsNotFound(false)
+
+    fetchLyrics(track.artist, track.title)
+      .then((result) => {
+        setLyrics(result.lyrics)
+        setLyricsNotFound(!!result.notFound)
+      })
+      .finally(() => setLoadingLyrics(false))
+  }, [tab, track.videoId, track.artist, track.title])
 
   useEffect(() => {
     if (tab !== 'recommended') return
@@ -78,7 +115,12 @@ export function NowPlaying({
 
       <div className="now-playing-body">
         <div className="now-playing-left">
-          <img src={track.thumbnail} alt={track.title} className="now-playing-cover" />
+          <img
+            src={coverSrc}
+            alt={track.title}
+            className="now-playing-cover"
+            onError={() => setCoverStage((s) => s + 1)}
+          />
           <h1 className="now-playing-title">{track.title}</h1>
           <p className="now-playing-artist">{track.artist}</p>
 
@@ -149,12 +191,24 @@ export function NowPlaying({
             )}
 
             {tab === 'lyrics' && (
-              <div className="now-playing-lyrics-placeholder">
-                <p>Lyrics aren't wired up yet.</p>
-                <p className="now-playing-lyrics-sub">
-                  This tab is ready to go — plug it into a licensed lyrics provider (e.g. Musixmatch's API) with your
-                  own key to display lyrics here. Unlicensed lyrics scraping isn't something to build this in.
-                </p>
+              <div className="now-playing-lyrics">
+                {loadingLyrics && <p className="now-playing-empty">Looking up lyrics…</p>}
+
+                {!loadingLyrics && lyrics && <p className="now-playing-lyrics-text">{lyrics}</p>}
+
+                {!loadingLyrics && !lyrics && (
+                  <div className="now-playing-lyrics-placeholder">
+                    <p>{lyricsNotFound ? "Couldn't find lyrics for this track." : 'Lyrics unavailable.'}</p>
+                    <a
+                      className="now-playing-lyrics-link accent-text"
+                      href={`https://genius.com/search?q=${encodeURIComponent(`${track.artist} ${track.title}`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Search for it on Genius →
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 

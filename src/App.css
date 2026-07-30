@@ -605,6 +605,43 @@
 .track-col-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------------- Drag-to-reorder (playlists) ---------------- */
+
+.track-list-reorderable .track-list-header,
+.track-row-reorderable {
+  grid-template-columns: 48px 1fr 84px;
+}
+
+.track-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.track-drag-handle:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.track-drag-handle:active {
+  cursor: grabbing;
+}
+
+.track-row-dragging {
+  background: var(--surface-3);
+  opacity: 0.85;
 }
 
 /* ---------------- Flow (AI playlist generator) ---------------- */
@@ -1067,6 +1104,28 @@
   line-height: 1.6;
   max-width: 480px;
   margin: 0;
+}
+
+.now-playing-lyrics {
+  padding: 4px 6px 24px;
+}
+
+.now-playing-lyrics-text {
+  white-space: pre-line;
+  line-height: 1.75;
+  font-size: 14.5px;
+  color: var(--text);
+}
+
+.now-playing-lyrics-link {
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  width: fit-content;
+}
+
+.now-playing-lyrics-link:hover {
+  text-decoration: underline;
 }
 
 .now-playing-error {

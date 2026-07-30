@@ -15,6 +15,7 @@ interface PlaylistContextValue {
   addTrackToPlaylist: (id: string, track: Track) => void
   addTracksToPlaylist: (id: string, tracks: Track[]) => void
   removeTrackFromPlaylist: (id: string, videoId: string) => void
+  reorderPlaylistTracks: (id: string, tracks: Track[]) => void
 }
 
 const PlaylistContext = createContext<PlaylistContextValue | null>(null)
@@ -81,6 +82,10 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const reorderPlaylistTracks = (id: string, tracks: Track[]) => {
+    setPlaylists((p) => p.map((pl) => (pl.id === id ? { ...pl, tracks } : pl)))
+  }
+
   const value = useMemo(
     () => ({
       playlists,
@@ -88,7 +93,8 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
       deletePlaylist,
       addTrackToPlaylist,
       addTracksToPlaylist,
-      removeTrackFromPlaylist
+      removeTrackFromPlaylist,
+      reorderPlaylistTracks
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [playlists]

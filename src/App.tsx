@@ -37,7 +37,7 @@ function App() {
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const loadingMoreRef = useRef(false)
   const player = useYouTubePlayer(ytContainerRef)
-  const { playlists, createPlaylist } = usePlaylists()
+  const { playlists, createPlaylist, reorderPlaylistTracks } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
 
   const search = async () => {
@@ -243,6 +243,8 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
                 onPlay={handlePlay}
                 currentVideoId={player.current?.videoId}
                 emptyLabel="This playlist is empty — add songs from search or home using the + button."
+                reorderable
+                onReorder={(tracks) => activePlaylistId && reorderPlaylistTracks(activePlaylistId, tracks)}
               />
             </>
           )}
@@ -308,10 +310,25 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
         youtubeApiKey={API_KEY}
       />
 
-      {/* Render off-screen so browser media policies stay happy */}
-      <div 
-        ref={ytContainerRef} 
-        style={{ position: 'fixed', top: -9999, left: -9999, width: 1, height: 1, pointerEvents: 'none' }} 
+      {/*
+        Kept inside the viewport (bottom-right corner, 1x1px, invisible) rather than pushed
+        off-screen with a huge negative offset. Some mobile browsers treat elements placed
+        entirely outside the viewport as backgrounded and suspend their media playback, which
+        was blocking playback on mobile while "request desktop site" (a different rendering
+        path) masked the issue.
+      */}
+      <div
+        ref={ytContainerRef}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          right: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          overflow: 'hidden',
+          pointerEvents: 'none',
+        }}
       />
     </div>
   )
