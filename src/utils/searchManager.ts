@@ -41,6 +41,7 @@ export const YouTubeProvider: SearchProvider = {
     const items = res?.tracks ?? []
     return items.map((t: any) => ({
       id: `yt-${t.videoId}`,
+      videoId: t.videoId,
       title: t.title,
       artist: t.artist,
       thumbnail: t.thumbnail,
