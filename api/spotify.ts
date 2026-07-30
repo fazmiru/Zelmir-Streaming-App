@@ -16,35 +16,36 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Playlist ID is required' })
   }
 
+  const clientId = process.env.SPOTIFY_CLIENT_ID
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    return res.status(500).json({ error: 'Spotify API credentials missing in Vercel Environment Variables.' })
+  }
+
   try {
-    // 1. Get an anonymous web access token from Spotify's public Web Player endpoint
-    const tokenRes = await fetch(
-      'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
-      {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        },
-      }
-    )
+    // 1. Get an official access token using Client Credentials
+    const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${authString}`,
+      },
+      body: 'grant_type=client_credentials',
+    })
 
     if (!tokenRes.ok) {
-      throw new Error('Failed to obtain guest session token from Spotify')
+      throw new Error('Failed to authenticate with official Spotify API')
     }
 
     const tokenData = await tokenRes.json()
-    const accessToken = tokenData.accessToken
+    const accessToken = tokenData.access_token
 
-    if (!accessToken) {
-      throw new Error('No access token returned from Spotify')
-    }
-
-    // 2. Fetch the playlist details directly from official Spotify Web API using guest token
+    // 2. Fetch the playlist using the official token
     const playlistRes = await fetch(`https://api.spotify.com/v1/playlists/${id}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       },
     })
 
@@ -57,7 +58,7 @@ export default async function handler(req: any, res: any) {
 
     const playlistData = await playlistRes.json()
 
-    // 3. Extract track titles and artists
+    // 3. Extract tracks
     const tracks = (playlistData.tracks?.items || [])
       .filter((item: any) => item.track)
       .map((item: any) => ({
