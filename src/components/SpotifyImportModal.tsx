@@ -1,6 +1,7 @@
 // src/components/SpotifyImportModal.tsx
 import { useState } from 'react'
 import { parseSpotifyPlaylistId, fetchSpotifyPlaylist } from '../utils/spotify'
+import { searchPipedTracksSimple } from '../utils/piped'
 import type { Track, YouTubeSearchItem } from '../types'
 
 interface SpotifyImportModalProps {
@@ -8,18 +9,9 @@ interface SpotifyImportModalProps {
   onClose: () => void
   onImportSuccess: (playlistName: string, tracks: Track[]) => void
   youtubeApiKey?: string
-  spotifyClientId?: string
-  spotifyClientSecret?: string
 }
 
-export function SpotifyImportModal({
-  isOpen,
-  onClose,
-  onImportSuccess,
-  youtubeApiKey,
-  spotifyClientId,
-  spotifyClientSecret,
-}: SpotifyImportModalProps) {
+export function SpotifyImportModal({ isOpen, onClose, onImportSuccess, youtubeApiKey }: SpotifyImportModalProps) {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
@@ -36,16 +28,6 @@ export function SpotifyImportModal({
       return
     }
 
-    if (!youtubeApiKey) {
-      setError('Missing YouTube API key.')
-      return
-    }
-
-    if (!spotifyClientId || !spotifyClientSecret) {
-      setError('Missing Spotify API credentials in environment variables.')
-      return
-    }
-
     const playlistId = parseSpotifyPlaylistId(url)
     if (!playlistId) {
       setError('Invalid Spotify URL. Format should be: https://open.spotify.com/playlist/...')
@@ -55,11 +37,7 @@ export function SpotifyImportModal({
     setLoading(true)
     try {
       setStatus('Fetching playlist from Spotify...')
-      const { name, tracks: spotifyTracks } = await fetchSpotifyPlaylist(
-        playlistId,
-        spotifyClientId,
-        spotifyClientSecret
-      )
+      const { name, tracks: spotifyTracks } = await fetchSpotifyPlaylist(playlistId)
 
       if (spotifyTracks.length === 0) {
         throw new Error('No playable tracks found in this playlist.')
@@ -72,6 +50,21 @@ export function SpotifyImportModal({
         setStatus(`Matching song ${i + 1} of ${spotifyTracks.length}: ${item.title}...`)
 
         const query = `${item.title} ${item.artist}`
+
+        // Try Piped first — no key, no quota.
+        const pipedMatches = await searchPipedTracksSimple(query).catch(() => [])
+        if (pipedMatches[0]) {
+          resolvedTracks.push({
+            videoId: pipedMatches[0].videoId,
+            title: item.title,
+            artist: item.artist,
+            thumbnail: pipedMatches[0].thumbnail,
+          })
+          continue
+        }
+
+        // Piped found nothing for this track — fall back to Google if a key is configured.
+        if (!youtubeApiKey) continue
         const ytRes = await fetch(
           `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
             query

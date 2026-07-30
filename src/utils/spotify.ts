@@ -21,11 +21,7 @@ export function parseSpotifyPlaylistId(url: string): string | null {
 }
 
 /** Main Entry Point: Calls Vercel Serverless Function */
-export async function fetchSpotifyPlaylist(
-  input: string,
-  _clientId?: string,
-  _clientSecret?: string
-): Promise<SpotifyPlaylistData> {
+export async function fetchSpotifyPlaylist(input: string): Promise<SpotifyPlaylistData> {
   const playlistId = parseSpotifyPlaylistId(input)
 
   if (!playlistId) {

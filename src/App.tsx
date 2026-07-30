@@ -18,21 +18,6 @@ import type { Track } from './types'
 import './App.css'
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
-import type { Track, YouTubeSearchItem } from './types'
-import './App.css'
-
-const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
-const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET as string | undefined
-
-function toTrack(item: YouTubeSearchItem): Track {
-  return {
-    videoId: item.id.videoId,
-    title: item.snippet.title,
-    artist: item.snippet.channelTitle,
-    thumbnail: item.snippet.thumbnails.medium.url,
-  }
-}
 
 function App() {
   const { user } = useAuth()
@@ -41,6 +26,9 @@ function App() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Track[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [searchBackend, setSearchBackend] = useState<'piped' | 'google' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
@@ -77,29 +65,64 @@ function App() {
       return
     }
 
-    if (!API_KEY) {
-      setError('No YouTube API key found. Add VITE_YOUTUBE_API_KEY to your .env file.')
-      return
-    }
-    setLoading(true)
-    setError(null)
     try {
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
           query
-        )}&type=video&maxResults=16&key=${API_KEY}`
+        )}&type=video&videoDuration=any&maxResults=25&key=${API_KEY}`
       )
       if (!response.ok) throw new Error(`YouTube API returned ${response.status}`)
       const data = await response.json()
-      const tracks: Track[] = (data.items || []).map(toTrack)
-      setResults(tracks)
+      const filtered = await filterOutShorts(data.items || [], API_KEY)
+      setResults(filtered.map(toTrack))
+      setNextPageToken(data.nextPageToken ?? null)
+      setSearchBackend('google')
       setView('search')
     } catch (err) {
       console.error('Search failed:', err)
-      setError('Search failed. Check your API key and quota.')
+      setError('Search failed on both Piped and Google. Try again in a moment.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadMoreResults = async () => {
+    if (!nextPageToken || loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    try {
+      if (searchBackend === 'piped') {
+        const { tracks, nextpage } = await searchPipedTracks(query, nextPageToken)
+        const existingIds = new Set(results.map((t) => t.videoId))
+        setResults((prev) => [...prev, ...tracks.filter((t) => !existingIds.has(t.videoId))])
+        setNextPageToken(nextpage)
+      } else if (searchBackend === 'google' && API_KEY) {
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+            query
+          )}&type=video&videoDuration=any&maxResults=25&pageToken=${nextPageToken}&key=${API_KEY}`
+        )
+        if (!response.ok) throw new Error(`YouTube API returned ${response.status}`)
+        const data = await response.json()
+        const filtered = await filterOutShorts(data.items || [], API_KEY)
+        const existingIds = new Set(results.map((t) => t.videoId))
+        const newTracks = filtered.map(toTrack).filter((t) => !existingIds.has(t.videoId))
+        setResults((prev) => [...prev, ...newTracks])
+        setNextPageToken(data.nextPageToken ?? null)
+      }
+    } catch (err) {
+      console.error('Loading more results failed:', err)
+    } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
+    }
+  }
+
+  const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
+    if (view !== 'search') return
+    const el = e.currentTarget
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400
+    if (nearBottom) loadMoreResults()
   }
 
   const handleOpenPlaylist = (id: string) => {
@@ -141,7 +164,7 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
       <div className="app-main">
         <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
 
-        <main className="content">
+        <main className="content" onScroll={handleContentScroll}>
           {error && <p className="error-banner">{error}</p>}
 
           {view === 'home' && (
@@ -171,6 +194,36 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
                 currentVideoId={player.current?.videoId}
                 emptyLabel="No results yet — try searching above."
               />
+              {loadingMore && <p className="loading-more">Loading more…</p>}
+            </>
+          )}
+
+          {view === 'library' && (
+            <>
+              <h2 className="section-heading">Your library</h2>
+              {playlists.length === 0 ? (
+                <p className="empty-state">
+                  No playlists yet — create one from the sidebar, or the + button on any song.
+                </p>
+              ) : (
+                <div className="library-grid">
+                  {playlists.map((pl) => (
+                    <button key={pl.id} className="library-card" onClick={() => handleOpenPlaylist(pl.id)}>
+                      <div className="library-card-art">
+                        {pl.tracks[0] ? (
+                          <img src={pl.tracks[0].thumbnail} alt="" />
+                        ) : (
+                          <div className="library-card-art-empty" />
+                        )}
+                      </div>
+                      <span className="library-card-name">{pl.name}</span>
+                      <span className="library-card-count">
+                        {pl.tracks.length} song{pl.tracks.length === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -253,8 +306,6 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
         onClose={() => setSpotifyModalOpen(false)}
         onImportSuccess={handleSpotifyImportSuccess}
         youtubeApiKey={API_KEY}
-        spotifyClientId={SPOTIFY_CLIENT_ID}
-        spotifyClientSecret={SPOTIFY_CLIENT_SECRET}
       />
 
       {/* Render off-screen so browser media policies stay happy */}

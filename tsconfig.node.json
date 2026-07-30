@@ -21,8 +21,4 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["vite.config.ts", "api/**/*.ts"]
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e

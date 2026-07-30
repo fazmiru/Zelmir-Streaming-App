@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { SparkleIcon, SendIcon, PlayIcon } from './Icons'
 import { VideoGrid } from './VideoGrid'
+import { searchPipedTracksSimple } from '../utils/piped'
 import type { Track, YouTubeSearchItem } from '../types'
 
 interface FlowProps {
@@ -81,10 +82,6 @@ export function Flow({ apiKey, onPlay, currentVideoId }: FlowProps) {
 
   const generate = async (prompt: string) => {
     if (!prompt.trim()) return
-    if (!apiKey) {
-      setError('No YouTube API key found. Add VITE_YOUTUBE_API_KEY to your .env file.')
-      return
-    }
 
     setLoading(true)
     setError(null)
@@ -99,23 +96,36 @@ export function Flow({ apiKey, onPlay, currentVideoId }: FlowProps) {
       const results: Track[] = []
       const seen = new Set<string>()
 
-      // Run searches in parallel
-      const responses = await Promise.all(
-        queries.map((q) =>
-          fetch(
-            `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-              q
-            )}&type=video&maxResults=8&videoEmbeddable=true&key=${apiKey}`
-          ).then((r) => r.json())
-        )
-      )
+      // Try Piped for every query first — no API key, no quota.
+      const pipedBatches = await Promise.allSettled(queries.map((q) => searchPipedTracksSimple(q)))
+      for (const batch of pipedBatches) {
+        if (batch.status !== 'fulfilled') continue
+        for (const track of batch.value) {
+          if (seen.has(track.videoId)) continue
+          seen.add(track.videoId)
+          results.push(track)
+        }
+      }
 
-      for (const data of responses) {
-        for (const item of data.items || []) {
-          if (!item.id?.videoId) continue
-          if (seen.has(item.id.videoId)) continue
-          seen.add(item.id.videoId)
-          results.push(toTrack(item))
+      // Only fall back to Google if Piped came back completely empty (e.g. every
+      // instance was down) and a key is configured.
+      if (results.length === 0 && apiKey) {
+        const responses = await Promise.all(
+          queries.map((q) =>
+            fetch(
+              `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+                q
+              )}&type=video&maxResults=8&videoEmbeddable=true&key=${apiKey}`
+            ).then((r) => r.json())
+          )
+        )
+        for (const data of responses) {
+          for (const item of data.items || []) {
+            if (!item.id?.videoId) continue
+            if (seen.has(item.id.videoId)) continue
+            seen.add(item.id.videoId)
+            results.push(toTrack(item))
+          }
         }
       }
 
@@ -140,7 +150,7 @@ export function Flow({ apiKey, onPlay, currentVideoId }: FlowProps) {
       ])
     } catch (err) {
       console.error('Flow generation failed:', err)
-      setError('Flow failed to generate a playlist. Check your API key and quota.')
+      setError('Flow failed to generate a playlist. Try again in a moment.')
     } finally {
       setLoading(false)
     }

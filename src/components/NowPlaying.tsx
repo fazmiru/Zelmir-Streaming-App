@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Track, YouTubeSearchItem } from '../types'
 import { PlayIcon, PauseIcon, NextIcon, PrevIcon, CloseIcon } from './Icons'
+import { searchPipedTracksSimple } from '../utils/piped'
 
 type Tab = 'upnext' | 'lyrics' | 'recommended'
 
@@ -47,20 +48,24 @@ export function NowPlaying({
 
   useEffect(() => {
     if (tab !== 'recommended') return
-    if (!apiKey) return
     if (fetchedFor.current === track.videoId) return
     fetchedFor.current = track.videoId
     setLoadingRecommended(true)
-    fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-        track.artist
-      )}&type=video&maxResults=14&key=${apiKey}`
-    )
-      .then((r) => r.json())
-      .then((data) => {
-        const items: Track[] = (data.items || []).map(toTrack).filter((t: Track) => t.videoId !== track.videoId)
-        setRecommended(items)
+
+    searchPipedTracksSimple(track.artist)
+      .then(async (tracks) => {
+        const filtered = tracks.filter((t) => t.videoId !== track.videoId)
+        if (filtered.length > 0 || !apiKey) return filtered
+        // Piped returned nothing (likely every instance was down) — fall back to Google.
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
+            track.artist
+          )}&type=video&maxResults=14&key=${apiKey}`
+        )
+        const data = await response.json()
+        return (data.items || []).map(toTrack).filter((t: Track) => t.videoId !== track.videoId)
       })
+      .then((items) => setRecommended(items))
       .catch(() => setRecommended([]))
       .finally(() => setLoadingRecommended(false))
   }, [tab, track.videoId, track.artist, apiKey])
@@ -155,10 +160,8 @@ export function NowPlaying({
 
             {tab === 'recommended' && (
               <>
-                {!apiKey && <p className="now-playing-empty">Add your YouTube API key to see recommendations.</p>}
-                {apiKey && loadingRecommended && <p className="now-playing-empty">Finding similar tracks…</p>}
-                {apiKey &&
-                  !loadingRecommended &&
+                {loadingRecommended && <p className="now-playing-empty">Finding similar tracks…</p>}
+                {!loadingRecommended &&
                   recommended.map((t) => (
                     <div key={t.videoId} className="now-playing-row" onClick={() => onPlayFromQueue(t, recommended)}>
                       <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
@@ -168,7 +171,7 @@ export function NowPlaying({
                       </div>
                     </div>
                   ))}
-                {apiKey && !loadingRecommended && recommended.length === 0 && (
+                {!loadingRecommended && recommended.length === 0 && (
                   <p className="now-playing-empty">No recommendations found.</p>
                 )}
               </>
