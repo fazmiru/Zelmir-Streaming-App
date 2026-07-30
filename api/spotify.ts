@@ -2,7 +2,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Enable CORS headers so your app can call this endpoint
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS')
@@ -19,29 +18,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Fetch directly from spotifydown on the server side (bypasses CORS & bot filters)
-    const response = await fetch(`https://api.spotifydown.com/metadata/playlist/${id}`)
-    
-    if (!response.ok) {
-      return res.status(400).json({ error: 'Failed to fetch playlist metadata' })
+    // 1. Get an anonymous web access token from Spotify's public Web Player endpoint
+    const tokenRes = await fetch(
+      'https://open.spotify.com/get_access_token?reason=transport&productType=web_player',
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        },
+      }
+    )
+
+    if (!tokenRes.ok) {
+      throw new Error('Failed to obtain guest session token from Spotify')
     }
 
-    const data = await response.json()
+    const tokenData = await tokenRes.json()
+    const accessToken = tokenData.accessToken
 
-    if (!data.success || !data.trackList || data.trackList.length === 0) {
-      return res.status(404).json({ error: 'No playable tracks found in playlist' })
+    if (!accessToken) {
+      throw new Error('No access token returned from Spotify')
     }
 
-    const tracks = data.trackList.map((t: any) => ({
-      title: t.title || t.name || 'Unknown Track',
-      artist: t.artists || t.artist || 'Unknown Artist',
-    }))
+    // 2. Fetch the playlist details directly from official Spotify Web API using guest token
+    const playlistRes = await fetch(`https://api.spotify.com/v1/playlists/${id}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+    })
+
+    if (!playlistRes.ok) {
+      if (playlistRes.status === 404) {
+        return res.status(404).json({ error: 'Playlist not found. Verify the URL/ID.' })
+      }
+      return res.status(400).json({ error: 'Could not fetch playlist. Ensure it is public.' })
+    }
+
+    const playlistData = await playlistRes.json()
+
+    // 3. Extract track titles and artists
+    const tracks = (playlistData.tracks?.items || [])
+      .filter((item: any) => item.track)
+      .map((item: any) => ({
+        title: item.track.name || 'Unknown Track',
+        artist: item.track.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist',
+      }))
+
+    if (tracks.length === 0) {
+      return res.status(400).json({ error: 'No playable tracks found in this playlist.' })
+    }
 
     return res.status(200).json({
-      name: data.title || 'Imported Spotify Playlist',
+      name: playlistData.name || 'Imported Spotify Playlist',
       tracks,
     })
   } catch (err: any) {
+    console.error('Spotify API Error:', err)
     return res.status(500).json({ error: err.message || 'Internal Server Error' })
   }
 }
