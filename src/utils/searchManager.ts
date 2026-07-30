@@ -1,5 +1,5 @@
 import type { Track } from '../types'
-import { performSearch as performYouTubeSearch } from './youtube'
+import { searchYouTube as performYouTubeSearch } from './youtube'
 
 export interface SearchProvider {
   name: string
@@ -38,7 +38,7 @@ export const YouTubeProvider: SearchProvider = {
   name: 'YouTube',
   search: async (query: string): Promise<Track[]> => {
     const result = await performYouTubeSearch(query)
-    return result.tracks.map((t) => ({
+    return result.tracks.map((t: any) => ({
       id: `yt-${t.videoId}`,
       title: t.title,
       artist: t.artist,
