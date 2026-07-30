@@ -16,33 +16,33 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Playlist ID is required' })
   }
 
-  // Access environment variables directly from process.env
   const clientId = process.env.SPOTIFY_CLIENT_ID
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
 
   if (!clientId || !clientSecret) {
-    return res.status(500).json({ error: 'Spotify API credentials missing in Vercel Environment Variables.' })
+    return res.status(500).json({ error: 'Spotify API credentials missing in environment variables.' })
   }
 
   try {
-    const authString = btoa(`${clientId}:${clientSecret}`)
+    // 1. Get Access Token
+    const authBuffer = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
     const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: `Basic ${authString}`,
+        Authorization: `Basic ${authBuffer}`,
       },
       body: 'grant_type=client_credentials',
     })
 
     if (!tokenRes.ok) {
-      throw new Error('Failed to authenticate with official Spotify API')
+      throw new Error('Failed to authenticate with Spotify API')
     }
 
-    const tokenData = await tokenRes.json()
+    const tokenData: any = await tokenRes.json()
     const accessToken = tokenData.access_token
 
-    // Fetch playlist details
+    // 2. Fetch Playlist Details
     const playlistRes = await fetch(`https://api.spotify.com/v1/playlists/${id}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -56,9 +56,9 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Could not fetch playlist. Ensure it is public.' })
     }
 
-    const playlistData = await playlistRes.json()
+    const playlistData: any = await playlistRes.json()
 
-    // Extract tracks
+    // 3. Extract Track Information
     const tracks = (playlistData.tracks?.items || [])
       .filter((item: any) => item.track)
       .map((item: any) => ({
