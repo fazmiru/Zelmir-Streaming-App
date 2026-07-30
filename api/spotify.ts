@@ -16,16 +16,18 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Playlist ID is required' })
   }
 
-  const clientId = process.env.SPOTIFY_CLIENT_ID
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
+  // Use globalThis to bypass TS 'process' error
+  const env = (globalThis as any).process?.env || {}
+  const clientId = env.SPOTIFY_CLIENT_ID
+  const clientSecret = env.SPOTIFY_CLIENT_SECRET
 
   if (!clientId || !clientSecret) {
     return res.status(500).json({ error: 'Spotify API credentials missing in Vercel Environment Variables.' })
   }
 
   try {
-    // 1. Get an official access token using Client Credentials
-    const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    // Use btoa() instead of Buffer to avoid needing @types/node
+    const authString = btoa(`${clientId}:${clientSecret}`)
     const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -42,7 +44,7 @@ export default async function handler(req: any, res: any) {
     const tokenData = await tokenRes.json()
     const accessToken = tokenData.access_token
 
-    // 2. Fetch the playlist using the official token
+    // Fetch playlist details
     const playlistRes = await fetch(`https://api.spotify.com/v1/playlists/${id}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -58,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
     const playlistData = await playlistRes.json()
 
-    // 3. Extract tracks
+    // Extract tracks
     const tracks = (playlistData.tracks?.items || [])
       .filter((item: any) => item.track)
       .map((item: any) => ({
