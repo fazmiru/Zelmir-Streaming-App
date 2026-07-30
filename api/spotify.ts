@@ -16,17 +16,15 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Playlist ID is required' })
   }
 
-  // Use globalThis to bypass TS 'process' error
-  const env = (globalThis as any).process?.env || {}
-  const clientId = env.SPOTIFY_CLIENT_ID
-  const clientSecret = env.SPOTIFY_CLIENT_SECRET
+  // Access environment variables directly from process.env
+  const clientId = process.env.SPOTIFY_CLIENT_ID
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
 
   if (!clientId || !clientSecret) {
     return res.status(500).json({ error: 'Spotify API credentials missing in Vercel Environment Variables.' })
   }
 
   try {
-    // Use btoa() instead of Buffer to avoid needing @types/node
     const authString = btoa(`${clientId}:${clientSecret}`)
     const tokenRes = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
