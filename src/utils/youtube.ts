@@ -21,9 +21,6 @@ export function parseIsoDuration(iso: string): number {
 
 const SHORTS_HASHTAG = /#shorts?\b/i
 // Anything at or under this length is almost always a Short rather than a full song.
-// This is a heuristic, not a guarantee — the YouTube Data API doesn't expose a
-// direct "is this a Short" flag, so a handful of genuinely short songs/intros
-// under this length could get filtered out too.
 const SHORTS_MAX_SECONDS = 60
 
 /**
@@ -38,7 +35,7 @@ export async function filterOutShorts(items: YouTubeSearchItem[], apiKey: string
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${ids.join(',')}&key=${apiKey}`
     )
-    if (!response.ok) return items // fail open — better to show a stray Short than break search entirely
+    if (!response.ok) return items
     const data = await response.json()
     const durationById = new Map<string, number>()
     for (const video of data.items ?? []) {
@@ -48,10 +45,27 @@ export async function filterOutShorts(items: YouTubeSearchItem[], apiKey: string
     return items.filter((item) => {
       if (SHORTS_HASHTAG.test(item.snippet.title)) return false
       const seconds = durationById.get(item.id.videoId)
-      if (seconds === undefined) return true // no duration data — don't drop it just for that
+      if (seconds === undefined) return true
       return seconds > SHORTS_MAX_SECONDS
     })
   } catch {
-    return items // network hiccup on the filtering step shouldn't break the whole search
+    return items
+  }
+}
+
+/** Performs a YouTube search and returns formatted tracks */
+export async function searchYouTube(query: string): Promise<{ tracks: Track[] }> {
+  const apiKey = import.meta.env.VITE_YOUTUBE_API_KEY as string
+  const res = await fetch(
+    `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(query)}&key=${apiKey}`
+  )
+  if (!res.ok) return { tracks: [] }
+  const data = await res.json()
+  
+  const items: YouTubeSearchItem[] = data.items || []
+  const filtered = await filterOutShorts(items, apiKey)
+  
+  return {
+    tracks: filtered.map(toTrack),
   }
 }

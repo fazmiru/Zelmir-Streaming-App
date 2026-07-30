@@ -37,8 +37,9 @@ export const iTunesProvider: SearchProvider = {
 export const YouTubeProvider: SearchProvider = {
   name: 'YouTube',
   search: async (query: string): Promise<Track[]> => {
-    const result = await performYouTubeSearch(query)
-    return result.tracks.map((t: any) => ({
+    const res = await performYouTubeSearch(query)
+    const items = res?.tracks ?? []
+    return items.map((t: any) => ({
       id: `yt-${t.videoId}`,
       title: t.title,
       artist: t.artist,
