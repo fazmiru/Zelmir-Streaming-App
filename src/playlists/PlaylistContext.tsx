@@ -101,4 +101,8 @@ export function usePlaylists() {
   const ctx = useContext(PlaylistContext)
   if (!ctx) throw new Error('usePlaylists must be used within PlaylistProvider')
   return ctx
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e

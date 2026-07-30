@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 import { useState } from 'react'
 import type { Track } from '../types'
 import { usePlaylists } from '../playlists/PlaylistContext'
 import { PlusIcon, CloseIcon } from './Icons'
+=======
+import { useEffect, useRef, useState } from 'react'
+import type { Track } from '../types'
+import { usePlaylists } from '../playlists/PlaylistContext'
+import { PlusIcon } from './Icons'
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
 
 interface AddToPlaylistMenuProps {
   track: Track
@@ -10,6 +17,7 @@ interface AddToPlaylistMenuProps {
 export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
   const { playlists, addTrackToPlaylist, createPlaylist } = usePlaylists()
   const [open, setOpen] = useState(false)
+<<<<<<< HEAD
   const [creating, setCreating] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [justAdded, setJustAdded] = useState<string | null>(null)
@@ -45,6 +53,24 @@ export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
           e.stopPropagation()
           setOpen(true)
         }}
+=======
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  return (
+    <div className="add-to-playlist" ref={rootRef} onClick={(e) => e.stopPropagation()}>
+      <button
+        className="add-to-playlist-trigger"
+        onClick={() => setOpen((o) => !o)}
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
         aria-label="Add to playlist"
         title="Add to playlist"
       >
@@ -52,6 +78,7 @@ export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
       </button>
 
       {open && (
+<<<<<<< HEAD
         <div
           className="add-to-playlist-overlay"
           onClick={(e) => {
@@ -109,5 +136,34 @@ export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
         </div>
       )}
     </>
+=======
+        <div className="add-to-playlist-menu">
+          {playlists.length === 0 && <p className="add-to-playlist-empty">No playlists yet</p>}
+          {playlists.map((pl) => (
+            <button
+              key={pl.id}
+              className="add-to-playlist-option"
+              onClick={() => {
+                addTrackToPlaylist(pl.id, track)
+                setOpen(false)
+              }}
+            >
+              {pl.name}
+            </button>
+          ))}
+          <button
+            className="add-to-playlist-option add-to-playlist-new"
+            onClick={() => {
+              const id = createPlaylist('New playlist')
+              addTrackToPlaylist(id, track)
+              setOpen(false)
+            }}
+          >
+            + New playlist
+          </button>
+        </div>
+      )}
+    </div>
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
   )
 }

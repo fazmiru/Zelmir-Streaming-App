@@ -12,12 +12,30 @@ import { SpotifyImportModal } from './components/SpotifyImportModal'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
+<<<<<<< HEAD
 import { toTrack, filterOutShorts } from './utils/youtube'
 import { searchPipedTracks } from './utils/piped'
 import type { Track } from './types'
 import './App.css'
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
+=======
+import type { Track, YouTubeSearchItem } from './types'
+import './App.css'
+
+const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
+const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET as string | undefined
+
+function toTrack(item: YouTubeSearchItem): Track {
+  return {
+    videoId: item.id.videoId,
+    title: item.snippet.title,
+    artist: item.snippet.channelTitle,
+    thumbnail: item.snippet.thumbnails.medium.url,
+  }
+}
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
 
 function App() {
   const { user } = useAuth()
@@ -26,22 +44,29 @@ function App() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Track[]>([])
   const [loading, setLoading] = useState(false)
+<<<<<<< HEAD
   const [loadingMore, setLoadingMore] = useState(false)
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [searchBackend, setSearchBackend] = useState<'piped' | 'google' | null>(null)
+=======
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
   const [error, setError] = useState<string | null>(null)
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
 
   // FIX: Using null! satisfies both TypeScript and useYouTubePlayer
   const ytContainerRef = useRef<HTMLDivElement>(null!)
+<<<<<<< HEAD
   const loadingMoreRef = useRef(false)
+=======
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
   const player = useYouTubePlayer(ytContainerRef)
   const { playlists, createPlaylist } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
 
   const search = async () => {
     if (!query.trim()) return
+<<<<<<< HEAD
     setLoading(true)
     setError(null)
 
@@ -65,10 +90,19 @@ function App() {
       return
     }
 
+=======
+    if (!API_KEY) {
+      setError('No YouTube API key found. Add VITE_YOUTUBE_API_KEY to your .env file.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
     try {
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
           query
+<<<<<<< HEAD
         )}&type=video&videoDuration=any&maxResults=25&key=${API_KEY}`
       )
       if (!response.ok) throw new Error(`YouTube API returned ${response.status}`)
@@ -81,11 +115,24 @@ function App() {
     } catch (err) {
       console.error('Search failed:', err)
       setError('Search failed on both Piped and Google. Try again in a moment.')
+=======
+        )}&type=video&maxResults=16&key=${API_KEY}`
+      )
+      if (!response.ok) throw new Error(`YouTube API returned ${response.status}`)
+      const data = await response.json()
+      const tracks: Track[] = (data.items || []).map(toTrack)
+      setResults(tracks)
+      setView('search')
+    } catch (err) {
+      console.error('Search failed:', err)
+      setError('Search failed. Check your API key and quota.')
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
     } finally {
       setLoading(false)
     }
   }
 
+<<<<<<< HEAD
   const loadMoreResults = async () => {
     if (!nextPageToken || loadingMoreRef.current) return
     loadingMoreRef.current = true
@@ -125,6 +172,8 @@ function App() {
     if (nearBottom) loadMoreResults()
   }
 
+=======
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
   const handleOpenPlaylist = (id: string) => {
     setActivePlaylistId(id)
     setView('playlist')
@@ -164,7 +213,11 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
       <div className="app-main">
         <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
 
+<<<<<<< HEAD
         <main className="content" onScroll={handleContentScroll}>
+=======
+        <main className="content">
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
           {error && <p className="error-banner">{error}</p>}
 
           {view === 'home' && (
@@ -194,6 +247,7 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
                 currentVideoId={player.current?.videoId}
                 emptyLabel="No results yet — try searching above."
               />
+<<<<<<< HEAD
               {loadingMore && <p className="loading-more">Loading more…</p>}
             </>
           )}
@@ -224,6 +278,8 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
                   ))}
                 </div>
               )}
+=======
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
             </>
           )}
 
@@ -306,6 +362,11 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
         onClose={() => setSpotifyModalOpen(false)}
         onImportSuccess={handleSpotifyImportSuccess}
         youtubeApiKey={API_KEY}
+<<<<<<< HEAD
+=======
+        spotifyClientId={SPOTIFY_CLIENT_ID}
+        spotifyClientSecret={SPOTIFY_CLIENT_SECRET}
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
       />
 
       {/* Render off-screen so browser media policies stay happy */}
@@ -317,4 +378,8 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
   )
 }
 
+<<<<<<< HEAD
 export default App
+=======
+export default App
+>>>>>>> 036af055591a251da2f70cbc429bf5958a896c9e
