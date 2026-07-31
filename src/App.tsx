@@ -299,7 +299,14 @@ function App() {
           {error && <p className="error-banner">{error}</p>}
 
           {view === 'home' && (
-            <>
+            <div className="home-view">
+              {/* Theme-colored blurred backdrop (YouTube Music style) */}
+              <div className="home-theme-backdrop" aria-hidden>
+                <div className="home-theme-orb home-theme-orb-a" />
+                <div className="home-theme-orb home-theme-orb-b" />
+                <div className="home-theme-orb home-theme-orb-c" />
+                <div className="home-theme-shade" />
+              </div>
               <header className="home-header">
                 <h1 className="home-app-name">
                   <span className="accent-text">Zelmir</span>
@@ -406,7 +413,7 @@ function App() {
                   />
                 </section>
               )}
-            </>
+            </div>
           )}
 
           {view === 'search' && (
