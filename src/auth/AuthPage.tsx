@@ -31,13 +31,13 @@ export function AuthPage() {
     setFetchedQuestion(null)
   }
 
-  const handleGetQuestion = () => {
+  const handleGetQuestion = async () => {
     clearFeedback()
     if (!username.trim()) {
       setError('Please enter your username first.')
       return
     }
-    const q = getRecoveryQuestion(username)
+    const q = await getRecoveryQuestion(username)
     if (!q) {
       setError('No account found with that username.')
       return
