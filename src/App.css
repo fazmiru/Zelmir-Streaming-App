@@ -2879,3 +2879,7 @@ button.now-playing-artist-link:hover {
   color: #0b0b0d !important;
 }
 
+/* Hide search bar on all screen sizes (used for playlist view) */
+.topbar-hide {
+  display: none !important;
+}
