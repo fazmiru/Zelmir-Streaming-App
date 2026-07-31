@@ -285,12 +285,14 @@ function App() {
         {/* Hide search on Home, Library, Flow + Settings for mobile via CSS */}
         <div
           className={`topbar-wrap ${
-            view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
-              ? 'topbar-hide-mobile'
-              : ''
-          }`}
-        >
-          <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
+            view === 'playlist'
+              ? 'topbar-hide'
+              : view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
+                ? 'topbar-hide-mobile'
+                : ''
+            }`}
+          >
+            <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
         </div>
 
         <main className="content" onScroll={handleContentScroll}>
