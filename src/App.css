@@ -2558,3 +2558,116 @@ button.now-playing-artist-link:hover {
     bottom: 72px; /* sit above the taller bottom nav */
   }
 }
+
+/* ============================================================
+   Bug fixes: hide search on home/library (mobile),
+   restore shuffle / play / loop on player + now playing
+   ============================================================ */
+
+@media (max-width: 900px) {
+  /* 1. Hide search bar on Home + Library */
+  .topbar-hide-mobile {
+    display: none !important;
+  }
+
+  /* 2a. Bottom player bar — show full transport */
+  .player-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    height: auto;
+    min-height: 64px;
+    padding: 8px 12px 10px;
+    gap: 4px 10px;
+    align-items: center;
+    bottom: 72px; /* above bottom nav; set to 0 if you have no bottom nav */
+  }
+
+  .player-now-playing {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .player-volume {
+    display: none !important;
+  }
+
+  .player-center {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 4px;
+  }
+
+  .player-controls {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .player-controls .transport-button {
+    display: flex !important;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    padding: 4px;
+  }
+
+  .player-controls .transport-button-on {
+    color: var(--accent-solid);
+  }
+
+  .player-controls .transport-button-main {
+    width: 40px;
+    height: 40px;
+    color: #0b0b0d;
+  }
+
+  .seek-row {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* 2b. Now Playing full screen — visible shuffle / prev / play / next / repeat */
+.now-playing-transport {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+  width: 100%;
+}
+
+.now-playing-transport .transport-button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.now-playing-transport .transport-button-on {
+  color: var(--accent-solid) !important;
+}
+
+.now-playing-transport .transport-button-main {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: #0b0b0d !important;
+}
+
+.now-playing-transport .transport-button svg {
+  display: block;
+  fill: currentColor;
+  stroke: currentColor;
+}
