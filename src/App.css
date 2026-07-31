@@ -2133,3 +2133,153 @@ button.now-playing-artist-link:hover {
     font-size: 13px;
   }
 }
+
+/* ---- Now Playing: make all transport controls visible on the dark backdrop ---- */
+.now-playing-transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.now-playing-transport .transport-button {
+  color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+}
+
+.now-playing-transport .transport-button:hover {
+  color: #fff;
+}
+
+.now-playing-transport .transport-button-on {
+  color: var(--accent-solid);
+}
+
+.now-playing-transport .transport-button-main {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  color: #0b0b0d;
+}
+
+.now-playing-transport .repeat-one-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+/* ---- Mobile player bar: keep shuffle + repeat ---- */
+@media (max-width: 700px) {
+  .player-bar {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    height: auto;
+    min-height: 64px;
+    padding: 8px 12px 10px;
+    gap: 6px 10px;
+    align-items: center;
+  }
+
+  /* Track info — left */
+  .player-now-playing {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  /* Hide volume on phones */
+  .player-volume {
+    display: none;
+  }
+
+  /* Transport row under the track (or spanning full width) */
+  .player-center {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .player-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+
+  .seek-row {
+    width: 100%;
+    max-width: none;
+    gap: 8px;
+  }
+
+  .time-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 32px;
+  }
+
+  /* Make sure every transport icon is visible */
+  .player-controls .transport-button {
+    color: var(--text-dim);
+    display: flex;
+    background: none;
+    border: none;
+    padding: 4px;
+  }
+
+  .player-controls .transport-button-on {
+    color: var(--accent-solid);
+  }
+
+  .player-controls .transport-button-main {
+    width: 40px;
+    height: 40px;
+    color: #0b0b0d;
+  }
+
+  .player-thumb {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Extra space so the bar doesn't sit under the bottom nav */
+  .app-shell {
+    padding-bottom: 120px;
+  }
+}
+
+/* Now Playing on small screens — keep full transport visible */
+@media (max-width: 600px) {
+  .now-playing-transport {
+    gap: 14px;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .now-playing-transport .transport-button {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .now-playing-transport .transport-button-on {
+    color: var(--accent-solid);
+  }
+
+  .now-playing-transport .transport-button-main {
+    width: 52px;
+    height: 52px;
+  }
+}

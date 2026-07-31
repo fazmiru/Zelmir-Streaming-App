@@ -37,6 +37,8 @@ function App() {
   const [activeArtist, setActiveArtist] = useState<string | null>(null)
   const [artistTracks, setArtistTracks] = useState<Track[]>([])
   const [loadingArtist, setLoadingArtist] = useState(false)
+  const [quickPicks, setQuickPicks] = useState<Track[]>([])
+  const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
 
   // If we're loading because Spotify just redirected back here after login,
   // finish the login and re-open the import modal where the person left off.
@@ -51,6 +53,40 @@ function App() {
   const player = useYouTubePlayer(ytContainerRef)
   const { playlists, createPlaylist, reorderPlaylistTracks, removeTrackFromPlaylist } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
+
+  // Quick picks: similar tracks based on what you last played (or a playlist seed)
+  useEffect(() => {
+    if (view !== 'home') return
+
+    const seed =
+      player.current ??
+      player.queue[0] ??
+      playlists.find((p) => p.tracks.length > 0)?.tracks[0]
+
+    if (!seed) {
+      setQuickPicks([])
+      return
+    }
+
+    let cancelled = false
+    setLoadingQuickPicks(true)
+
+    searchPipedTracksSimple(`${seed.artist} ${seed.title}`)
+      .then((tracks) => {
+        if (cancelled) return
+        setQuickPicks(tracks.filter((t) => t.videoId !== seed.videoId).slice(0, 12))
+      })
+      .catch(() => {
+        if (!cancelled) setQuickPicks([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingQuickPicks(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [view, player.current?.videoId, playlists.length])
 
   const search = async () => {
     if (!query.trim()) return
@@ -167,7 +203,11 @@ function App() {
         ? activePlaylist?.tracks ?? []
         : view === 'artist'
           ? artistTracks
-          : results
+          : view === 'home'
+            ? quickPicks.length
+              ? quickPicks
+              : player.queue
+            : results
     player.playTrack(track, resolvedSource)
   }
 
@@ -180,9 +220,15 @@ function App() {
           ? artistTracks.length
             ? artistTracks
             : [track]
-          : results.length
-            ? results
-            : [track]
+          : view === 'home'
+            ? quickPicks.length
+              ? quickPicks
+              : player.queue.length
+                ? player.queue
+                : [track]
+            : results.length
+              ? results
+              : [track]
     if (!player.shuffle) player.toggleShuffle()
     player.playTrack(track, source)
   }
@@ -227,21 +273,100 @@ function App() {
 
           {view === 'home' && (
             <>
-              <section className="hero">
-                <h1>
-                  Welcome to <span className="accent-text">Zelmir</span>
+              {/* Mobile header: app name + profile */}
+              <header className="home-header">
+                <h1 className="home-app-name">
+                  <span className="accent-text">Zelmir</span>
                 </h1>
-                <p>Search anything, and it plays. No ads. Your playlists and theme are saved to your account.</p>
+                <div className="home-profile" title={user.username}>
+                  <div className="home-profile-avatar accent-fill">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                </div>
+              </header>
+
+              {/* Playlists grid — YTM “Speed dial” style */}
+              <section className="home-section">
+                <div className="home-section-header">
+                  <h2 className="section-heading">Jump back in</h2>
+                </div>
+                {playlists.length === 0 ? (
+                  <p className="empty-state">Create a playlist to see it here.</p>
+                ) : (
+                  <div className="home-playlist-grid">
+                    {playlists.map((pl) => {
+                      const art = pl.tracks[0]?.thumbnail
+                      return (
+                        <button
+                          key={pl.id}
+                          type="button"
+                          className="home-playlist-tile"
+                          onClick={() => handleOpenPlaylist(pl.id)}
+                        >
+                          <div className="home-playlist-tile-art">
+                            {art ? (
+                              <img src={art} alt="" />
+                            ) : (
+                              <div className="home-playlist-tile-empty" />
+                            )}
+                            {pl.tracks.length > 0 && (
+                              <span className="home-playlist-tile-play" aria-hidden>
+                                ▶
+                              </span>
+                            )}
+                          </div>
+                          <span className="home-playlist-tile-name">{pl.name}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </section>
-              <h2 className="section-heading">Recently played</h2>
-              <VideoGrid
-                tracks={player.queue}
-                onPlay={handlePlay}
-                currentVideoId={player.current?.videoId}
-                emptyLabel="Search for a song to get started."
-                onOpenArtist={handleOpenArtist}
-                {...gridQueueHandlers}
-              />
+
+              {/* Quick picks — similar to what you’ve been listening to */}
+              <section className="home-section">
+                <div className="home-section-header">
+                  <h2 className="section-heading">Quick picks</h2>
+                  {quickPicks.length > 0 && (
+                    <button
+                      type="button"
+                      className="home-play-all"
+                      onClick={() => handlePlay(quickPicks[0], quickPicks)}
+                    >
+                      Play all
+                    </button>
+                  )}
+                </div>
+                {loadingQuickPicks ? (
+                  <p className="empty-state">Finding tracks for you…</p>
+                ) : quickPicks.length === 0 ? (
+                  <p className="empty-state">Play a few songs and we’ll suggest more here.</p>
+                ) : (
+                  <VideoGrid
+                    tracks={quickPicks}
+                    onPlay={handlePlay}
+                    currentVideoId={player.current?.videoId}
+                    emptyLabel=""
+                    onOpenArtist={handleOpenArtist}
+                    {...gridQueueHandlers}
+                  />
+                )}
+              </section>
+
+              {/* Recently played */}
+              {player.queue.length > 0 && (
+                <section className="home-section">
+                  <h2 className="section-heading">Recently played</h2>
+                  <VideoGrid
+                    tracks={player.queue}
+                    onPlay={handlePlay}
+                    currentVideoId={player.current?.videoId}
+                    emptyLabel=""
+                    onOpenArtist={handleOpenArtist}
+                    {...gridQueueHandlers}
+                  />
+                </section>
+              )}
             </>
           )}
 
