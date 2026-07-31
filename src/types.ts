@@ -15,6 +15,7 @@ export interface Track {
   title: string
   artist: string
   thumbnail: string
+  album?: string
 }
 
 export interface Playlist {

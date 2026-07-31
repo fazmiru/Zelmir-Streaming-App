@@ -119,6 +119,13 @@ export function NowPlaying({
 
   return (
     <div className="now-playing-overlay">
+      {/* Blurred, saturated album art fills the screen — glossy colored backdrop */}
+      <div className="now-playing-backdrop" aria-hidden>
+        <img src={coverSrc} alt="" className="now-playing-backdrop-img" />
+        <div className="now-playing-backdrop-shade" />
+        <div className="now-playing-backdrop-vignette" />
+      </div>
+
       <button className="now-playing-close" onClick={onClose} aria-label="Close now playing">
         <CloseIcon />
       </button>
@@ -205,7 +212,9 @@ export function NowPlaying({
                 </div>
 
                 {upNext.length === 0 ? (
-                  <p className="now-playing-empty">Nothing queued after this — add more songs from Search or a playlist.</p>
+                  <p className="now-playing-empty">
+                    Nothing queued after this — add more songs from Search or a playlist.
+                  </p>
                 ) : (
                   upNext.map((t) => (
                     <div key={t.videoId} className="now-playing-row" onClick={() => onPlayFromQueue(t, queue)}>

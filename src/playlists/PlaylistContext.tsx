@@ -41,7 +41,13 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   const pushTracks = (id: string, tracks: Track[]) => {
-    supabase.from('playlists').update({ tracks, updated_at: new Date().toISOString() }).eq('id', id)
+    supabase
+      .from('playlists')
+      .update({ tracks, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) console.error('Failed to save playlist tracks:', error)
+      })
   }
 
   const createPlaylist = (name: string, initialTracks: Track[] = []) => {
@@ -49,13 +55,24 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
     const id = crypto.randomUUID()
     const playlistName = name.trim() || 'Untitled playlist'
     setPlaylists((p) => [...p, { id, name: playlistName, tracks: initialTracks }])
-    supabase.from('playlists').insert({ id, user_id: user.id, name: playlistName, tracks: initialTracks })
+    supabase
+      .from('playlists')
+      .insert({ id, user_id: user.id, name: playlistName, tracks: initialTracks })
+      .then(({ error }) => {
+        if (error) console.error('Failed to save new playlist:', error)
+      })
     return id
   }
 
   const deletePlaylist = (id: string) => {
     setPlaylists((p) => p.filter((pl) => pl.id !== id))
-    supabase.from('playlists').delete().eq('id', id)
+    supabase
+      .from('playlists')
+      .delete()
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) console.error('Failed to delete playlist:', error)
+      })
   }
 
   const addTrackToPlaylist = (id: string, track: Track) => {

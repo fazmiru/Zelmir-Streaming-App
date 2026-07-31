@@ -15,6 +15,7 @@ import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
 import { searchPipedTracks, searchPipedTracksSimple } from './utils/piped'
 import { handleSpotifyRedirect } from './utils/spotifyAuth'
+import { PlaylistHeader } from './components/PlaylistHeader'
 import type { Track } from './types'
 import './App.css'
 
@@ -48,7 +49,7 @@ function App() {
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const loadingMoreRef = useRef(false)
   const player = useYouTubePlayer(ytContainerRef)
-  const { playlists, createPlaylist, reorderPlaylistTracks } = usePlaylists()
+  const { playlists, createPlaylist, reorderPlaylistTracks, removeTrackFromPlaylist } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
 
   const search = async () => {
@@ -69,7 +70,9 @@ function App() {
     }
 
     if (!API_KEY) {
-      setError('Search is temporarily unavailable (all Piped instances failed to respond, and no Google API key is configured as a fallback).')
+      setError(
+        'Search is temporarily unavailable (all Piped instances failed to respond, and no Google API key is configured as a fallback).'
+      )
       setLoading(false)
       return
     }
@@ -159,8 +162,29 @@ function App() {
       player.playTrack(track, source)
       return
     }
-    const resolvedSource = view === 'playlist' ? activePlaylist?.tracks ?? [] : view === 'artist' ? artistTracks : results
+    const resolvedSource =
+      view === 'playlist'
+        ? activePlaylist?.tracks ?? []
+        : view === 'artist'
+          ? artistTracks
+          : results
     player.playTrack(track, resolvedSource)
+  }
+
+  /** Start mix: play this track from the current list with shuffle on. */
+  const handleStartMix = (track: Track) => {
+    const source =
+      view === 'playlist'
+        ? activePlaylist?.tracks ?? [track]
+        : view === 'artist'
+          ? artistTracks.length
+            ? artistTracks
+            : [track]
+          : results.length
+            ? results
+            : [track]
+    if (!player.shuffle) player.toggleShuffle()
+    player.playTrack(track, source)
   }
 
   const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
@@ -169,6 +193,12 @@ function App() {
       setActivePlaylistId(newPlaylistId)
       setView('playlist')
     }
+  }
+
+  const gridQueueHandlers = {
+    onPlayNext: player.playNext,
+    onAddToQueue: player.addToQueue,
+    onStartMix: handleStartMix,
   }
 
   if (authLoading) {
@@ -210,6 +240,7 @@ function App() {
                 currentVideoId={player.current?.videoId}
                 emptyLabel="Search for a song to get started."
                 onOpenArtist={handleOpenArtist}
+                {...gridQueueHandlers}
               />
             </>
           )}
@@ -223,6 +254,7 @@ function App() {
                 currentVideoId={player.current?.videoId}
                 emptyLabel="No results yet — try searching above."
                 onOpenArtist={handleOpenArtist}
+                {...gridQueueHandlers}
               />
               {loadingMore && <p className="loading-more">Loading more…</p>}
             </>
@@ -240,6 +272,7 @@ function App() {
                   currentVideoId={player.current?.videoId}
                   emptyLabel="Couldn't find anything for this artist."
                   onOpenArtist={handleOpenArtist}
+                  {...gridQueueHandlers}
                 />
               )}
             </>
@@ -275,24 +308,24 @@ function App() {
           )}
 
           {view === 'flow' && (
-            <Flow
-              apiKey={API_KEY}
-              onPlay={handlePlay}
-              currentVideoId={player.current?.videoId}
-            />
+            <Flow apiKey={API_KEY} onPlay={handlePlay} currentVideoId={player.current?.videoId} />
           )}
 
           {view === 'playlist' && activePlaylist && (
             <>
-              <h2 className="section-heading">{activePlaylist.name}</h2>
+              <PlaylistHeader name={activePlaylist.name} tracks={activePlaylist.tracks} />
               <VideoGrid
                 tracks={activePlaylist.tracks}
                 onPlay={handlePlay}
                 currentVideoId={player.current?.videoId}
                 emptyLabel="This playlist is empty — add songs from search or home using the + button."
                 onOpenArtist={handleOpenArtist}
+                onRemoveTrack={(videoId) =>
+                  activePlaylistId && removeTrackFromPlaylist(activePlaylistId, videoId)
+                }
                 reorderable
                 onReorder={(tracks) => activePlaylistId && reorderPlaylistTracks(activePlaylistId, tracks)}
+                {...gridQueueHandlers}
               />
             </>
           )}

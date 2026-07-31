@@ -155,3 +155,35 @@ export const SendIcon = ({ size = 20, className }: IconProps) => (
     />
   </svg>
 )
+
+export const ThumbsUpIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M7 11v9H4.5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1H7Zm0 0 4.2-8a2 2 0 0 1 2.2.9c.3.5.4 1.1.2 1.7L12.6 9H18a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 16.8 20H7"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+export const ThumbsDownIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M17 13V4h2.5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H17Zm0 0-4.2 8a2 2 0 0 1-2.2-.9 2 2 0 0 1-.2-1.7l1-3.4H6a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 7.2 4H17"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+export const MoreIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <circle cx="12" cy="5" r="1.8" />
+    <circle cx="12" cy="12" r="1.8" />
+    <circle cx="12" cy="19" r="1.8" />
+  </svg>
+)

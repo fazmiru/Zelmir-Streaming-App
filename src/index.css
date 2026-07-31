@@ -1,13 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #0b0b0d;
-  --surface: #141416;
-  --surface-2: #1b1b1e;
-  --surface-3: #232327;
-  --border: #29292d;
-  --text: #f2f2f0;
-  --text-dim: #96969c;
+  --bg: #0f0f0f;
+  --surface: #181818;
+  --surface-2: #212121;
+  --surface-3: #2a2a2a;
+  --border: #303030;
+  --text: #f1f1f1;
+  --text-dim: #aaaaaa;
 
   /* set at runtime by ThemeContext, these are just fallbacks */
   --accent-solid: #f5f5f2;
@@ -32,12 +32,17 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', 'Roboto', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 h1,
-h2,
+h2 {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
 .wordmark {
   font-family: 'Fraunces', Georgia, serif;
   letter-spacing: -0.01em;
@@ -247,7 +252,7 @@ input[type='text'] {
 .track-thumb {
   width: 40px;
   height: 40px;
-  border-radius: 4px;
+  border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -307,6 +312,7 @@ input[type='text'] {
 
   /* Logo, playlist list, and footer are dropped on mobile to keep the bar compact */
   .wordmark,
+  .sidebar-new-playlist,
   .sidebar-divider,
   .playlists-section,
   .sidebar-footer {

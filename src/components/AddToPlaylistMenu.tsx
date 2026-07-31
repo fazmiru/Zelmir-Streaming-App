@@ -1,24 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Track } from '../types'
 import { usePlaylists } from '../playlists/PlaylistContext'
 import { PlusIcon, CloseIcon } from './Icons'
 
 interface AddToPlaylistMenuProps {
   track: Track
+  /** When true, open the modal immediately (used by the ⋮ menu "Save to playlist"). */
+  forceOpen?: boolean
+  onClose?: () => void
 }
 
-export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
+export function AddToPlaylistMenu({ track, forceOpen = false, onClose }: AddToPlaylistMenuProps) {
   const { playlists, addTrackToPlaylist, createPlaylist } = usePlaylists()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(forceOpen)
   const [creating, setCreating] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [justAdded, setJustAdded] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (forceOpen) setOpen(true)
+  }, [forceOpen])
 
   const close = () => {
     setOpen(false)
     setCreating(false)
     setDraftName('')
     setJustAdded(null)
+    onClose?.()
   }
 
   const handleAdd = (playlistId: string) => {
@@ -39,17 +47,19 @@ export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
 
   return (
     <>
-      <button
-        className="add-to-playlist-trigger"
-        onClick={(e) => {
-          e.stopPropagation()
-          setOpen(true)
-        }}
-        aria-label="Add to playlist"
-        title="Add to playlist"
-      >
-        <PlusIcon size={16} />
-      </button>
+      {!forceOpen && (
+        <button
+          className="add-to-playlist-trigger"
+          onClick={(e) => {
+            e.stopPropagation()
+            setOpen(true)
+          }}
+          aria-label="Add to playlist"
+          title="Add to playlist"
+        >
+          <PlusIcon size={16} />
+        </button>
+      )}
 
       {open && (
         <div
@@ -80,7 +90,9 @@ export function AddToPlaylistMenu({ track }: AddToPlaylistMenuProps) {
                 <button key={pl.id} className="add-to-playlist-row" onClick={() => handleAdd(pl.id)}>
                   <span className="add-to-playlist-row-name">{pl.name}</span>
                   <span className="add-to-playlist-row-status">
-                    {justAdded === pl.id ? 'Added ✓' : `${pl.tracks.length} song${pl.tracks.length === 1 ? '' : 's'}`}
+                    {justAdded === pl.id
+                      ? 'Added ✓'
+                      : `${pl.tracks.length} song${pl.tracks.length === 1 ? '' : 's'}`}
                   </span>
                 </button>
               ))}

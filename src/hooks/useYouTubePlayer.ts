@@ -80,7 +80,7 @@ export function useYouTubePlayer(containerRef: RefObject<HTMLDivElement>) {
 
   const current = queue[queueIndex] ?? null
 
-useEffect(() => {
+  useEffect(() => {
     let cancelled = false
     loadYouTubeApi().then(() => {
       if (cancelled || !containerRef.current) return
@@ -193,6 +193,38 @@ useEffect(() => {
     loadAndPlay(track.videoId)
   }, [loadAndPlay])
 
+  /** Insert track right after the currently playing song (YouTube Music "Play next"). */
+  const playNext = useCallback((track: Track) => {
+    setQueue((q) => {
+      if (q.length === 0) {
+        setQueueIndex(0)
+        return [track]
+      }
+      // Remove existing copy so we don't duplicate
+      const without = q.filter((t) => t.videoId !== track.videoId)
+      const currentId = q[queueIndexRef.current]?.videoId
+      const currentPos = currentId
+        ? without.findIndex((t) => t.videoId === currentId)
+        : -1
+      const insertAt = currentPos === -1 ? without.length : currentPos + 1
+      const next = [...without.slice(0, insertAt), track, ...without.slice(insertAt)]
+      // Keep queueIndex on the same song
+      if (currentId) {
+        const newIdx = next.findIndex((t) => t.videoId === currentId)
+        if (newIdx !== -1) setQueueIndex(newIdx)
+      }
+      return next
+    })
+  }, [])
+
+  /** Append track to the end of the queue (YouTube Music "Add to queue"). */
+  const addToQueue = useCallback((track: Track) => {
+    setQueue((q) => {
+      if (q.some((t) => t.videoId === track.videoId)) return q
+      return [...q, track]
+    })
+  }, [])
+
   const togglePlay = useCallback(() => {
     const p = playerRef.current
     if (!p) return
@@ -254,6 +286,8 @@ useEffect(() => {
     shuffle,
     repeatMode,
     playTrack,
+    playNext,
+    addToQueue,
     togglePlay,
     next,
     prev,
