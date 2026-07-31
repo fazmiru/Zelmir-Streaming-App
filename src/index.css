@@ -438,4 +438,9 @@ input[type='text'] {
   .now-playing-panel {
     overflow-y: visible;
   }
+
+  .now-playing-transport {
+    gap: 16px;
+    justify-content: center;
+  }
 }

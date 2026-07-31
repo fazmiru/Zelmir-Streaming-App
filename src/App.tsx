@@ -13,7 +13,7 @@ import { useYouTubePlayer } from './hooks/useYouTubePlayer'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
-import { searchPipedTracks } from './utils/piped'
+import { searchPipedTracks, searchPipedTracksSimple } from './utils/piped'
 import { handleSpotifyRedirect } from './utils/spotifyAuth'
 import type { Track } from './types'
 import './App.css'
@@ -33,6 +33,9 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
+  const [activeArtist, setActiveArtist] = useState<string | null>(null)
+  const [artistTracks, setArtistTracks] = useState<Track[]>([])
+  const [loadingArtist, setLoadingArtist] = useState(false)
 
   // If we're loading because Spotify just redirected back here after login,
   // finish the login and re-open the import modal where the person left off.
@@ -136,12 +139,27 @@ function App() {
     setView('playlist')
   }
 
+  const handleOpenArtist = async (artist: string) => {
+    setActiveArtist(artist)
+    setView('artist')
+    setLoadingArtist(true)
+    try {
+      const tracks = await searchPipedTracksSimple(artist)
+      setArtistTracks(tracks)
+    } catch (err) {
+      console.error('Artist lookup failed:', err)
+      setArtistTracks([])
+    } finally {
+      setLoadingArtist(false)
+    }
+  }
+
   const handlePlay = (track: Track, source?: Track[]) => {
     if (source) {
       player.playTrack(track, source)
       return
     }
-    const resolvedSource = view === 'playlist' ? activePlaylist?.tracks ?? [] : results
+    const resolvedSource = view === 'playlist' ? activePlaylist?.tracks ?? [] : view === 'artist' ? artistTracks : results
     player.playTrack(track, resolvedSource)
   }
 
@@ -187,6 +205,7 @@ function App() {
                 onPlay={handlePlay}
                 currentVideoId={player.current?.videoId}
                 emptyLabel="Search for a song to get started."
+                onOpenArtist={handleOpenArtist}
               />
             </>
           )}
@@ -199,8 +218,26 @@ function App() {
                 onPlay={handlePlay}
                 currentVideoId={player.current?.videoId}
                 emptyLabel="No results yet — try searching above."
+                onOpenArtist={handleOpenArtist}
               />
               {loadingMore && <p className="loading-more">Loading more…</p>}
+            </>
+          )}
+
+          {view === 'artist' && activeArtist && (
+            <>
+              <h2 className="section-heading">{activeArtist}</h2>
+              {loadingArtist ? (
+                <p className="empty-state">Loading…</p>
+              ) : (
+                <VideoGrid
+                  tracks={artistTracks}
+                  onPlay={handlePlay}
+                  currentVideoId={player.current?.videoId}
+                  emptyLabel="Couldn't find anything for this artist."
+                  onOpenArtist={handleOpenArtist}
+                />
+              )}
             </>
           )}
 
@@ -249,6 +286,7 @@ function App() {
                 onPlay={handlePlay}
                 currentVideoId={player.current?.videoId}
                 emptyLabel="This playlist is empty — add songs from search or home using the + button."
+                onOpenArtist={handleOpenArtist}
                 reorderable
                 onReorder={(tracks) => activePlaylistId && reorderPlaylistTracks(activePlaylistId, tracks)}
               />
@@ -302,11 +340,19 @@ function App() {
             queueIndex={player.queueIndex}
             isPlaying={player.isPlaying}
             apiKey={API_KEY}
+            shuffle={player.shuffle}
+            repeatMode={player.repeatMode}
             onClose={() => setNowPlayingOpen(false)}
             onToggle={player.togglePlay}
             onNext={player.next}
             onPrev={player.prev}
+            onToggleShuffle={player.toggleShuffle}
+            onCycleRepeat={player.cycleRepeat}
             onPlayFromQueue={(track, source) => player.playTrack(track, source)}
+            onOpenArtist={(artist) => {
+              setNowPlayingOpen(false)
+              handleOpenArtist(artist)
+            }}
           />
         </ErrorBoundary>
       )}

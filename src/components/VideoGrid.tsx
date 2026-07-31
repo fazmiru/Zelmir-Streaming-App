@@ -11,9 +11,18 @@ interface VideoGridProps {
   /** When set, songs can be drag-reordered and onReorder is called with the new order. */
   reorderable?: boolean
   onReorder?: (tracks: Track[]) => void
+  onOpenArtist?: (artist: string) => void
 }
 
-export function VideoGrid({ tracks, onPlay, currentVideoId, emptyLabel, reorderable, onReorder }: VideoGridProps) {
+export function VideoGrid({
+  tracks,
+  onPlay,
+  currentVideoId,
+  emptyLabel,
+  reorderable,
+  onReorder,
+  onOpenArtist,
+}: VideoGridProps) {
   // Local copy so we can show live reordering while dragging, without waiting on the parent.
   const [order, setOrder] = useState(tracks)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -105,7 +114,19 @@ export function VideoGrid({ tracks, onPlay, currentVideoId, emptyLabel, reordera
               <img src={track.thumbnail} alt={track.title} className="track-thumb" />
               <div className="track-details">
                 <span className={`track-name ${isActive ? 'accent-text' : ''}`}>{track.title}</span>
-                <span className="track-artist">{track.artist}</span>
+                {onOpenArtist ? (
+                  <button
+                    className="track-artist track-artist-link"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenArtist(track.artist)
+                    }}
+                  >
+                    {track.artist}
+                  </button>
+                ) : (
+                  <span className="track-artist">{track.artist}</span>
+                )}
               </div>
             </div>
 

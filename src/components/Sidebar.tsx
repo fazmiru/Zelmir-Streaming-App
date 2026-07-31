@@ -3,7 +3,7 @@ import { HomeIcon, SearchIcon, LibraryIcon, SparkleIcon, SettingsIcon, PlusIcon,
 import { usePlaylists } from '../playlists/PlaylistContext'
 import { useAuth } from '../auth/AuthContext'
 
-export type View = 'home' | 'search' | 'library' | 'flow' | 'settings' | 'playlist'
+export type View = 'home' | 'search' | 'library' | 'flow' | 'settings' | 'playlist' | 'artist'
 
 interface SidebarProps {
   view: View

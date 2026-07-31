@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Track, YouTubeSearchItem } from '../types'
-import { PlayIcon, PauseIcon, NextIcon, PrevIcon, CloseIcon } from './Icons'
+import type { RepeatMode, Track, YouTubeSearchItem } from '../types'
+import { PlayIcon, PauseIcon, NextIcon, PrevIcon, CloseIcon, ShuffleIcon, RepeatIcon } from './Icons'
 import { searchPipedTracksSimple } from '../utils/piped'
 import { fetchLyrics } from '../utils/lyrics'
 
@@ -16,11 +16,16 @@ interface NowPlayingProps {
   queueIndex: number
   isPlaying: boolean
   apiKey: string | undefined
+  shuffle: boolean
+  repeatMode: RepeatMode
   onClose: () => void
   onToggle: () => void
   onNext: () => void
   onPrev: () => void
+  onToggleShuffle: () => void
+  onCycleRepeat: () => void
   onPlayFromQueue: (track: Track, source: Track[]) => void
+  onOpenArtist: (artist: string) => void
 }
 
 function toTrack(item: YouTubeSearchItem): Track {
@@ -38,11 +43,16 @@ export function NowPlaying({
   queueIndex,
   isPlaying,
   apiKey,
+  shuffle,
+  repeatMode,
   onClose,
   onToggle,
   onNext,
   onPrev,
+  onToggleShuffle,
+  onCycleRepeat,
   onPlayFromQueue,
+  onOpenArtist,
 }: NowPlayingProps) {
   const [tab, setTab] = useState<Tab>('upnext')
   const [recommended, setRecommended] = useState<Track[]>([])
@@ -122,9 +132,20 @@ export function NowPlaying({
             onError={() => setCoverStage((s) => s + 1)}
           />
           <h1 className="now-playing-title">{track.title}</h1>
-          <p className="now-playing-artist">{track.artist}</p>
+          <button className="now-playing-artist now-playing-artist-link" onClick={() => onOpenArtist(track.artist)}>
+            {track.artist}
+          </button>
 
           <div className="now-playing-transport">
+            <button
+              className={`transport-button transport-button-toggle ${shuffle ? 'transport-button-on' : ''}`}
+              onClick={onToggleShuffle}
+              aria-label="Shuffle"
+              aria-pressed={shuffle}
+              title="Shuffle"
+            >
+              <ShuffleIcon size={19} />
+            </button>
             <button className="transport-button" onClick={onPrev} aria-label="Previous">
               <PrevIcon size={22} />
             </button>
@@ -137,6 +158,15 @@ export function NowPlaying({
             </button>
             <button className="transport-button" onClick={onNext} aria-label="Next">
               <NextIcon size={22} />
+            </button>
+            <button
+              className={`transport-button transport-button-toggle ${repeatMode !== 'off' ? 'transport-button-on' : ''}`}
+              onClick={onCycleRepeat}
+              aria-label="Repeat"
+              title={repeatMode === 'off' ? 'Repeat off' : repeatMode === 'all' ? 'Repeat all' : 'Repeat one'}
+            >
+              <RepeatIcon size={19} />
+              {repeatMode === 'one' && <span className="repeat-one-dot accent-fill" />}
             </button>
           </div>
         </div>
