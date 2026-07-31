@@ -2283,3 +2283,153 @@ button.now-playing-artist-link:hover {
     height: 52px;
   }
 }
+
+/* ---------------- Home (YTM-style) ---------------- */
+
+.home-header {
+  display: none; /* desktop: sidebar already has brand + user */
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.home-app-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.home-profile-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #0b0b0d;
+}
+
+.home-section {
+  margin-bottom: 28px;
+}
+
+.home-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.home-section-header .section-heading {
+  margin-bottom: 12px;
+}
+
+.home-play-all {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.home-play-all:hover {
+  background: var(--surface-2);
+}
+
+/* Playlist tiles — Speed dial style */
+.home-playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.home-playlist-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.home-playlist-tile-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.home-playlist-tile-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-playlist-tile-empty {
+  width: 100%;
+  height: 100%;
+  background: var(--surface-3);
+}
+
+.home-playlist-tile-play {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.home-playlist-tile:hover .home-playlist-tile-play {
+  opacity: 1;
+}
+
+.home-playlist-tile-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px;
+}
+
+@media (max-width: 700px) {
+  .home-header {
+    display: flex;
+  }
+
+  .home-playlist-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .home-playlist-tile-name {
+    font-size: 12px;
+  }
+
+  /* Hide the old hero on mobile home */
+  .hero {
+    display: none;
+  }
+}
