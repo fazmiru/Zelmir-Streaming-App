@@ -21,6 +21,8 @@ import './App.css'
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
 
+const MOOD_CHIPS = ['Relax', 'Energise', 'Party', 'Focus', 'Sleep', 'Workout', 'Sad', 'Romance'] as const
+
 function App() {
   const { user, loading: authLoading } = useAuth()
   const [view, setView] = useState<View>('home')
@@ -40,8 +42,6 @@ function App() {
   const [quickPicks, setQuickPicks] = useState<Track[]>([])
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
 
-  // If we're loading because Spotify just redirected back here after login,
-  // finish the login and re-open the import modal where the person left off.
   useEffect(() => {
     handleSpotifyRedirect().then((justLoggedIn) => {
       if (justLoggedIn) setSpotifyModalOpen(true)
@@ -54,7 +54,7 @@ function App() {
   const { playlists, createPlaylist, reorderPlaylistTracks, removeTrackFromPlaylist } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
 
-  // Quick picks: similar tracks based on what you last played (or a playlist seed)
+  // Quick picks from last played / playlist seed
   useEffect(() => {
     if (view !== 'home') return
 
@@ -129,6 +129,23 @@ function App() {
     } catch (err) {
       console.error('Search failed:', err)
       setError('Search failed on both Piped and Google. Try again in a moment.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const runMoodSearch = async (chip: string) => {
+    setQuery(chip)
+    setLoading(true)
+    setError(null)
+    setView('search')
+    try {
+      const tracks = await searchPipedTracksSimple(chip)
+      setResults(tracks)
+      setSearchBackend('piped')
+      setNextPageToken(null)
+    } catch {
+      setError('Could not load that mood right now.')
     } finally {
       setLoading(false)
     }
@@ -211,7 +228,6 @@ function App() {
     player.playTrack(track, resolvedSource)
   }
 
-  /** Start mix: play this track from the current list with shuffle on. */
   const handleStartMix = (track: Track) => {
     const source =
       view === 'playlist'
@@ -266,14 +282,16 @@ function App() {
       />
 
       <div className="app-main" style={{ position: 'relative', zIndex: 1 }}>
-        <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
+        {/* Hide search on Home + Library for mobile via CSS */}
+        <div className={`topbar-wrap ${view === 'home' || view === 'library' ? 'topbar-hide-mobile' : ''}`}>
+          <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
+        </div>
 
         <main className="content" onScroll={handleContentScroll}>
           {error && <p className="error-banner">{error}</p>}
 
           {view === 'home' && (
             <>
-              {/* Mobile header: app name + profile */}
               <header className="home-header">
                 <h1 className="home-app-name">
                   <span className="accent-text">Zelmir</span>
@@ -285,10 +303,24 @@ function App() {
                 </div>
               </header>
 
-              {/* Playlists grid — YTM “Speed dial” style */}
+              {/* Mood chips — mobile + desktop */}
+              <div className="home-chips">
+                {MOOD_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className="home-chip"
+                    onClick={() => runMoodSearch(chip)}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              {/* Listen again / Jump back in — playlists */}
               <section className="home-section">
                 <div className="home-section-header">
-                  <h2 className="section-heading">Jump back in</h2>
+                  <h2 className="section-heading">Listen again</h2>
                 </div>
                 {playlists.length === 0 ? (
                   <p className="empty-state">Create a playlist to see it here.</p>
@@ -323,7 +355,7 @@ function App() {
                 )}
               </section>
 
-              {/* Quick picks — similar to what you’ve been listening to */}
+              {/* Quick picks */}
               <section className="home-section">
                 <div className="home-section-header">
                   <h2 className="section-heading">Quick picks</h2>
@@ -353,7 +385,6 @@ function App() {
                 )}
               </section>
 
-              {/* Recently played */}
               {player.queue.length > 0 && (
                 <section className="home-section">
                   <h2 className="section-heading">Recently played</h2>

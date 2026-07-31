@@ -1,35 +1,26 @@
 type IconProps = { size?: number; className?: string }
 
-export const HomeIcon = ({ size = 20, className }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-    <path d="M4 11.5 12 4l8 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M6 10v9h12v-9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+export const HomeIcon = ({ size = 22, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 3.2 3.5 10.5c-.3.3-.4.7-.3 1.1.1.4.4.7.8.8H6v7.1c0 .8.7 1.5 1.5 1.5H10v-5h4v5h2.5c.8 0 1.5-.7 1.5-1.5V12.4h1.9c.4 0 .7-.3.8-.8.1-.4 0-.8-.3-1.1L12 3.2Z" />
   </svg>
 )
 
-export const SearchIcon = ({ size = 20, className }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-    <path d="M20 20 15.8 15.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+export const SearchIcon = ({ size = 22, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M10.5 3a7.5 7.5 0 1 0 4.7 13.4l3.7 3.7a1 1 0 0 0 1.4-1.4l-3.7-3.7A7.5 7.5 0 0 0 10.5 3Zm0 2a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z" />
   </svg>
 )
 
-export const LibraryIcon = ({ size = 20, className }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-    <path d="M4 4h3v16H4zM10.5 4h3v16h-3z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-    <path d="M17 5.2 20 18l-3 .8-3-12.8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+export const LibraryIcon = ({ size = 22, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M4 3h3v18H4V3Zm6 0h3v18h-3V3Zm6.2.5 3.5 17-2.9.6-3.5-17 2.9-.6Z" />
   </svg>
 )
 
-export const SettingsIcon = ({ size = 20, className }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-    <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.7" />
-    <path
-      d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6M18.4 18.4l-1.6-1.6M7.2 7.2 5.6 5.6"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-    />
+export const SettingsIcon = ({ size = 22, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm9.1 2.6-1.7-.3a7.1 7.1 0 0 0-.6-1.4l1.1-1.3a1 1 0 0 0-.1-1.4l-1.8-1.8a1 1 0 0 0-1.4-.1l-1.3 1.1c-.4-.3-.9-.5-1.4-.6l-.3-1.7a1 1 0 0 0-1-.8h-2.5a1 1 0 0 0-1 .8l-.3 1.7c-.5.1-1 .3-1.4.6L6.5 4.8a1 1 0 0 0-1.4.1L3.3 6.7a1 1 0 0 0-.1 1.4l1.1 1.3c-.3.4-.5.9-.6 1.4l-1.7.3a1 1 0 0 0-.8 1v2.5a1 1 0 0 0 .8 1l1.7.3c.1.5.3 1 .6 1.4l-1.1 1.3a1 1 0 0 0 .1 1.4l1.8 1.8a1 1 0 0 0 1.4.1l1.3-1.1c.4.3.9.5 1.4.6l.3 1.7a1 1 0 0 0 1 .8h2.5a1 1 0 0 0 1-.8l.3-1.7c.5-.1 1-.3 1.4-.6l1.3 1.1a1 1 0 0 0 1.4-.1l1.8-1.8a1 1 0 0 0 .1-1.4l-1.1-1.3c.3-.4.5-.9.6-1.4l1.7-.3a1 1 0 0 0 .8-1v-2.5a1 1 0 0 0-.8-1Z" />
   </svg>
 )
 
