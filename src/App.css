@@ -2671,3 +2671,120 @@ button.now-playing-artist-link:hover {
   fill: currentColor;
   stroke: currentColor;
 }
+
+/* ============================================================
+   Mobile player + spacing + topbar fixes (override previous)
+   ============================================================ */
+
+@media (max-width: 900px) {
+  /* Hide search on Home, Library, Flow, Appearance */
+  .topbar-hide-mobile {
+    display: none !important;
+  }
+
+  /* Don’t leave a huge empty scroll gap */
+  .app-shell {
+    padding-bottom: 0 !important;
+  }
+
+  .app-main {
+    /* only: bottom nav (~64px) + compact player (~64px) */
+    padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .content {
+    padding-bottom: 24px !important;
+  }
+
+  /* ---- Compact player: one row, all controls visible ---- */
+  .player-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)); /* above bottom nav */
+    height: 64px !important;
+    min-height: 64px !important;
+    max-height: 64px !important;
+    padding: 0 10px !important;
+    gap: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    z-index: 15;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .player-now-playing {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .player-thumb {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .player-volume,
+  .seek-row,
+  .player-progress-line {
+    display: none !important;
+  }
+
+  .player-center {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: auto !important;
+    flex: 0 0 auto;
+    gap: 0 !important;
+  }
+
+  .player-controls {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center;
+    gap: 4px !important;
+  }
+
+  .player-controls .transport-button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: var(--text) !important;
+    background: none;
+    border: none;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .player-controls .transport-button-on {
+    color: var(--accent-solid) !important;
+  }
+
+  .player-controls .transport-button-main {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50%;
+    color: #0b0b0d !important;
+  }
+
+  .player-controls .transport-button svg {
+    display: block !important;
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Bottom nav height match */
+  .sidebar {
+    height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
