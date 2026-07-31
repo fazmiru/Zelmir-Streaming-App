@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sidebar, type View } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { VideoGrid } from './components/VideoGrid'
@@ -14,6 +14,7 @@ import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
 import { searchPipedTracks } from './utils/piped'
+import { handleSpotifyRedirect } from './utils/spotifyAuth'
 import type { Track } from './types'
 import './App.css'
 
@@ -33,7 +34,14 @@ function App() {
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false)
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
 
-  // FIX: Using null! satisfies both TypeScript and useYouTubePlayer
+  // If we're loading because Spotify just redirected back here after login,
+  // finish the login and re-open the import modal where the person left off.
+  useEffect(() => {
+    handleSpotifyRedirect().then((justLoggedIn) => {
+      if (justLoggedIn) setSpotifyModalOpen(true)
+    })
+  }, [])
+
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const loadingMoreRef = useRef(false)
   const player = useYouTubePlayer(ytContainerRef)
@@ -45,8 +53,6 @@ function App() {
     setLoading(true)
     setError(null)
 
-    // Try Piped first — no API key, no quota. Only fall back to Google if every
-    // Piped instance failed to respond (see utils/piped.ts for the instance list).
     try {
       const { tracks, nextpage } = await searchPipedTracks(query)
       setResults(tracks)
@@ -139,13 +145,13 @@ function App() {
     player.playTrack(track, resolvedSource)
   }
 
-const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
-  const newPlaylistId = createPlaylist(playlistName, tracks)
-  if (newPlaylistId) {
-    setActivePlaylistId(newPlaylistId)
-    setView('playlist')
+  const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
+    const newPlaylistId = createPlaylist(playlistName, tracks)
+    if (newPlaylistId) {
+      setActivePlaylistId(newPlaylistId)
+      setView('playlist')
+    }
   }
-}
 
   if (!user) {
     return <AuthScreen />
@@ -161,7 +167,7 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
         onOpenSpotifyImport={() => setSpotifyModalOpen(true)}
       />
 
-      <div className="app-main">
+      <div className="app-main" style={{ position: 'relative', zIndex: 1 }}>
         <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
 
         <main className="content" onScroll={handleContentScroll}>
@@ -253,23 +259,25 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
         </main>
       </div>
 
-      <PlayerBar
-        current={player.current}
-        isPlaying={player.isPlaying}
-        currentTime={player.currentTime}
-        duration={player.duration}
-        volume={player.volume}
-        shuffle={player.shuffle}
-        repeatMode={player.repeatMode}
-        onToggle={player.togglePlay}
-        onNext={player.next}
-        onPrev={player.prev}
-        onSeek={player.seekTo}
-        onVolume={player.setVolume}
-        onToggleShuffle={player.toggleShuffle}
-        onCycleRepeat={player.cycleRepeat}
-        onOpenNowPlaying={() => setNowPlayingOpen(true)}
-      />
+      <div style={{ position: 'relative', zIndex: 2 }}>
+        <PlayerBar
+          current={player.current}
+          isPlaying={player.isPlaying}
+          currentTime={player.currentTime}
+          duration={player.duration}
+          volume={player.volume}
+          shuffle={player.shuffle}
+          repeatMode={player.repeatMode}
+          onToggle={player.togglePlay}
+          onNext={player.next}
+          onPrev={player.prev}
+          onSeek={player.seekTo}
+          onVolume={player.setVolume}
+          onToggleShuffle={player.toggleShuffle}
+          onCycleRepeat={player.cycleRepeat}
+          onOpenNowPlaying={() => setNowPlayingOpen(true)}
+        />
+      </div>
 
       {nowPlayingOpen && player.current && (
         <ErrorBoundary
@@ -310,13 +318,6 @@ const handleSpotifyImportSuccess = (playlistName: string, tracks: Track[]) => {
         youtubeApiKey={API_KEY}
       />
 
-      {/*
-        Kept inside the viewport (bottom-right corner, 1x1px, invisible) rather than pushed
-        off-screen with a huge negative offset. Some mobile browsers treat elements placed
-        entirely outside the viewport as backgrounded and suspend their media playback, which
-        was blocking playback on mobile while "request desktop site" (a different rendering
-        path) masked the issue.
-      */}
       <div
         ref={ytContainerRef}
         style={{
