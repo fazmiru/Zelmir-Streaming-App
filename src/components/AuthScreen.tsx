@@ -76,11 +76,11 @@ export function AuthScreen() {
     if (!result.ok) setError(result.error)
   }
 
-  const handleLookupQuestion = (e: React.FormEvent) => {
+  const handleLookupQuestion = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setInfo(null)
-    const q = getRecoveryQuestion(username)
+    const q = await getRecoveryQuestion(username)
     if (!q) {
       setRevealedQuestion(null)
       setError('No account found with that username.')

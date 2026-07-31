@@ -1,12 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DEFAULT_THEME, type ThemeState } from '../types'
 import { useAuth } from '../auth/AuthContext'
-
-const GLOBAL_KEY = 'zelmir-theme'
-
-function storageKey(userId: string | null): string {
-  return userId ? `zelmir-theme:${userId}` : GLOBAL_KEY
-}
+import { supabase } from '../lib/supabaseClient'
 
 interface ThemeContextValue {
   theme: ThemeState
@@ -15,31 +10,55 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
-function loadTheme(userId: string | null): ThemeState {
-  try {
-    const raw = localStorage.getItem(storageKey(userId))
-    if (!raw) return DEFAULT_THEME
-    const parsed = JSON.parse(raw)
-    return { ...DEFAULT_THEME, ...parsed }
-  } catch {
-    return DEFAULT_THEME
+function rowToTheme(row: any): ThemeState {
+  return {
+    mode: row.mode,
+    solid: row.solid,
+    cycleA: row.cycle_a,
+    cycleB: row.cycle_b,
+    speed: row.speed,
   }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [theme, setThemeState] = useState<ThemeState>(() => loadTheme(user?.id ?? null))
+  const [theme, setThemeState] = useState<ThemeState>(DEFAULT_THEME)
 
-  // When the signed-in user changes, swap to that user's saved theme.
   useEffect(() => {
-    setThemeState(loadTheme(user?.id ?? null))
-  }, [user?.id])
+    if (!user) {
+      setThemeState(DEFAULT_THEME)
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('theme_settings')
+      .select('mode, solid, cycle_a, cycle_b, speed')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return
+        setThemeState(data ? rowToTheme(data) : DEFAULT_THEME)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   const setTheme = (next: ThemeState) => {
     setThemeState(next)
-    localStorage.setItem(storageKey(user?.id ?? null), JSON.stringify(next))
+    if (!user) return
+    supabase.from('theme_settings').upsert({
+      user_id: user.id,
+      mode: next.mode,
+      solid: next.solid,
+      cycle_a: next.cycleA,
+      cycle_b: next.cycleB,
+      speed: next.speed,
+      updated_at: new Date().toISOString(),
+    })
   }
 
+  // Apply the theme as CSS variables whenever it changes.
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--accent-solid', theme.solid)
@@ -50,7 +69,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.toggle('theme-solid', theme.mode === 'solid')
   }, [theme])
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme])
+  const value = useMemo(() => ({ theme, setTheme }), [theme, user])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }

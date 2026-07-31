@@ -21,7 +21,7 @@ import './App.css'
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
 
 function App() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [view, setView] = useState<View>('home')
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -169,6 +169,10 @@ function App() {
       setActivePlaylistId(newPlaylistId)
       setView('playlist')
     }
+  }
+
+  if (authLoading) {
+    return <div className="app-loading">Loading...</div>
   }
 
   if (!user) {

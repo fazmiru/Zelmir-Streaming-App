@@ -1,12 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Playlist, Track } from '../types'
 import { useAuth } from '../auth/AuthContext'
-
-const GLOBAL_KEY = 'zelmir-playlists'
-
-function storageKey(userId: string | null): string {
-  return userId ? `zelmir-playlists:${userId}` : GLOBAL_KEY
-}
+import { supabase } from '../lib/supabaseClient'
 
 interface PlaylistContextValue {
   playlists: Playlist[]
@@ -20,48 +15,57 @@ interface PlaylistContextValue {
 
 const PlaylistContext = createContext<PlaylistContextValue | null>(null)
 
-function load(userId: string | null): Playlist[] {
-  try {
-    const raw = localStorage.getItem(storageKey(userId))
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
-}
-
 export function PlaylistProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const [playlists, setPlaylists] = useState<Playlist[]>(() => load(user?.id ?? null))
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
 
-  // When the signed-in user changes, swap to that user's saved playlists.
+  // Load this user's playlists from Supabase whenever who's signed in changes.
   useEffect(() => {
-    setPlaylists(load(user?.id ?? null))
-  }, [user?.id])
+    if (!user) {
+      setPlaylists([])
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('playlists')
+      .select('id, name, tracks')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled) return
+        setPlaylists((data ?? []).map((row) => ({ id: row.id, name: row.name, tracks: row.tracks ?? [] })))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
-  useEffect(() => {
-    localStorage.setItem(storageKey(user?.id ?? null), JSON.stringify(playlists))
-  }, [playlists, user?.id])
+  const pushTracks = (id: string, tracks: Track[]) => {
+    supabase.from('playlists').update({ tracks, updated_at: new Date().toISOString() }).eq('id', id)
+  }
 
   const createPlaylist = (name: string, initialTracks: Track[] = []) => {
+    if (!user) return ''
     const id = crypto.randomUUID()
-    setPlaylists((p) => [
-      ...p,
-      { id, name: name.trim() || 'Untitled playlist', tracks: initialTracks }
-    ])
+    const playlistName = name.trim() || 'Untitled playlist'
+    setPlaylists((p) => [...p, { id, name: playlistName, tracks: initialTracks }])
+    supabase.from('playlists').insert({ id, user_id: user.id, name: playlistName, tracks: initialTracks })
     return id
   }
 
   const deletePlaylist = (id: string) => {
     setPlaylists((p) => p.filter((pl) => pl.id !== id))
+    supabase.from('playlists').delete().eq('id', id)
   }
 
   const addTrackToPlaylist = (id: string, track: Track) => {
     setPlaylists((p) =>
-      p.map((pl) =>
-        pl.id === id && !pl.tracks.some((t) => t.videoId === track.videoId)
-          ? { ...pl, tracks: [...pl.tracks, track] }
-          : pl
-      )
+      p.map((pl) => {
+        if (pl.id !== id || pl.tracks.some((t) => t.videoId === track.videoId)) return pl
+        const nextTracks = [...pl.tracks, track]
+        pushTracks(id, nextTracks)
+        return { ...pl, tracks: nextTracks }
+      })
     )
   }
 
@@ -71,19 +75,27 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
         if (pl.id !== id) return pl
         const existingIds = new Set(pl.tracks.map((t) => t.videoId))
         const newTracks = tracks.filter((t) => !existingIds.has(t.videoId))
-        return { ...pl, tracks: [...pl.tracks, ...newTracks] }
+        const nextTracks = [...pl.tracks, ...newTracks]
+        pushTracks(id, nextTracks)
+        return { ...pl, tracks: nextTracks }
       })
     )
   }
 
   const removeTrackFromPlaylist = (id: string, videoId: string) => {
     setPlaylists((p) =>
-      p.map((pl) => (pl.id === id ? { ...pl, tracks: pl.tracks.filter((t) => t.videoId !== videoId) } : pl))
+      p.map((pl) => {
+        if (pl.id !== id) return pl
+        const nextTracks = pl.tracks.filter((t) => t.videoId !== videoId)
+        pushTracks(id, nextTracks)
+        return { ...pl, tracks: nextTracks }
+      })
     )
   }
 
   const reorderPlaylistTracks = (id: string, tracks: Track[]) => {
     setPlaylists((p) => p.map((pl) => (pl.id === id ? { ...pl, tracks } : pl)))
+    pushTracks(id, tracks)
   }
 
   const value = useMemo(
@@ -94,10 +106,10 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
       addTrackToPlaylist,
       addTracksToPlaylist,
       removeTrackFromPlaylist,
-      reorderPlaylistTracks
+      reorderPlaylistTracks,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [playlists]
+    [playlists, user]
   )
 
   return <PlaylistContext.Provider value={value}>{children}</PlaylistContext.Provider>
