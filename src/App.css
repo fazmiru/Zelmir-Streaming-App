@@ -2788,3 +2788,57 @@ button.now-playing-artist-link:hover {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* ---- 1. Glass search bar, transparent topbar ---- */
+.topbar {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+.topbar-wrap {
+  background: transparent !important;
+}
+
+.search-box {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: none !important;
+}
+
+.search-box input {
+  background: transparent !important;
+}
+
+.search-box input::placeholder {
+  color: var(--text-dim);
+}
+
+/* ---- 2. Play button: keep accent circle, dark icon on it ---- */
+.transport-button-main {
+  background: var(--accent-solid) !important;
+  color: #0b0b0d !important; /* dark icon on bright accent */
+}
+
+.transport-button-main svg {
+  fill: currentColor !important;
+  color: inherit !important;
+}
+
+/* If accent is very dark in some themes, force a light icon instead */
+.transport-button-main.accent-fill {
+  background: var(--accent-solid) !important;
+  color: #fff !important;
+}
+
+.player-controls .transport-button-main {
+  background: var(--accent-solid) !important;
+  color: #fff !important;
+  border-radius: 50%;
+}
+
+.player-controls .transport-button-main svg {
+  fill: #fff !important;
+}
