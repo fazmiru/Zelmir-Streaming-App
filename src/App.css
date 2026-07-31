@@ -365,11 +365,15 @@
   gap: 12px;
   padding: 20px 32px;
   border-bottom: 1px solid var(--border);
+  min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .search-box {
-  flex: 1;
-  max-width: 560px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 420px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -377,10 +381,12 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 10px 18px;
+  box-sizing: border-box;
 }
 
 .search-box input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
@@ -394,11 +400,13 @@
 }
 
 .search-button {
+  flex-shrink: 0;
   border-radius: 999px;
   padding: 10px 22px;
   font-weight: 600;
   font-size: 14px;
   transition: transform 0.15s;
+  white-space: nowrap;
 }
 
 .search-button:hover {
@@ -2123,16 +2131,27 @@ button.now-playing-artist-link:hover {
     display: none;
   }
 
-  .topbar {
+.topbar {
     padding: 12px 12px;
     gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
   }
 
-  .search-button {
+.search-button {
+    flex-shrink: 0;
     padding: 10px 14px;
     font-size: 13px;
   }
 }
+
+.search-box {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    padding: 10px 14px;
+  }
 
 /* ---- Now Playing: make all transport controls visible on the dark backdrop ---- */
 .now-playing-transport {
@@ -2842,3 +2861,21 @@ button.now-playing-artist-link:hover {
 .player-controls .transport-button-main svg {
   fill: #fff !important;
 }
+
+/* ---- 2. Play button: accent circle with always-visible dark play/pause icon ---- */
+/* Default accent (#f5f5f2) is near-white; a white icon would vanish. Always use a
+   dark glyph so the play/pause shape stays readable on light accents. */
+.transport-button-main,
+.transport-button-main.accent-fill,
+.player-controls .transport-button-main {
+  background: var(--accent-solid) !important;
+  color: #0b0b0d !important;
+  border-radius: 50%;
+}
+
+.transport-button-main svg,
+.player-controls .transport-button-main svg {
+  fill: #0b0b0d !important;
+  color: #0b0b0d !important;
+}
+
