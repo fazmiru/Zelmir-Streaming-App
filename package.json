@@ -13,7 +13,8 @@
     "@supabase/supabase-js": "^2.45.4",
     "bcryptjs": "^3.0.3",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "youtubei.js": "^17.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
