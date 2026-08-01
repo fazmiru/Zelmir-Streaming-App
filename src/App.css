@@ -2892,8 +2892,8 @@ button.now-playing-artist-link:hover {
 
 .home-theme-backdrop {
   position: absolute;
-  inset: -40px -32px auto -32px;
-  height: min(420px, 55vh);
+  inset: -120px -48px auto -48px;
+  height: min(720px, 85vh);
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
@@ -2902,35 +2902,38 @@ button.now-playing-artist-link:hover {
 .home-theme-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.55;
-  will-change: transform, background;
+  filter: blur(100px);
+  will-change: transform, opacity;
 }
 
 .home-theme-orb-a {
-  width: 55%;
-  height: 70%;
-  top: -20%;
-  left: -10%;
+  width: 75%;
+  height: 85%;
+  top: -25%;
+  left: -20%;
   background: var(--accent-solid);
+  opacity: 0.55;
+  animation: home-orb-a 14s ease-in-out infinite alternate;
 }
 
 .home-theme-orb-b {
-  width: 45%;
-  height: 60%;
-  top: -10%;
-  right: -5%;
+  width: 65%;
+  height: 75%;
+  top: -15%;
+  right: -18%;
   background: var(--accent-b);
-  opacity: 0.4;
+  opacity: 0.45;
+  animation: home-orb-b 18s ease-in-out infinite alternate;
 }
 
 .home-theme-orb-c {
-  width: 35%;
-  height: 50%;
-  top: 20%;
-  left: 35%;
+  width: 55%;
+  height: 65%;
+  top: 10%;
+  left: 25%;
   background: var(--accent-a);
-  opacity: 0.35;
+  opacity: 0.4;
+  animation: home-orb-c 16s ease-in-out infinite alternate;
 }
 
 .home-theme-shade {
@@ -2938,34 +2941,90 @@ button.now-playing-artist-link:hover {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(15, 15, 15, 0.15) 0%,
-    rgba(15, 15, 15, 0.55) 55%,
+    rgba(15, 15, 15, 0.05) 0%,
+    rgba(15, 15, 15, 0.35) 45%,
+    rgba(15, 15, 15, 0.75) 75%,
     var(--bg) 100%
   );
 }
 
-.theme-cycle .home-theme-orb-a {
-  background: var(--accent-a);
-  animation: home-orb-shift var(--accent-speed) ease-in-out infinite alternate;
+.theme-cycle .home-theme-orb-a { background: var(--accent-a); }
+.theme-cycle .home-theme-orb-b { background: var(--accent-b); }
+.theme-cycle .home-theme-orb-c { background: var(--accent-solid); }
+
+@keyframes home-orb-a {
+  0%   { opacity: 0.4; transform: scale(1) translate(0, 0); }
+  100% { opacity: 0.7; transform: scale(1.15) translate(6%, 5%); }
+}
+@keyframes home-orb-b {
+  0%   { opacity: 0.3; transform: scale(1.05) translate(0, 0); }
+  100% { opacity: 0.6; transform: scale(1.2) translate(-5%, 8%); }
+}
+@keyframes home-orb-c {
+  0%   { opacity: 0.25; transform: scale(0.95) translate(0, 0); }
+  100% { opacity: 0.55; transform: scale(1.18) translate(4%, -4%); }
 }
 
-.theme-cycle .home-theme-orb-b {
-  background: var(--accent-b);
-  animation: home-orb-shift var(--accent-speed) ease-in-out infinite alternate-reverse;
-}
-
-@keyframes home-orb-shift {
-  0% {
-    opacity: 0.35;
-    transform: scale(1) translate(0, 0);
-  }
-  100% {
-    opacity: 0.6;
-    transform: scale(1.08) translate(4%, 3%);
-  }
+@media (prefers-reduced-motion: reduce) {
+  .home-theme-orb-a,
+  .home-theme-orb-b,
+  .home-theme-orb-c { animation: none; }
 }
 
 .home-view > *:not(.home-theme-backdrop) {
   position: relative;
   z-index: 1;
+}
+
+@media (max-width: 700px) {
+  .home-theme-backdrop {
+    inset: -80px -16px auto -16px;
+    height: min(520px, 70vh);
+  }
+}
+
+.topbar-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: transparent;
+  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+  border-bottom: 1px solid transparent;
+  pointer-events: none;
+}
+
+.topbar-wrap .topbar,
+.topbar-wrap .search-box,
+.topbar-wrap .search-button {
+  pointer-events: auto;
+}
+
+.topbar-wrap.topbar-scrolled {
+  background: rgba(15, 15, 15, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom-color: var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.topbar {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 76px 32px 40px; /* room for overlaid search */
+}
+
+.app-main:has(.topbar-hide) .content {
+  padding-top: 28px;
+}
+
+.app-main {
+  position: relative;
 }

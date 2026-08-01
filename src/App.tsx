@@ -41,12 +41,17 @@ function App() {
   const [loadingArtist, setLoadingArtist] = useState(false)
   const [quickPicks, setQuickPicks] = useState<Track[]>([])
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
+  const [topbarScrolled, setTopbarScrolled] = useState(false)
 
-  useEffect(() => {
-    handleSpotifyRedirect().then((justLoggedIn) => {
-      if (justLoggedIn) setSpotifyModalOpen(true)
-    })
-  }, [])
+useEffect(() => {
+  handleSpotifyRedirect().then((justLoggedIn) => {
+    if (justLoggedIn) setSpotifyModalOpen(true)
+  })
+}, [])
+
+useEffect(() => {
+  setTopbarScrolled(false)
+}, [view])
 
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const loadingMoreRef = useRef(false)
