@@ -2,8 +2,20 @@
   display: grid;
   grid-template-columns: 240px 1fr;
   grid-template-rows: minmax(0, 1fr);
-  height: 100vh;
+  height: 100%;
+  height: 100dvh;
+  height: -webkit-fill-available;
+  min-height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0 !important;
+  overflow: hidden;
   padding-bottom: 84px; /* leave room for the fixed player bar */
+  background: var(--bg);
+  box-sizing: border-box;
 }
 
 /* ---------------- Sidebar ---------------- */
@@ -3616,5 +3628,68 @@ html, body, #root {
 
   .library-fab {
     bottom: calc(var(--mobile-nav-h) + 58px + 16px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+
+/* ============================================================
+   Full-bleed iOS / PWA — edge to edge, no letterbox / cut corners
+   ============================================================ */
+
+html, body, #root, .app-shell, .app-main {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    height: 100dvh !important;
+    height: -webkit-fill-available !important;
+    min-height: 100dvh !important;
+    min-height: -webkit-fill-available !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .app-main {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Content starts below the status bar, background still fills behind it */
+  .app-main:has(.topbar-hide-mobile) .content,
+  .app-main:has(.topbar-hide) .content {
+    padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Gradient / theme backdrop must cover under the status bar */
+  .home-theme-backdrop {
+    top: calc(-1 * env(safe-area-inset-top, 0px) - 40px) !important;
+    left: -40px !important;
+    right: -40px !important;
+    width: auto !important;
+    border-radius: 0 !important;
+  }
+
+  .home-view {
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Player + nav: full width, no rounded outer frame */
+  .player-bar,
+  .sidebar {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
   }
 }
