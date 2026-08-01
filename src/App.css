@@ -3228,8 +3228,43 @@ button.now-playing-artist-link:hover {
   padding: 88px 32px 40px;
 }
 
+/* When topbar is fully hidden (playlist), pull content up */
 .app-main:has(.topbar-hide) .content {
-  padding-top: 28px;
+  padding-top: 20px;
+}
+
+/* Mobile: topbar is hidden on home / library / flow / settings */
+@media (max-width: 900px) {
+  .content {
+    padding: 12px 16px 28px !important;
+  }
+
+  .app-main:has(.topbar-hide-mobile) .content,
+  .app-main:has(.topbar-hide) .content {
+    padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  .home-header {
+    margin-bottom: 12px !important;
+  }
+
+  .home-view .home-app-name {
+    font-size: 28px !important;
+    margin: 0 !important;
+  }
+
+  .home-chips {
+    padding-top: 0 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .section-heading {
+    margin-top: 8px !important;
+  }
+
+  .home-section {
+    margin-bottom: 20px !important;
+  }
 }
 
 .app-main {
@@ -3334,4 +3369,186 @@ button.now-playing-artist-link:hover {
 .home-refresh-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+
+/* ============================================================
+   Library — YouTube Music style (list + chips + FAB)
+   ============================================================ */
+
+.library-view {
+  position: relative;
+  min-height: 60vh;
+  padding-bottom: 72px;
+}
+
+.library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.library-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.library-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 0 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.library-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.library-chip {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.library-chip-active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0b0b0d;
+  border-color: transparent;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.library-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  border-radius: 8px;
+}
+
+.library-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.library-row-art {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2, #1a1a1a);
+}
+
+.library-row-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.library-row-art-empty {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #2a2a2e, #1a1a1e);
+}
+
+.library-row-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.library-row-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-row-sub {
+  font-size: 13px;
+  color: var(--text-muted, #9ca3af);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Floating New button — YTM style */
+.library-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px 12px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #0b0b0d;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.library-fab-plus {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.library-fab:hover {
+  filter: brightness(0.95);
+}
+
+@media (min-width: 901px) {
+  /* Desktop: keep FAB in flow near bottom of library panel */
+  .library-fab {
+    position: sticky;
+    bottom: 24px;
+    float: right;
+    margin-top: 24px;
+  }
+}
+
+@media (max-width: 900px) {
+  .library-title {
+    font-size: 26px;
+  }
+
+  .library-row {
+    padding: 10px 2px;
+  }
+
+  .library-row-art {
+    width: 56px;
+    height: 56px;
+  }
 }

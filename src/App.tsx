@@ -540,32 +540,68 @@ function App() {
           )}
 
           {view === 'library' && (
-            <>
-              <h2 className="section-heading">Your library</h2>
+            <div className="library-view">
+              <header className="library-header">
+                <h1 className="library-title">Library</h1>
+              </header>
+
+              <div className="library-chips" role="tablist" aria-label="Library filters">
+                <button type="button" className="library-chip library-chip-active" role="tab" aria-selected="true">
+                  Playlists
+                </button>
+              </div>
+
               {playlists.length === 0 ? (
                 <p className="empty-state">
                   No playlists yet — create one from the sidebar, or the + button on any song.
                 </p>
               ) : (
-                <div className="library-grid">
-                  {playlists.map((pl) => (
-                    <button key={pl.id} className="library-card" onClick={() => handleOpenPlaylist(pl.id)}>
-                      <div className="library-card-art">
-                        {pl.tracks[0] ? (
-                          <img src={pl.tracks[0].thumbnail} alt="" />
-                        ) : (
-                          <div className="library-card-art-empty" />
-                        )}
-                      </div>
-                      <span className="library-card-name">{pl.name}</span>
-                      <span className="library-card-count">
-                        {pl.tracks.length} song{pl.tracks.length === 1 ? '' : 's'}
-                      </span>
-                    </button>
-                  ))}
+                <div className="library-list">
+                  {playlists.map((pl) => {
+                    const art = pl.tracks[0]?.thumbnail
+                    return (
+                      <button
+                        key={pl.id}
+                        type="button"
+                        className="library-row"
+                        onClick={() => handleOpenPlaylist(pl.id)}
+                      >
+                        <div className="library-row-art">
+                          {art ? (
+                            <img src={art} alt="" />
+                          ) : (
+                            <div className="library-row-art-empty" />
+                          )}
+                        </div>
+                        <div className="library-row-meta">
+                          <span className="library-row-name">{pl.name}</span>
+                          <span className="library-row-sub">
+                            Playlist · {pl.tracks.length} song{pl.tracks.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
-            </>
+
+              <button
+                type="button"
+                className="library-fab"
+                onClick={() => {
+                  const name = window.prompt('Playlist name')
+                  if (!name?.trim()) return
+                  const id = createPlaylist(name.trim())
+                  if (id) {
+                    setActivePlaylistId(id)
+                    setView('playlist')
+                  }
+                }}
+              >
+                <span className="library-fab-plus">+</span>
+                New
+              </button>
+            </div>
           )}
 
           {view === 'flow' && (
