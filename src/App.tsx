@@ -43,15 +43,15 @@ function App() {
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
   const [topbarScrolled, setTopbarScrolled] = useState(false)
 
-useEffect(() => {
-  handleSpotifyRedirect().then((justLoggedIn) => {
-    if (justLoggedIn) setSpotifyModalOpen(true)
-  })
-}, [])
+  useEffect(() => {
+    handleSpotifyRedirect().then((justLoggedIn) => {
+      if (justLoggedIn) setSpotifyModalOpen(true)
+    })
+  }, [])
 
-useEffect(() => {
-  setTopbarScrolled(false)
-}, [view])
+  useEffect(() => {
+    setTopbarScrolled(false)
+  }, [view])
 
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const loadingMoreRef = useRef(false)
@@ -188,14 +188,14 @@ useEffect(() => {
     }
   }
 
-const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
-  const el = e.currentTarget
-  setTopbarScrolled(el.scrollTop > 4)
+  const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
+    const el = e.currentTarget
+    setTopbarScrolled(el.scrollTop > 4)
 
-  if (view !== 'search') return
-  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400
-  if (nearBottom) loadMoreResults()
-}
+    if (view !== 'search') return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400
+    if (nearBottom) loadMoreResults()
+  }
 
   const handleOpenPlaylist = (id: string) => {
     setActivePlaylistId(id)
@@ -300,9 +300,8 @@ const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
                     : ''
               } ${view === 'home' ? 'topbar-home' : ''} ${topbarScrolled ? 'topbar-scrolled' : ''}`}
             >
-
-            <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
-        </div>
+              <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
+            </div>
 
         <main className="content" onScroll={handleContentScroll}>
           {error && <p className="error-banner">{error}</p>}
