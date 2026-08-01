@@ -46,7 +46,15 @@ function computeNextIndex(
 
 type PlaybackSource = 'youtube' | 'offline'
 
-export function useYouTubePlayer(containerRef: RefObject<HTMLDivElement>) {
+export function useYouTubePlayer(
+  containerRef: RefObject<HTMLDivElement>,
+  options?: { onQueueEnded?: () => void }
+) {
+  const onQueueEndedRef = useRef(options?.onQueueEnded)
+  useEffect(() => {
+    onQueueEndedRef.current = options?.onQueueEnded
+  }, [options?.onQueueEnded])
+
   const playerRef = useRef<any>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
@@ -143,6 +151,12 @@ export function useYouTubePlayer(containerRef: RefObject<HTMLDivElement>) {
       requestedVideoIdRef.current = null
     } else {
       setIsPlaying(false)
+      // Playlist / queue finished (not looping) — let the app continue with recommendations
+      try {
+        onQueueEndedRef.current?.()
+      } catch {
+        // ignore
+      }
     }
   }, [])
 

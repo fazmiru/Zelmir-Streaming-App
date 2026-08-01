@@ -13,7 +13,7 @@ import { useYouTubePlayer } from './hooks/useYouTubePlayer'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
-import { searchPipedTracks, searchPipedTracksSimple } from './utils/piped'
+import { searchPipedTracks, searchPipedTracksSimple, fetchSimilarTracks } from './utils/piped'
 import { handleSpotifyRedirect } from './utils/spotifyAuth'
 import { PlaylistHeader } from './components/PlaylistHeader'
 import type { Track } from './types'
@@ -41,7 +41,13 @@ function App() {
   const [loadingArtist, setLoadingArtist] = useState(false)
   const [quickPicks, setQuickPicks] = useState<Track[]>([])
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
+  const [quickPicksSalt, setQuickPicksSalt] = useState(0)
+  const [playlistRecs, setPlaylistRecs] = useState<Track[]>([])
+  const [loadingPlaylistRecs, setLoadingPlaylistRecs] = useState(false)
+  const [playlistRecsSalt, setPlaylistRecsSalt] = useState(0)
   const [topbarScrolled, setTopbarScrolled] = useState(false)
+  const playlistRecsRef = useRef<Track[]>([])
+  const activePlaylistIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     handleSpotifyRedirect().then((justLoggedIn) => {
@@ -55,20 +61,52 @@ function App() {
 
   const ytContainerRef = useRef<HTMLDivElement>(null!)
   const loadingMoreRef = useRef(false)
-  const player = useYouTubePlayer(ytContainerRef)
+  const playTrackRef = useRef<(track: Track, source?: Track[]) => void>(() => {})
+  const viewRef = useRef(view)
+  useEffect(() => {
+    viewRef.current = view
+  }, [view])
+
+  const handleQueueEnded = () => {
+    if (viewRef.current !== 'playlist') return
+    const recs = playlistRecsRef.current
+    if (!recs.length) return
+    playTrackRef.current(recs[0], recs)
+  }
+
+  const player = useYouTubePlayer(ytContainerRef, { onQueueEnded: handleQueueEnded })
+  useEffect(() => {
+    playTrackRef.current = player.playTrack
+  }, [player.playTrack])
   const { playlists, createPlaylist, reorderPlaylistTracks, removeTrackFromPlaylist } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
 
-  // Quick picks from last played / playlist seed
+  useEffect(() => {
+    playlistRecsRef.current = playlistRecs
+  }, [playlistRecs])
+  useEffect(() => {
+    activePlaylistIdRef.current = activePlaylistId
+  }, [activePlaylistId])
+
+
+  // Quick picks from last played / playlist seed (salt changes on Refresh)
   useEffect(() => {
     if (view !== 'home') return
 
-    const seed =
-      player.current ??
-      player.queue[0] ??
-      playlists.find((p) => p.tracks.length > 0)?.tracks[0]
+    const seeds: Track[] = []
+    if (player.current) seeds.push(player.current)
+    for (const t of player.queue) {
+      if (seeds.length >= 6) break
+      if (!seeds.some((s) => s.videoId === t.videoId)) seeds.push(t)
+    }
+    for (const pl of playlists) {
+      for (const t of pl.tracks.slice(0, 2)) {
+        if (seeds.length >= 8) break
+        if (!seeds.some((s) => s.videoId === t.videoId)) seeds.push(t)
+      }
+    }
 
-    if (!seed) {
+    if (!seeds.length) {
       setQuickPicks([])
       return
     }
@@ -76,10 +114,10 @@ function App() {
     let cancelled = false
     setLoadingQuickPicks(true)
 
-    searchPipedTracksSimple(`${seed.artist} ${seed.title}`)
+    const exclude = new Set(seeds.map((s) => s.videoId))
+    fetchSimilarTracks(seeds, exclude, 12, quickPicksSalt)
       .then((tracks) => {
-        if (cancelled) return
-        setQuickPicks(tracks.filter((t) => t.videoId !== seed.videoId).slice(0, 12))
+        if (!cancelled) setQuickPicks(tracks)
       })
       .catch(() => {
         if (!cancelled) setQuickPicks([])
@@ -91,7 +129,39 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [view, player.current?.videoId, playlists.length])
+  }, [view, player.current?.videoId, playlists.length, quickPicksSalt])
+
+  // Playlist recommendations (similar tracks, refreshable)
+  useEffect(() => {
+    if (view !== 'playlist' || !activePlaylist?.tracks.length) {
+      setPlaylistRecs([])
+      return
+    }
+
+    let cancelled = false
+    setLoadingPlaylistRecs(true)
+
+    const exclude = new Set(activePlaylist.tracks.map((t) => t.videoId))
+    fetchSimilarTracks(activePlaylist.tracks, exclude, 12, playlistRecsSalt)
+      .then((tracks) => {
+        if (!cancelled) setPlaylistRecs(tracks)
+      })
+      .catch(() => {
+        if (!cancelled) setPlaylistRecs([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPlaylistRecs(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [view, activePlaylistId, activePlaylist?.tracks.length, playlistRecsSalt])
+
+  // Reset salt when switching playlists so each opens fresh
+  useEffect(() => {
+    setPlaylistRecsSalt(0)
+  }, [activePlaylistId])
 
   const search = async () => {
     if (!query.trim()) return
@@ -383,15 +453,26 @@ function App() {
               <section className="home-section">
                 <div className="home-section-header">
                   <h2 className="section-heading">Quick picks</h2>
-                  {quickPicks.length > 0 && (
+                  <div className="home-section-actions">
                     <button
                       type="button"
-                      className="home-play-all"
-                      onClick={() => handlePlay(quickPicks[0], quickPicks)}
+                      className="home-refresh-btn"
+                      disabled={loadingQuickPicks}
+                      onClick={() => setQuickPicksSalt((s) => s + 1)}
+                      title="Refresh recommendations"
                     >
-                      Play all
+                      Refresh
                     </button>
-                  )}
+                    {quickPicks.length > 0 && (
+                      <button
+                        type="button"
+                        className="home-play-all"
+                        onClick={() => handlePlay(quickPicks[0], quickPicks)}
+                      >
+                        Play all
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {loadingQuickPicks ? (
                   <p className="empty-state">Finding tracks for you…</p>
@@ -507,6 +588,51 @@ function App() {
                 onReorder={(tracks) => activePlaylistId && reorderPlaylistTracks(activePlaylistId, tracks)}
                 {...gridQueueHandlers}
               />
+
+              {activePlaylist.tracks.length > 0 && (
+                <section className="recommended-section">
+                  <div className="home-section-header">
+                    <div>
+                      <h2 className="section-heading">Recommended</h2>
+                      <p className="recommended-subtitle">Based on what's in this playlist</p>
+                    </div>
+                    <div className="home-section-actions">
+                      <button
+                        type="button"
+                        className="home-refresh-btn"
+                        disabled={loadingPlaylistRecs}
+                        onClick={() => setPlaylistRecsSalt((s) => s + 1)}
+                        title="Refresh recommendations"
+                      >
+                        Refresh
+                      </button>
+                      {playlistRecs.length > 0 && (
+                        <button
+                          type="button"
+                          className="home-play-all"
+                          onClick={() => handlePlay(playlistRecs[0], playlistRecs)}
+                        >
+                          Play all
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {loadingPlaylistRecs ? (
+                    <p className="empty-state">Finding similar tracks…</p>
+                  ) : playlistRecs.length === 0 ? (
+                    <p className="empty-state">No recommendations right now — try Refresh.</p>
+                  ) : (
+                    <VideoGrid
+                      tracks={playlistRecs}
+                      onPlay={handlePlay}
+                      currentVideoId={player.current?.videoId}
+                      emptyLabel=""
+                      onOpenArtist={handleOpenArtist}
+                      {...gridQueueHandlers}
+                    />
+                  )}
+                </section>
+              )}
             </>
           )}
 

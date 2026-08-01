@@ -109,3 +109,63 @@ export async function searchPipedTracksSimple(query: string): Promise<Track[]> {
   const { tracks } = await searchPipedTracks(query)
   return tracks
 }
+
+
+/**
+ * Build a list of recommended tracks similar to the given seeds.
+ * Uses Piped music search seeded by artists / titles from the playlist.
+ * `excludeIds` skips tracks already in the playlist (or current queue).
+ * `salt` changes which seeds are picked so Refresh returns a different set.
+ */
+export async function fetchSimilarTracks(
+  seeds: Track[],
+  excludeIds: Set<string> = new Set(),
+  limit = 12,
+  salt = 0
+): Promise<Track[]> {
+  if (!seeds.length) return []
+
+  // Rotate / shuffle seed selection based on salt for variety on refresh
+  const rotated = [...seeds]
+  const offset = salt % rotated.length
+  const ordered = rotated.slice(offset).concat(rotated.slice(0, offset))
+
+  // Prefer distinct artists for broader recommendations
+  const seenArtists = new Set<string>()
+  const picks: Track[] = []
+  for (const t of ordered) {
+    const key = (t.artist || '').toLowerCase()
+    if (key && seenArtists.has(key)) continue
+    if (key) seenArtists.add(key)
+    picks.push(t)
+    if (picks.length >= 4) break
+  }
+  if (!picks.length) picks.push(ordered[0])
+
+  const queries: string[] = []
+  for (const t of picks) {
+    if (t.artist) queries.push(t.artist)
+    // Mix in title-based searches for variety on refresh
+    if (salt % 2 === 1 && t.title) {
+      queries.push(`${t.artist} ${t.title.split(/[-(|]/)[0].trim()}`.trim())
+    }
+  }
+  // Deduplicate queries
+  const uniqueQueries = [...new Set(queries.filter(Boolean))].slice(0, 4)
+
+  const results = await Promise.all(
+    uniqueQueries.map((q) => searchPipedTracksSimple(q).catch(() => [] as Track[]))
+  )
+
+  const out: Track[] = []
+  const seen = new Set(excludeIds)
+  for (const batch of results) {
+    for (const t of batch) {
+      if (seen.has(t.videoId)) continue
+      seen.add(t.videoId)
+      out.push(t)
+      if (out.length >= limit) return out
+    }
+  }
+  return out
+}

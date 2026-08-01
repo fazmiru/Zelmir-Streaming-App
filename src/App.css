@@ -3290,3 +3290,48 @@ button.now-playing-artist-link:hover {
 .now-playing-transport .transport-button-main svg {
   fill: #0b0b0d !important;
 }
+
+
+/* Recommended section (end of playlist) + section action buttons */
+.recommended-section {
+  margin-top: 36px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.recommended-subtitle {
+  margin: -4px 0 12px;
+  font-size: 13px;
+  color: var(--text-muted, #9ca3af);
+}
+
+.home-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.home-refresh-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted, #9ca3af);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.home-refresh-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--text-muted, #9ca3af);
+}
+
+.home-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
