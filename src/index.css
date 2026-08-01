@@ -1,3 +1,18 @@
+
+/* Prevent pinch-zoom / double-tap zoom in the app shell */
+html {
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
+}
+
+html, body {
+  overscroll-behavior: none;
+}
+
+input, textarea, select {
+  font-size: 16px; /* iOS won't auto-zoom focused inputs if >= 16px */
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
