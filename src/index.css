@@ -7,6 +7,9 @@ html {
 
 html, body {
   overscroll-behavior: none;
+  overflow-x: hidden;
+  max-width: 100vw;
+  position: relative;
 }
 
 input, textarea, select {
