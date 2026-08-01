@@ -66,10 +66,8 @@ async function deleteLocalTrack(videoId: string): Promise<void> {
 
 export async function isTrackDownloaded(videoId: string): Promise<boolean> {
   try {
-    const db = await openDb()
-    const tx = db.transaction(STORE_TRACKS, 'readonly')
-    const row = await idbReq(tx.objectStore(STORE_TRACKS).get(videoId))
-    return !!(row as OfflineTrack | undefined)?.hasAudio
+    const blob = await getOfflineAudioBlob(videoId)
+    return !!blob
   } catch {
     return false
   }
@@ -151,70 +149,72 @@ export async function syncDownloadsFromCloud(userId: string): Promise<OfflineTra
   return getDownloadedTracks()
 }
 
-interface AudioStreamInfo {
-  url: string
-  bitrate?: number
-  mimeType?: string
-  codec?: string
-}
+/**
+ * Resolve stream URLs: prefer same-origin serverless API (reliable),
+ * fall back to direct Piped calls from the browser.
+ */
+async function resolveStreamUrls(videoId: string): Promise<string[]> {
+  // 1) Server-side resolver (Vercel /api)
+  try {
+    const res = await fetch(`/api/piped-streams?v=${encodeURIComponent(videoId)}`)
+    if (res.ok) {
+      const data = await res.json()
+      const urls: string[] =
+        data.urls || (data.streams || []).map((s: { url: string }) => s.url)
+      if (urls.length) return urls
+    }
+  } catch {
+    // fall through
+  }
 
-/** Collect audio stream URLs from Piped (tries every instance). */
-async function fetchAudioStreams(videoId: string): Promise<AudioStreamInfo[]> {
-  const collected: AudioStreamInfo[] = []
+  // 2) Direct Piped from the browser
   for (const instance of PIPED_INSTANCES) {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
+    const timeout = setTimeout(() => controller.abort(), 8000)
     try {
       const res = await fetch(`${instance}/streams/${videoId}`, { signal: controller.signal })
       if (!res.ok) continue
       const data = await res.json()
-      const streams: AudioStreamInfo[] = data.audioStreams || []
-      for (const s of streams) {
-        if (s?.url) collected.push(s)
+      const urls: string[] = []
+      for (const s of data.audioStreams || []) {
+        if (s?.url) urls.push(s.url)
       }
-      if (collected.length) break
+      // Progressive video includes audio — Piped often has these when audioStreams is empty
+      for (const s of data.videoStreams || []) {
+        if (s?.url && s.videoOnly === false) urls.push(s.url)
+      }
+      if (urls.length) return urls
     } catch {
-      // try next instance
+      // next
     } finally {
       clearTimeout(timeout)
     }
   }
-  return collected.sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))
+
+  return []
 }
 
-async function fetchBlobFromUrl(url: string): Promise<Blob | null> {
-  // Direct CORS fetch
+async function fetchBlobViaProxy(url: string): Promise<Blob | null> {
+  // Prefer same-origin proxy so googlevideo / Piped CDN CORS is not an issue
+  try {
+    const res = await fetch(`/api/media-proxy?url=${encodeURIComponent(url)}`)
+    if (res.ok) {
+      const blob = await res.blob()
+      if (blob.size > 8_000) return blob
+    }
+  } catch {
+    // fall through
+  }
+
+  // Direct fetch (works if the CDN allows CORS)
   try {
     const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
     if (res.ok) {
       const blob = await res.blob()
-      if (blob.size > 1024) return blob
+      if (blob.size > 8_000) return blob
     }
   } catch {
-    // continue
-  }
-
-  // XHR fallback (sometimes behaves differently with CORS)
-  try {
-    const blob = await new Promise<Blob | null>((resolve) => {
-      const xhr = new XMLHttpRequest()
-      xhr.open('GET', url, true)
-      xhr.responseType = 'blob'
-      xhr.timeout = 120000
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300 && xhr.response instanceof Blob) {
-          resolve(xhr.response.size > 1024 ? xhr.response : null)
-        } else {
-          resolve(null)
-        }
-      }
-      xhr.onerror = () => resolve(null)
-      xhr.ontimeout = () => resolve(null)
-      xhr.send()
-    })
-    if (blob) return blob
-  } catch {
-    // continue
+    // ignore
   }
 
   return null
@@ -222,7 +222,7 @@ async function fetchBlobFromUrl(url: string): Promise<Blob | null> {
 
 async function tryCacheBlob(videoId: string, urls: string[]): Promise<boolean> {
   for (const url of urls) {
-    const blob = await fetchBlobFromUrl(url)
+    const blob = await fetchBlobViaProxy(url)
     if (!blob) continue
     try {
       const db = await openDb()
@@ -241,25 +241,21 @@ async function tryCacheBlob(videoId: string, urls: string[]): Promise<boolean> {
 }
 
 /**
- * Marks a track for offline listening and caches audio on this device.
- * Throws if audio cannot be stored — metadata-only is not enough for offline play.
+ * Marks a track for offline listening and caches media on this device.
+ * Requires a successful media blob — metadata alone is not enough.
  */
 export async function downloadTrack(
   track: Track,
   userId?: string | null
 ): Promise<{ hasAudio: boolean }> {
-  const streams = await fetchAudioStreams(track.videoId)
-  if (!streams.length) {
+  const urls = await resolveStreamUrls(track.videoId)
+  if (!urls.length) {
     throw new Error('Could not find an audio stream for this track. Try again later.')
   }
 
-  const urls = streams.map((s) => s.url)
   const hasAudio = await tryCacheBlob(track.videoId, urls)
-
   if (!hasAudio) {
-    throw new Error(
-      'Could not save audio for offline use (stream blocked). Stay online and try again, or try another track.'
-    )
+    throw new Error('Could not save audio for offline use. Check your connection and try again.')
   }
 
   const downloadedAt = Date.now()
@@ -319,19 +315,16 @@ export async function ensureLocalAudioForDownloads(
   onOne?: (videoId: string, hasAudio: boolean) => void
 ): Promise<void> {
   for (const t of tracks) {
-    if (t.hasAudio) {
-      const existing = await getOfflineAudioBlob(t.videoId)
-      if (existing) {
-        onOne?.(t.videoId, true)
-        continue
-      }
+    const existing = await getOfflineAudioBlob(t.videoId)
+    if (existing) {
+      if (!t.hasAudio) await putLocalTrack({ ...t, hasAudio: true })
+      onOne?.(t.videoId, true)
+      continue
     }
     try {
-      const streams = await fetchAudioStreams(t.videoId)
-      const ok = streams.length ? await tryCacheBlob(t.videoId, streams.map((s) => s.url)) : false
-      if (ok) {
-        await putLocalTrack({ ...t, hasAudio: true })
-      }
+      const urls = await resolveStreamUrls(t.videoId)
+      const ok = urls.length ? await tryCacheBlob(t.videoId, urls) : false
+      if (ok) await putLocalTrack({ ...t, hasAudio: true })
       onOne?.(t.videoId, ok)
     } catch {
       onOne?.(t.videoId, false)

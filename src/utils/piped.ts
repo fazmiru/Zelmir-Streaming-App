@@ -8,12 +8,15 @@ import type { Track } from '../types'
  * until one responds.
  */
 export const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi-libre.kavin.rocks',
-  'https://piped-api.privacy.com.de',
-  'https://api.piped.yt',
-  'https://pipedapi.drgns.space',
   'https://api.piped.private.coffee',
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.leptons.xyz',
+  'https://pipedapi.syncpundit.io',
+  'https://pipedapi.adminforge.de',
+  'https://pipedapi.r4fo.com',
+  'https://api.piped.projectsegfau.lt',
+  'https://pipedapi.drgns.space',
   'https://pipedapi.owo.si',
 ]
 
