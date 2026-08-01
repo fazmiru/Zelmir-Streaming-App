@@ -64,7 +64,10 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     }
   }, [authLoading, refresh])
 
-  const downloadedIds = useMemo(() => new Set(downloads.map((t) => t.videoId)), [downloads])
+  const downloadedIds = useMemo(
+    () => new Set(downloads.filter((t) => t.hasAudio).map((t) => t.videoId)),
+    [downloads]
+  )
 
   const isDownloaded = useCallback((videoId: string) => downloadedIds.has(videoId), [downloadedIds])
 
@@ -81,6 +84,11 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         await offlineDownload(track, user?.id)
         const list = await getDownloadedTracks()
         setDownloads(list)
+      } catch (err) {
+        console.error('Download failed:', err)
+        const message = err instanceof Error ? err.message : 'Download failed'
+        window.alert(message)
+        throw err
       } finally {
         setDownloadingIds((prev) => {
           const next = new Set(prev)
