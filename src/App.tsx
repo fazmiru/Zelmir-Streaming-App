@@ -286,17 +286,19 @@ useEffect(() => {
         onOpenSpotifyImport={() => setSpotifyModalOpen(true)}
       />
 
-      <div className="app-main" style={{ position: 'relative', zIndex: 1 }}>
-        {/* Hide search on Home, Library, Flow + Settings for mobile via CSS */}
-        <div
-          className={`topbar-wrap ${
-            view === 'playlist'
-              ? 'topbar-hide'
-              : view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
-                ? 'topbar-hide-mobile'
-                : ''
-            }`}
-          >
+    <div className="app-main" style={{ position: 'relative', zIndex: 1 }}>
+            {/* Hide search on playlist (all sizes) / Home, Library, Flow, Settings (mobile only).
+                topbar-scrolled adds the solid black bar after the user scrolls down. */}
+            <div
+              className={`topbar-wrap ${
+                view === 'playlist'
+                  ? 'topbar-hide'
+                  : view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
+                    ? 'topbar-hide-mobile'
+                    : ''
+              } ${topbarScrolled ? 'topbar-scrolled' : ''}`}
+            >
+
             <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
         </div>
 
