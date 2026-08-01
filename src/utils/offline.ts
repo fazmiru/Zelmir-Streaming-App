@@ -250,7 +250,14 @@ export async function downloadTrack(
 ): Promise<{ hasAudio: boolean }> {
   const urls = await resolveStreamUrls(track.videoId)
   if (!urls.length) {
-    throw new Error('Could not find an audio stream for this track. Try again later.')
+    const isLocal =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    throw new Error(
+      isLocal
+        ? 'Could not find an audio stream. On localhost, /api routes are not available — test downloads on the Vercel deploy (and ensure youtubei.js is installed).'
+        : 'Could not find an audio stream for this track. Try again later.'
+    )
   }
 
   const hasAudio = await tryCacheBlob(track.videoId, urls)

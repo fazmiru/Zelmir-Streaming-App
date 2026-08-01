@@ -1,29 +1,6 @@
 /**
  * GET /api/piped-streams?v=VIDEO_ID
- * ESM handler — works with youtubei.js (ESM package).
  */
-
-import { createRequire } from 'node:module'
-
-const require = createRequire(import.meta.url)
-
-const PIPED_INSTANCES = [
-  'https://api.piped.private.coffee',
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi.tokhmi.xyz',
-  'https://pipedapi.leptons.xyz',
-  'https://pipedapi.syncpundit.io',
-  'https://pipedapi.adminforge.de',
-  'https://pipedapi.r4fo.com',
-  'https://api.piped.projectsegfau.lt',
-]
-
-const INVIDIOUS = [
-  'https://inv.nadeko.net',
-  'https://invidious.nerdvpn.de',
-  'https://yewtu.be',
-  'https://iv.ggtyler.dev',
-]
 
 async function tryFetchJson(url, ms = 10000) {
   const controller = new AbortController()
@@ -74,147 +51,204 @@ function collectFromPiped(data) {
   return streams
 }
 
-async function loadInnertube() {
-  // Try several import styles — Vercel + youtubei.js version differences
-  const attempts = []
-
-  // 1) Native ESM
-  try {
-    const mod = await import('youtubei.js')
-    const Innertube = mod.Innertube || mod.default?.Innertube || mod.default
-    if (typeof Innertube?.create === 'function') {
-      return { Innertube, via: 'esm-import' }
+async function resolveFormatUrl(format, player) {
+  if (!format) return null
+  if (format.url) return format.url
+  if (typeof format.decipher === 'function' && player) {
+    try {
+      return await format.decipher(player)
+    } catch {
+      return null
     }
-    attempts.push('esm-import: no Innertube.create')
-  } catch (e) {
-    attempts.push(`esm-import: ${e.message}`)
   }
-
-  // 2) createRequire (CJS interop)
-  try {
-    const mod = require('youtubei.js')
-    const Innertube = mod.Innertube || mod.default?.Innertube || mod.default
-    if (typeof Innertube?.create === 'function') {
-      return { Innertube, via: 'require' }
+  // Some versions expose download URL via toURL / getDecipheredUrl
+  if (typeof format.toURL === 'function') {
+    try {
+      return await format.toURL()
+    } catch {
+      return null
     }
-    attempts.push('require: no Innertube.create')
-  } catch (e) {
-    attempts.push(`require: ${e.message}`)
   }
-
-  // 3) Deep path used by some builds
-  try {
-    const mod = await import('youtubei.js/dist/src/platform/node.js')
-    attempts.push(`node-platform: keys=${Object.keys(mod).join(',')}`)
-  } catch (e) {
-    attempts.push(`node-platform: ${e.message}`)
-  }
-
-  return { error: attempts.join(' | ') }
+  return null
 }
 
-async function tryYoutubei(videoId) {
-  const loaded = await loadInnertube()
-  if (loaded.error) {
-    return { error: `youtubei.js load failed: ${loaded.error}` }
-  }
+async function formatsFromInfo(info, yt) {
+  const streams = []
+  const player = yt?.session?.player
 
-  try {
-    const { Innertube, via } = loaded
-    const yt = await Innertube.create({ retrieve_player: true })
-    const info = await yt.getBasicInfo(videoId)
-
-    const streams = []
-
-    // Helper path
+  // chooseFormat helpers
+  for (const opts of [
+    { type: 'audio', quality: 'best' },
+    { type: 'audio', quality: 'bestefficiency' },
+    { format: 'mp4', type: 'audio' },
+  ]) {
     try {
-      const best = info.chooseFormat({ type: 'audio', quality: 'best' })
-      if (best) {
-        let url = best.url
-        if (!url && typeof best.decipher === 'function') {
-          url = await best.decipher(yt.session.player)
-        }
-        if (url) {
-          streams.push({
-            url,
-            mimeType: String(best.mime_type || 'audio/webm').split(';')[0],
-            bitrate: best.bitrate || 0,
-            kind: 'audio',
-          })
-        }
+      const best = info.chooseFormat?.(opts)
+      const url = await resolveFormatUrl(best, player)
+      if (url) {
+        streams.push({
+          url,
+          mimeType: String(best.mime_type || 'audio/webm').split(';')[0],
+          bitrate: best.bitrate || 0,
+          kind: 'audio',
+        })
       }
     } catch {
       /* ignore */
     }
+  }
 
-    const adaptive = info.streaming_data?.adaptive_formats || []
-    for (const f of adaptive) {
-      const mime = String(f.mime_type || '')
-      if (!mime.startsWith('audio/')) continue
-      let url = f.url
-      if (!url && typeof f.decipher === 'function') {
-        try {
-          url = await f.decipher(yt.session.player)
-        } catch {
-          continue
-        }
-      }
-      if (!url) continue
-      streams.push({
-        url,
-        mimeType: mime.split(';')[0],
-        bitrate: f.bitrate || 0,
-        kind: 'audio',
-      })
-    }
+  const adaptive = info.streaming_data?.adaptive_formats || []
+  for (const f of adaptive) {
+    const mime = String(f.mime_type || f.mimeType || '')
+    const hasAudio =
+      mime.startsWith('audio/') ||
+      f.has_audio === true ||
+      (f.audio_quality && !f.quality_label)
+    if (!hasAudio && mime.startsWith('video/')) continue
+    if (!mime.startsWith('audio/') && !hasAudio) continue
+    const url = await resolveFormatUrl(f, player)
+    if (!url) continue
+    streams.push({
+      url,
+      mimeType: mime.split(';')[0] || 'audio/webm',
+      bitrate: f.bitrate || 0,
+      kind: 'audio',
+    })
+  }
 
-    const progressive = info.streaming_data?.formats || []
-    for (const f of progressive) {
-      let url = f.url
-      if (!url && typeof f.decipher === 'function') {
-        try {
-          url = await f.decipher(yt.session.player)
-        } catch {
-          continue
-        }
-      }
-      if (!url) continue
-      streams.push({
-        url,
-        mimeType: String(f.mime_type || 'video/mp4').split(';')[0],
-        bitrate: f.bitrate || 0,
-        kind: 'progressive',
-      })
-    }
+  const progressive = info.streaming_data?.formats || []
+  for (const f of progressive) {
+    const url = await resolveFormatUrl(f, player)
+    if (!url) continue
+    streams.push({
+      url,
+      mimeType: String(f.mime_type || f.mimeType || 'video/mp4').split(';')[0],
+      bitrate: f.bitrate || 0,
+      kind: 'progressive',
+    })
+  }
 
-    // Dedupe
-    const seen = new Set()
-    const unique = []
-    for (const s of streams) {
-      if (seen.has(s.url)) continue
-      seen.add(s.url)
-      unique.push(s)
+  const seen = new Set()
+  const unique = []
+  for (const s of streams) {
+    if (seen.has(s.url)) continue
+    seen.add(s.url)
+    unique.push(s)
+  }
+  unique.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === 'audio' ? -1 : 1
+    return (b.bitrate || 0) - (a.bitrate || 0)
+  })
+  return unique
+}
+
+async function tryYoutubei(videoId) {
+  let Innertube
+  try {
+    const mod = await import('youtubei.js')
+    Innertube = mod.Innertube || mod.default?.Innertube || mod.default
+    if (typeof Innertube?.create !== 'function') {
+      return { error: 'youtubei.js: Innertube.create missing' }
     }
-    unique.sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'audio' ? -1 : 1
-      return (b.bitrate || 0) - (a.bitrate || 0)
+  } catch (e) {
+    return { error: `youtubei.js import: ${e.message}` }
+  }
+
+  const notes = []
+
+  // Multiple client / method combos — YouTube often blocks default WEB client
+  const clients = [
+    undefined, // default
+    'ANDROID',
+    'ANDROID_MUSIC',
+    'IOS',
+    'TV',
+    'TV_EMBEDDED',
+    'MWEB',
+    'WEB_EMBEDDED',
+  ]
+
+  try {
+    const yt = await Innertube.create({
+      retrieve_player: true,
+      generate_session_locally: true,
     })
 
-    if (!unique.length) {
-      return {
-        error: `youtubei.js (${via}): no formats (streaming_data=${!!info.streaming_data})`,
+    // getInfo first (fuller than getBasicInfo)
+    try {
+      const info = await yt.getInfo(videoId)
+      const playability = info.playability_status?.status || info.playability_status
+      notes.push(`getInfo status=${playability}`)
+      const streams = await formatsFromInfo(info, yt)
+      if (streams.length) {
+        return {
+          title: info.basic_info?.title || info.video_details?.title || null,
+          streams,
+          source: 'youtubei.js/getInfo',
+        }
+      }
+    } catch (e) {
+      notes.push(`getInfo: ${e.message}`)
+    }
+
+    for (const client of clients) {
+      try {
+        const info = client
+          ? await yt.getBasicInfo(videoId, client)
+          : await yt.getBasicInfo(videoId)
+        const playability =
+          info.playability_status?.status ||
+          info.playability_status ||
+          (info.streaming_data ? 'OK' : 'NO_STREAMS')
+        notes.push(`basic/${client || 'default'} status=${playability} sd=${!!info.streaming_data}`)
+        const streams = await formatsFromInfo(info, yt)
+        if (streams.length) {
+          return {
+            title: info.basic_info?.title || null,
+            streams,
+            source: `youtubei.js/basic/${client || 'default'}`,
+          }
+        }
+      } catch (e) {
+        notes.push(`basic/${client || 'default'}: ${e.message}`)
       }
     }
 
-    return {
-      title: info.basic_info?.title || null,
-      streams: unique,
-      source: `youtubei.js/${via}`,
+    // download helper as last resort
+    try {
+      const stream = await yt.download(videoId, { type: 'audio', quality: 'best' })
+      if (stream) {
+        // ReadableStream — not a URL; skip for URL-based proxy
+        notes.push('download(): got stream object (not URL)')
+      }
+    } catch (e) {
+      notes.push(`download: ${e.message}`)
     }
+
+    return { error: `youtubei.js: no formats (${notes.join('; ')})` }
   } catch (err) {
-    return { error: `youtubei.js runtime: ${err.message || String(err)}` }
+    return { error: `youtubei.js runtime: ${err.message}` }
   }
 }
+
+const PIPED_INSTANCES = [
+  'https://api.piped.private.coffee',
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.tokhmi.xyz',
+  'https://pipedapi.leptons.xyz',
+  'https://pipedapi.syncpundit.io',
+  'https://pipedapi.adminforge.de',
+  'https://pipedapi.r4fo.com',
+  'https://api.piped.projectsegfau.lt',
+]
+
+const INVIDIOUS = [
+  'https://inv.nadeko.net',
+  'https://invidious.nerdvpn.de',
+  'https://yewtu.be',
+  'https://iv.ggtyler.dev',
+]
 
 async function tryPiped(videoId) {
   for (const base of PIPED_INSTANCES) {
