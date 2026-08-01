@@ -188,12 +188,14 @@ useEffect(() => {
     }
   }
 
-  const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
-    if (view !== 'search') return
-    const el = e.currentTarget
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400
-    if (nearBottom) loadMoreResults()
-  }
+const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
+  const el = e.currentTarget
+  setTopbarScrolled(el.scrollTop > 12)
+
+  if (view !== 'search') return
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400
+  if (nearBottom) loadMoreResults()
+}
 
   const handleOpenPlaylist = (id: string) => {
     setActivePlaylistId(id)
