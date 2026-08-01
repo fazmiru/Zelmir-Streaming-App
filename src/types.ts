@@ -26,14 +26,14 @@ export interface Playlist {
 
 export type RepeatMode = 'off' | 'all' | 'one'
 
-export type ThemeMode = 'solid' | 'cycle'
+export type ThemeMode = 'solid' | 'cycle' | 'pulse'
 
 export interface ThemeState {
   mode: ThemeMode
   solid: string
   cycleA: string
   cycleB: string
-  /** seconds for one full cycle */
+  /** seconds for one full cycle/pulse */
   speed: number
 }
 
@@ -43,6 +43,14 @@ export const DEFAULT_THEME: ThemeState = {
   cycleA: '#f5f5f2',
   cycleB: '#7dd3fc',
   speed: 6,
+}
+
+export const DEFAULT_BACKGROUND_THEME: ThemeState = {
+  mode: 'cycle',
+  solid: '#7c3aed',
+  cycleA: '#7c3aed',
+  cycleB: '#ec4899',
+  speed: 10,
 }
 
 /* ---------------- Auth ---------------- */

@@ -594,6 +594,13 @@
 
 /* ---------------- Settings panel ---------------- */
 
+.settings-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 48px;
+  max-width: 980px;
+}
+
 .settings-panel {
   max-width: 480px;
 }
@@ -2892,48 +2899,44 @@ button.now-playing-artist-link:hover {
 
 .home-theme-backdrop {
   position: absolute;
-  inset: -120px -48px auto -48px;
-  height: min(720px, 85vh);
+  inset: -160px -80px auto -80px;
+  height: min(820px, 95vh);
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  /* base tint so it can never go pure white */
+  background: color-mix(in srgb, var(--bg-solid) 35%, transparent);
 }
 
 .home-theme-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
-  will-change: transform, opacity;
+  filter: blur(100px) saturate(1.5);
+  will-change: opacity, transform;
 }
 
 .home-theme-orb-a {
-  width: 75%;
-  height: 85%;
-  top: -25%;
-  left: -20%;
-  background: var(--accent-solid);
-  opacity: 0.55;
-  animation: home-orb-a 14s ease-in-out infinite alternate;
+  width: 90%;
+  height: 100%;
+  top: -35%;
+  left: -30%;
+  background: var(--bg-solid) !important;
 }
 
 .home-theme-orb-b {
-  width: 65%;
-  height: 75%;
-  top: -15%;
-  right: -18%;
-  background: var(--accent-b);
-  opacity: 0.45;
-  animation: home-orb-b 18s ease-in-out infinite alternate;
+  width: 80%;
+  height: 95%;
+  top: -30%;
+  right: -28%;
+  background: color-mix(in srgb, var(--bg-b) 70%, var(--bg-solid) 30%) !important;
 }
 
 .home-theme-orb-c {
-  width: 55%;
-  height: 65%;
-  top: 10%;
-  left: 25%;
-  background: var(--accent-a);
-  opacity: 0.4;
-  animation: home-orb-c 16s ease-in-out infinite alternate;
+  width: 70%;
+  height: 85%;
+  top: -5%;
+  left: 15%;
+  background: color-mix(in srgb, var(--bg-a) 70%, var(--bg-solid) 30%) !important;
 }
 
 .home-theme-shade {
@@ -2941,34 +2944,122 @@ button.now-playing-artist-link:hover {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(15, 15, 15, 0.05) 0%,
-    rgba(15, 15, 15, 0.35) 45%,
-    rgba(15, 15, 15, 0.75) 75%,
+    transparent 0%,
+    rgba(0, 0, 0, 0.4) 50%,
+    rgba(0, 0, 0, 0.85) 80%,
     var(--bg) 100%
   );
 }
 
-.theme-cycle .home-theme-orb-a { background: var(--accent-a); }
-.theme-cycle .home-theme-orb-b { background: var(--accent-b); }
-.theme-cycle .home-theme-orb-c { background: var(--accent-solid); }
-
-@keyframes home-orb-a {
-  0%   { opacity: 0.4; transform: scale(1) translate(0, 0); }
-  100% { opacity: 0.7; transform: scale(1.15) translate(6%, 5%); }
+/* ---- Solid: no motion, just a fixed layered glow ---- */
+.bg-theme-solid .home-theme-orb-a {
+  opacity: 0.55;
 }
-@keyframes home-orb-b {
-  0%   { opacity: 0.3; transform: scale(1.05) translate(0, 0); }
-  100% { opacity: 0.6; transform: scale(1.2) translate(-5%, 8%); }
+.bg-theme-solid .home-theme-orb-b {
+  opacity: 0.3;
 }
-@keyframes home-orb-c {
-  0%   { opacity: 0.25; transform: scale(0.95) translate(0, 0); }
-  100% { opacity: 0.55; transform: scale(1.18) translate(4%, -4%); }
+.bg-theme-solid .home-theme-orb-c {
+  opacity: 0.3;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .home-theme-orb-a,
-  .home-theme-orb-b,
-  .home-theme-orb-c { animation: none; }
+/* ---- Cycle: orbs drift and crossfade continuously ---- */
+.bg-theme-cycle .home-theme-orb-a {
+  animation: home-cycle-a var(--bg-speed) ease-in-out infinite;
+}
+.bg-theme-cycle .home-theme-orb-b {
+  animation: home-cycle-b var(--bg-speed) ease-in-out infinite;
+}
+.bg-theme-cycle .home-theme-orb-c {
+  animation: home-cycle-c var(--bg-speed) ease-in-out infinite;
+}
+
+@keyframes home-cycle-a {
+  0%, 100% {
+    opacity: 0.9;
+    transform: scale(1.1) translate(0, 0);
+  }
+  33% {
+    opacity: 0.25;
+    transform: scale(1.2) translate(8%, 6%);
+  }
+  66% {
+    opacity: 0.35;
+    transform: scale(1.15) translate(4%, 4%);
+  }
+}
+
+@keyframes home-cycle-b {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    opacity: 0.9;
+    transform: scale(1.25) translate(-10%, 8%);
+  }
+  66% {
+    opacity: 0.3;
+    transform: scale(1.1) translate(-4%, 4%);
+  }
+}
+
+@keyframes home-cycle-c {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    opacity: 0.25;
+    transform: scale(1.1) translate(4%, -4%);
+  }
+  66% {
+    opacity: 0.9;
+    transform: scale(1.3) translate(6%, -8%);
+  }
+}
+
+/* ---- Pulse: orbs hold position and breathe opacity/scale together ---- */
+.bg-theme-pulse .home-theme-orb-a {
+  animation: home-pulse-a var(--bg-speed) ease-in-out infinite;
+}
+.bg-theme-pulse .home-theme-orb-b {
+  animation: home-pulse-b var(--bg-speed) ease-in-out infinite;
+}
+.bg-theme-pulse .home-theme-orb-c {
+  animation: home-pulse-c var(--bg-speed) ease-in-out infinite;
+}
+
+@keyframes home-pulse-a {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes home-pulse-b {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes home-pulse-c {
+  0%, 100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.1);
+  }
 }
 
 .home-view > *:not(.home-theme-backdrop) {
@@ -2978,8 +3069,8 @@ button.now-playing-artist-link:hover {
 
 @media (max-width: 700px) {
   .home-theme-backdrop {
-    inset: -80px -16px auto -16px;
-    height: min(520px, 70vh);
+    inset: -100px -24px auto -24px;
+    height: min(580px, 80vh);
   }
 }
 
@@ -3028,3 +3119,4 @@ button.now-playing-artist-link:hover {
 .app-main {
   position: relative;
 }
+
