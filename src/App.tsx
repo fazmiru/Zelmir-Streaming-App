@@ -190,7 +190,7 @@ useEffect(() => {
 
 const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
   const el = e.currentTarget
-  setTopbarScrolled(el.scrollTop > 12)
+  setTopbarScrolled(el.scrollTop > 4)
 
   if (view !== 'search') return
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 400
