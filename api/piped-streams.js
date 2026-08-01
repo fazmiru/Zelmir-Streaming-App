@@ -1,10 +1,11 @@
 /**
  * GET /api/piped-streams?v=VIDEO_ID
- * Resolves downloadable media URLs.
- * Priority: youtubei.js (reliable) → Piped → Invidious
- *
- * Requires: npm install youtubei.js  (in the project root)
+ * ESM handler — works with youtubei.js (ESM package).
  */
+
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
 
 const PIPED_INSTANCES = [
   'https://api.piped.private.coffee',
@@ -30,7 +31,10 @@ async function tryFetchJson(url, ms = 10000) {
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Zelmir/1.0)', Accept: 'application/json' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Zelmir/1.0)',
+        Accept: 'application/json',
+      },
     })
     if (!res.ok) return null
     return await res.json()
@@ -44,7 +48,7 @@ async function tryFetchJson(url, ms = 10000) {
 function collectFromPiped(data) {
   const streams = []
   for (const s of data.audioStreams || []) {
-    if (s && s.url) {
+    if (s?.url) {
       streams.push({
         url: s.url,
         mimeType: s.mimeType || 'audio/webm',
@@ -54,7 +58,7 @@ function collectFromPiped(data) {
     }
   }
   for (const s of data.videoStreams || []) {
-    if (s && s.url && s.videoOnly === false) {
+    if (s?.url && s.videoOnly === false) {
       streams.push({
         url: s.url,
         mimeType: s.mimeType || 'video/mp4',
@@ -70,32 +74,89 @@ function collectFromPiped(data) {
   return streams
 }
 
-/** Primary: YouTube.js innertube client (needs youtubei.js installed). */
-async function tryYoutubei(videoId) {
-  try {
-    // Dynamic import so the function still loads if the package is missing
-    const mod = await import('youtubei.js')
-    const Innertube = mod.Innertube || (mod.default && mod.default.Innertube)
-    if (!Innertube) return null
+async function loadInnertube() {
+  // Try several import styles — Vercel + youtubei.js version differences
+  const attempts = []
 
-    const yt = await Innertube.create({
-      retrieve_player: true,
-    })
+  // 1) Native ESM
+  try {
+    const mod = await import('youtubei.js')
+    const Innertube = mod.Innertube || mod.default?.Innertube || mod.default
+    if (typeof Innertube?.create === 'function') {
+      return { Innertube, via: 'esm-import' }
+    }
+    attempts.push('esm-import: no Innertube.create')
+  } catch (e) {
+    attempts.push(`esm-import: ${e.message}`)
+  }
+
+  // 2) createRequire (CJS interop)
+  try {
+    const mod = require('youtubei.js')
+    const Innertube = mod.Innertube || mod.default?.Innertube || mod.default
+    if (typeof Innertube?.create === 'function') {
+      return { Innertube, via: 'require' }
+    }
+    attempts.push('require: no Innertube.create')
+  } catch (e) {
+    attempts.push(`require: ${e.message}`)
+  }
+
+  // 3) Deep path used by some builds
+  try {
+    const mod = await import('youtubei.js/dist/src/platform/node.js')
+    attempts.push(`node-platform: keys=${Object.keys(mod).join(',')}`)
+  } catch (e) {
+    attempts.push(`node-platform: ${e.message}`)
+  }
+
+  return { error: attempts.join(' | ') }
+}
+
+async function tryYoutubei(videoId) {
+  const loaded = await loadInnertube()
+  if (loaded.error) {
+    return { error: `youtubei.js load failed: ${loaded.error}` }
+  }
+
+  try {
+    const { Innertube, via } = loaded
+    const yt = await Innertube.create({ retrieve_player: true })
     const info = await yt.getBasicInfo(videoId)
-    const adaptive = (info.streaming_data && info.streaming_data.adaptive_formats) || []
-    const progressive = (info.streaming_data && info.streaming_data.formats) || []
 
     const streams = []
+
+    // Helper path
+    try {
+      const best = info.chooseFormat({ type: 'audio', quality: 'best' })
+      if (best) {
+        let url = best.url
+        if (!url && typeof best.decipher === 'function') {
+          url = await best.decipher(yt.session.player)
+        }
+        if (url) {
+          streams.push({
+            url,
+            mimeType: String(best.mime_type || 'audio/webm').split(';')[0],
+            bitrate: best.bitrate || 0,
+            kind: 'audio',
+          })
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const adaptive = info.streaming_data?.adaptive_formats || []
     for (const f of adaptive) {
       const mime = String(f.mime_type || '')
       if (!mime.startsWith('audio/')) continue
-      // deciphered URL when available
-      let url = f.url || null
+      let url = f.url
       if (!url && typeof f.decipher === 'function') {
         try {
           url = await f.decipher(yt.session.player)
         } catch {
-          /* ignore */
+          continue
         }
       }
       if (!url) continue
@@ -106,52 +167,27 @@ async function tryYoutubei(videoId) {
         kind: 'audio',
       })
     }
+
+    const progressive = info.streaming_data?.formats || []
     for (const f of progressive) {
-      const mime = String(f.mime_type || 'video/mp4')
-      let url = f.url || null
+      let url = f.url
       if (!url && typeof f.decipher === 'function') {
         try {
           url = await f.decipher(yt.session.player)
         } catch {
-          /* ignore */
+          continue
         }
       }
       if (!url) continue
       streams.push({
         url,
-        mimeType: mime.split(';')[0],
+        mimeType: String(f.mime_type || 'video/mp4').split(';')[0],
         bitrate: f.bitrate || 0,
         kind: 'progressive',
       })
     }
 
-    // Prefer choosing via helper if available
-    try {
-      const bestAudio = info.chooseFormat({ type: 'audio', quality: 'best' })
-      if (bestAudio) {
-        let url = bestAudio.url
-        if (!url && typeof bestAudio.decipher === 'function') {
-          url = await bestAudio.decipher(yt.session.player)
-        }
-        if (url) {
-          streams.unshift({
-            url,
-            mimeType: String(bestAudio.mime_type || 'audio/webm').split(';')[0],
-            bitrate: bestAudio.bitrate || 0,
-            kind: 'audio',
-          })
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-
-    streams.sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'audio' ? -1 : 1
-      return (b.bitrate || 0) - (a.bitrate || 0)
-    })
-
-    // Dedupe by url
+    // Dedupe
     const seen = new Set()
     const unique = []
     for (const s of streams) {
@@ -159,16 +195,24 @@ async function tryYoutubei(videoId) {
       seen.add(s.url)
       unique.push(s)
     }
+    unique.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === 'audio' ? -1 : 1
+      return (b.bitrate || 0) - (a.bitrate || 0)
+    })
 
-    if (!unique.length) return null
+    if (!unique.length) {
+      return {
+        error: `youtubei.js (${via}): no formats (streaming_data=${!!info.streaming_data})`,
+      }
+    }
+
     return {
-      title: (info.basic_info && info.basic_info.title) || null,
+      title: info.basic_info?.title || null,
       streams: unique,
-      source: 'youtubei.js',
+      source: `youtubei.js/${via}`,
     }
   } catch (err) {
-    console.error('youtubei.js failed:', err && err.message ? err.message : err)
-    return null
+    return { error: `youtubei.js runtime: ${err.message || String(err)}` }
   }
 }
 
@@ -210,10 +254,6 @@ async function tryInvidious(videoId) {
         })
       }
     }
-    streams.sort((a, b) => {
-      if (a.kind !== b.kind) return a.kind === 'audio' ? -1 : 1
-      return (b.bitrate || 0) - (a.bitrate || 0)
-    })
     if (streams.length) {
       return { title: data.title || null, streams, source: base }
     }
@@ -221,44 +261,73 @@ async function tryInvidious(videoId) {
   return null
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   try {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    if (req.method === 'OPTIONS') return res.status(204).end()
+    if (req.method === 'OPTIONS') {
+      res.status(204).end()
+      return
+    }
 
-    const videoId = String((req.query && req.query.v) || '').trim()
+    const videoId = String(req.query?.v || '').trim()
     if (!/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) {
-      return res.status(400).json({ error: 'Invalid video id' })
+      res.status(400).json({ error: 'Invalid video id' })
+      return
     }
 
-    // youtubei first (works for real YT tracks), then Piped/Invidious fallbacks
-    const result =
-      (await tryYoutubei(videoId)) ||
-      (await tryPiped(videoId)) ||
-      (await tryInvidious(videoId))
+    const diagnostics = []
 
-    if (!result || !result.streams.length) {
-      return res.status(404).json({
-        error: 'No playable streams found for this track. Try again later.',
+    const yt = await tryYoutubei(videoId)
+    if (yt?.streams?.length) {
+      res.status(200).json({
         videoId,
-        hint: 'Install youtubei.js in the project root: npm install youtubei.js',
+        title: yt.title,
+        source: yt.source,
+        urls: yt.streams.map((s) => s.url),
+        streams: yt.streams,
       })
+      return
     }
+    if (yt?.error) diagnostics.push(yt.error)
 
-    return res.status(200).json({
+    const piped = await tryPiped(videoId)
+    if (piped?.streams?.length) {
+      res.status(200).json({
+        videoId,
+        title: piped.title,
+        source: piped.source,
+        urls: piped.streams.map((s) => s.url),
+        streams: piped.streams,
+      })
+      return
+    }
+    diagnostics.push('piped: no streams')
+
+    const inv = await tryInvidious(videoId)
+    if (inv?.streams?.length) {
+      res.status(200).json({
+        videoId,
+        title: inv.title,
+        source: inv.source,
+        urls: inv.streams.map((s) => s.url),
+        streams: inv.streams,
+      })
+      return
+    }
+    diagnostics.push('invidious: no streams')
+
+    res.status(404).json({
+      error: 'No playable streams found for this track. Try again later.',
       videoId,
-      title: result.title,
-      source: result.source,
-      urls: result.streams.map((s) => s.url),
-      streams: result.streams,
+      diagnostics,
     })
   } catch (err) {
     console.error('piped-streams error', err)
-    return res.status(500).json({
+    res.status(500).json({
       error: 'Stream lookup failed',
-      detail: String(err && err.message),
+      detail: String(err?.message || err),
     })
   }
 }

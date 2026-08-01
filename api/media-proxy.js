@@ -1,19 +1,24 @@
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   try {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range')
-    if (req.method === 'OPTIONS') return res.status(204).end()
+    if (req.method === 'OPTIONS') {
+      res.status(204).end()
+      return
+    }
 
-    const raw = String((req.query && req.query.url) || '')
+    const raw = String(req.query?.url || '')
     let target
     try {
       target = new URL(raw)
     } catch {
-      return res.status(400).json({ error: 'Invalid url' })
+      res.status(400).json({ error: 'Invalid url' })
+      return
     }
     if (target.protocol !== 'https:' && target.protocol !== 'http:') {
-      return res.status(400).json({ error: 'Unsupported protocol' })
+      res.status(400).json({ error: 'Unsupported protocol' })
+      return
     }
 
     const headers = {
@@ -21,11 +26,12 @@ module.exports = async function handler(req, res) {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       Accept: '*/*',
     }
-    if (req.headers && req.headers.range) headers.Range = req.headers.range
+    if (req.headers?.range) headers.Range = req.headers.range
 
     const upstream = await fetch(target.toString(), { headers, redirect: 'follow' })
     if (!upstream.ok && upstream.status !== 206) {
-      return res.status(upstream.status).json({ error: 'Upstream ' + upstream.status })
+      res.status(upstream.status).json({ error: `Upstream ${upstream.status}` })
+      return
     }
 
     res.status(upstream.status)
@@ -38,7 +44,11 @@ module.exports = async function handler(req, res) {
     const cr = upstream.headers.get('content-range')
     if (cr) res.setHeader('Content-Range', cr)
 
-    if (!upstream.body) return res.end()
+    if (!upstream.body) {
+      res.end()
+      return
+    }
+
     const reader = upstream.body.getReader()
     for (;;) {
       const { done, value } = await reader.read()
@@ -48,7 +58,10 @@ module.exports = async function handler(req, res) {
     res.end()
   } catch (err) {
     console.error('media-proxy error', err)
-    if (!res.headersSent) return res.status(502).json({ error: 'Proxy fetch failed', detail: String(err && err.message) })
-    res.end()
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Proxy fetch failed', detail: String(err?.message || err) })
+    } else {
+      res.end()
+    }
   }
 }
