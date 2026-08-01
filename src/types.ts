@@ -28,29 +28,41 @@ export type RepeatMode = 'off' | 'all' | 'one'
 
 export type ThemeMode = 'solid' | 'cycle' | 'pulse'
 
+/** Accent or background color system. `colors` holds 2–4 stops used by cycle/pulse. */
 export interface ThemeState {
   mode: ThemeMode
   solid: string
-  cycleA: string
-  cycleB: string
+  /** 2–4 colors for cycle / pulse modes */
+  colors: string[]
   /** seconds for one full cycle/pulse */
   speed: number
+}
+
+/** Button outline only — independent of accent fill. */
+export interface OutlineTheme {
+  /** outline / border color */
+  color: string
+  /** border width in pixels (0 = none) */
+  thickness: number
 }
 
 export const DEFAULT_THEME: ThemeState = {
   mode: 'solid',
   solid: '#f5f5f2',
-  cycleA: '#f5f5f2',
-  cycleB: '#7dd3fc',
+  colors: ['#f5f5f2', '#7dd3fc'],
   speed: 6,
 }
 
 export const DEFAULT_BACKGROUND_THEME: ThemeState = {
   mode: 'cycle',
   solid: '#7c3aed',
-  cycleA: '#7c3aed',
-  cycleB: '#ec4899',
+  colors: ['#7c3aed', '#ec4899'],
   speed: 10,
+}
+
+export const DEFAULT_OUTLINE: OutlineTheme = {
+  color: '#ffffff',
+  thickness: 0,
 }
 
 /* ---------------- Auth ---------------- */

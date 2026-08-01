@@ -1,5 +1,11 @@
 import { useTheme } from '../theme/ThemeContext'
-import { DEFAULT_THEME, DEFAULT_BACKGROUND_THEME, type ThemeState } from '../types'
+import {
+  DEFAULT_THEME,
+  DEFAULT_BACKGROUND_THEME,
+  DEFAULT_OUTLINE,
+  type ThemeState,
+  type OutlineTheme,
+} from '../types'
 
 const PRESETS = [
   { label: 'Paper white', solid: '#f5f5f2' },
@@ -8,17 +14,19 @@ const PRESETS = [
   { label: 'Amber', solid: '#f2c069' },
 ]
 
-const CYCLE_PRESETS: { label: string; a: string; b: string }[] = [
-  { label: 'White ↔ Sky', a: '#f5f5f2', b: '#7dd3fc' },
-  { label: 'Rose ↔ Amber', a: '#f2a6c1', b: '#f2c069' },
-  { label: 'Mint ↔ Violet', a: '#8ef2c8', b: '#c39dfa' },
+const CYCLE_PRESETS: { label: string; colors: string[] }[] = [
+  { label: 'White ↔ Sky', colors: ['#f5f5f2', '#7dd3fc'] },
+  { label: 'Rose ↔ Amber', colors: ['#f2a6c1', '#f2c069'] },
+  { label: 'Mint ↔ Violet', colors: ['#8ef2c8', '#c39dfa'] },
+  { label: 'Fire quartet', colors: ['#ef4444', '#f97316', '#eab308', '#ec4899'] },
 ]
 
-const BG_PRESETS: { label: string; a: string; b: string }[] = [
-  { label: 'Violet ↔ Pink', a: '#7c3aed', b: '#ec4899' },
-  { label: 'Ocean ↔ Teal', a: '#2563eb', b: '#0d9488' },
-  { label: 'Ember ↔ Amber', a: '#b91c1c', b: '#f59e0b' },
-  { label: 'Forest ↔ Lime', a: '#166534', b: '#a3e635' },
+const BG_PRESETS: { label: string; colors: string[] }[] = [
+  { label: 'Violet ↔ Pink', colors: ['#7c3aed', '#ec4899'] },
+  { label: 'Ocean ↔ Teal', colors: ['#2563eb', '#0d9488'] },
+  { label: 'Ember ↔ Amber', colors: ['#b91c1c', '#f59e0b'] },
+  { label: 'Forest ↔ Lime', colors: ['#166534', '#a3e635'] },
+  { label: 'Neon four', colors: ['#7c3aed', '#ec4899', '#06b6d4', '#a3e635'] },
 ]
 
 interface ColorSectionProps {
@@ -28,7 +36,7 @@ interface ColorSectionProps {
   onChange: (next: ThemeState) => void
   onReset: () => void
   presets: { label: string; solid: string }[]
-  cyclePresets: { label: string; a: string; b: string }[]
+  cyclePresets: { label: string; colors: string[] }[]
   speedLabel: (seconds: number) => string
   speedMin: number
   speedMax: number
@@ -46,6 +54,25 @@ function ColorSection({
   speedMin,
   speedMax,
 }: ColorSectionProps) {
+  const colors = theme.colors?.length >= 2 ? theme.colors : [theme.solid, theme.solid]
+
+  const setColorAt = (index: number, value: string) => {
+    const next = [...colors]
+    next[index] = value
+    onChange({ ...theme, colors: next })
+  }
+
+  const addColor = () => {
+    if (colors.length >= 4) return
+    const last = colors[colors.length - 1] ?? theme.solid
+    onChange({ ...theme, colors: [...colors, last] })
+  }
+
+  const removeColor = (index: number) => {
+    if (colors.length <= 2) return
+    onChange({ ...theme, colors: colors.filter((_, i) => i !== index) })
+  }
+
   return (
     <div className="settings-panel">
       <h2>{title}</h2>
@@ -104,31 +131,38 @@ function ColorSection({
 
       {(theme.mode === 'cycle' || theme.mode === 'pulse') && (
         <div className="settings-section">
-          <label className="settings-label" htmlFor={`${title}-color-a`}>
-            Color A
-          </label>
-          <div className="color-row">
-            <input
-              id={`${title}-color-a`}
-              type="color"
-              value={theme.cycleA}
-              onChange={(e) => onChange({ ...theme, cycleA: e.target.value })}
-            />
-            <span>{theme.cycleA}</span>
-          </div>
+          {colors.map((c, i) => (
+            <div key={i} className="color-row-with-action">
+              <label className="settings-label" htmlFor={`${title}-color-${i}`}>
+                Color {String.fromCharCode(65 + i)}
+              </label>
+              <div className="color-row">
+                <input
+                  id={`${title}-color-${i}`}
+                  type="color"
+                  value={c}
+                  onChange={(e) => setColorAt(i, e.target.value)}
+                />
+                <span>{c}</span>
+                {colors.length > 2 && (
+                  <button
+                    type="button"
+                    className="color-remove-btn"
+                    title="Remove color"
+                    onClick={() => removeColor(i)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
 
-          <label className="settings-label" htmlFor={`${title}-color-b`}>
-            Color B
-          </label>
-          <div className="color-row">
-            <input
-              id={`${title}-color-b`}
-              type="color"
-              value={theme.cycleB}
-              onChange={(e) => onChange({ ...theme, cycleB: e.target.value })}
-            />
-            <span>{theme.cycleB}</span>
-          </div>
+          {colors.length < 4 && (
+            <button type="button" className="add-color-btn" onClick={addColor}>
+              + Add color ({colors.length}/4)
+            </button>
+          )}
 
           <label className="settings-label" htmlFor={`${title}-speed`}>
             {theme.mode === 'pulse' ? 'Pulse speed' : 'Cycle speed'} — {speedLabel(theme.speed)}
@@ -149,9 +183,11 @@ function ColorSection({
               <button
                 key={p.label}
                 className="preset-swatch preset-swatch-split"
-                style={{ background: `linear-gradient(90deg, ${p.a}, ${p.b})` }}
+                style={{
+                  background: `linear-gradient(90deg, ${p.colors.join(', ')})`,
+                }}
                 title={p.label}
-                onClick={() => onChange({ ...theme, cycleA: p.a, cycleB: p.b })}
+                onClick={() => onChange({ ...theme, colors: [...p.colors] })}
               />
             ))}
           </div>
@@ -165,8 +201,78 @@ function ColorSection({
   )
 }
 
+function OutlineSection({
+  outline,
+  onChange,
+  onReset,
+}: {
+  outline: OutlineTheme
+  onChange: (next: OutlineTheme) => void
+  onReset: () => void
+}) {
+  return (
+    <div className="settings-panel">
+      <h2>Button outline</h2>
+      <p className="settings-subtitle">
+        Border around accent buttons (Search, Play, mode pills, etc.). Independent from the fill
+        color. Set thickness to 0 to hide.
+      </p>
+
+      <div className="settings-section">
+        <label className="settings-label" htmlFor="outline-color">
+          Outline color
+        </label>
+        <div className="color-row">
+          <input
+            id="outline-color"
+            type="color"
+            value={outline.color}
+            onChange={(e) => onChange({ ...outline, color: e.target.value })}
+          />
+          <span>{outline.color}</span>
+        </div>
+
+        <label className="settings-label" htmlFor="outline-thickness">
+          Thickness — {outline.thickness}px
+        </label>
+        <input
+          id="outline-thickness"
+          type="range"
+          min={0}
+          max={6}
+          step={1}
+          value={outline.thickness}
+          onChange={(e) => onChange({ ...outline, thickness: Number(e.target.value) })}
+          className="accent-range"
+        />
+
+        <div className="outline-preview-row">
+          <span className="settings-label">Preview</span>
+          <button type="button" className="accent-fill outline-preview-btn" tabIndex={-1}>
+            Button
+          </button>
+          <button
+            type="button"
+            className="transport-button transport-button-main accent-fill outline-preview-play"
+            tabIndex={-1}
+            aria-label="Play preview"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7 4.8v14.4c0 .8.9 1.3 1.6.9l11.4-7.2c.6-.4.6-1.4 0-1.8L8.6 3.9C7.9 3.5 7 4 7 4.8Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <button className="reset-button" onClick={onReset}>
+        Reset to default
+      </button>
+    </div>
+  )
+}
+
 export function ThemeSettings() {
-  const { theme, setTheme, backgroundTheme, setBackgroundTheme } = useTheme()
+  const { theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline } = useTheme()
 
   return (
     <div className="settings-page">
@@ -176,16 +282,16 @@ export function ThemeSettings() {
         theme={backgroundTheme}
         onChange={setBackgroundTheme}
         onReset={() => setBackgroundTheme(DEFAULT_BACKGROUND_THEME)}
-        presets={BG_PRESETS.map((p) => ({ label: p.label, solid: p.a }))}
+        presets={BG_PRESETS.map((p) => ({ label: p.label, solid: p.colors[0] }))}
         cyclePresets={BG_PRESETS}
         speedLabel={(s) => `${s}s per loop`}
-        speedMin={4}
+        speedMin={3}
         speedMax={30}
       />
 
       <ColorSection
         title="Accent"
-        description="Buttons, the seek bar, your active tab, and the wordmark — one color system, separate from the background."
+        description="Button fill, the seek bar, your active tab, the wordmark, and the play button."
         theme={theme}
         onChange={setTheme}
         onReset={() => setTheme(DEFAULT_THEME)}
@@ -194,6 +300,12 @@ export function ThemeSettings() {
         speedLabel={(s) => (theme.mode === 'pulse' ? `${s}s per beat` : `${s}s per loop`)}
         speedMin={2}
         speedMax={20}
+      />
+
+      <OutlineSection
+        outline={outline}
+        onChange={setOutline}
+        onReset={() => setOutline(DEFAULT_OUTLINE)}
       />
     </div>
   )

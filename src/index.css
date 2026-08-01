@@ -17,7 +17,13 @@
   --bg-solid: #7c3aed;
   --bg-a: #7c3aed;
   --bg-b: #ec4899;
+  --bg-c: #7c3aed;
+  --bg-d: #ec4899;
   --bg-speed: 10s;
+  --accent-c: #f5f5f2;
+  --accent-d: #7dd3fc;
+  --btn-outline-color: #ffffff;
+  --btn-outline-width: 0px;
 
   color-scheme: dark;
 }
@@ -70,7 +76,8 @@ input[type='text'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *:not(.accent-fill):not(.accent-text) {
+  /* Keep intentional theme animations (accent + home backdrop) running */
+  *:not(.accent-fill):not(.accent-text):not(.home-theme-orb) {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
@@ -98,13 +105,27 @@ input[type='text'] {
 }
 
 .theme-cycle .accent-fill {
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b), var(--accent-a));
-  background-size: 200% 100%;
+  background: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d),
+    var(--accent-a)
+  );
+  background-size: 300% 100%;
   animation: accent-slide var(--accent-speed) linear infinite;
 }
 .theme-cycle .accent-text {
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b), var(--accent-a));
-  background-size: 200% 100%;
+  background: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d),
+    var(--accent-a)
+  );
+  background-size: 300% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -113,6 +134,9 @@ input[type='text'] {
 
 .accent-fill {
   color: #0b0b0d;
+  /* Button outline (Appearance → Button outline). 0px thickness = invisible. */
+  border: var(--btn-outline-width) solid var(--btn-outline-color);
+  box-sizing: border-box;
 }
 
 @keyframes accent-pulse {
@@ -126,12 +150,24 @@ input[type='text'] {
 }
 
 .theme-pulse .accent-fill {
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  background: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d)
+  );
   animation: accent-pulse var(--accent-speed) ease-in-out infinite;
 }
 
 .theme-pulse .accent-text {
-  background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+  background: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d)
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

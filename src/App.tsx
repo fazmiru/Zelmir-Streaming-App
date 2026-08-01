@@ -314,6 +314,7 @@ const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
                 <div className="home-theme-orb home-theme-orb-a" />
                 <div className="home-theme-orb home-theme-orb-b" />
                 <div className="home-theme-orb home-theme-orb-c" />
+                <div className="home-theme-orb home-theme-orb-d" />
                 <div className="home-theme-shade" />
               </div>
               <header className="home-header">
