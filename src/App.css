@@ -2523,10 +2523,13 @@ button.now-playing-artist-link:hover {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 0 16px;
+  overflow-y: hidden;
+  padding: 4px 4px 16px 2px;
   margin-bottom: 8px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  /* keep first/last chips fully visible while scrolling */
+  scroll-padding-inline: 4px;
 }
 
 .home-chips::-webkit-scrollbar {
@@ -3632,6 +3635,7 @@ html, body, #root {
 }
 
 
+
 /* ============================================================
    Full-bleed iOS / PWA — edge to edge, no letterbox / cut corners
    ============================================================ */
@@ -3652,6 +3656,7 @@ html, body, #root, .app-shell, .app-main {
     margin: 0 !important;
     border-radius: 0 !important;
     overflow: hidden !important;
+    background: var(--bg) !important;
   }
 
   .app-main {
@@ -3659,31 +3664,70 @@ html, body, #root, .app-shell, .app-main {
     max-width: 100% !important;
     min-height: 0 !important;
     border-radius: 0 !important;
+    background: transparent !important;
   }
 
-  /* Content starts below the status bar, background still fills behind it */
-  .app-main:has(.topbar-hide-mobile) .content,
-  .app-main:has(.topbar-hide) .content {
-    padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important;
+  /* Default content padding */
+  .content {
     padding-left: 16px !important;
     padding-right: 16px !important;
+    padding-bottom: 28px !important;
   }
 
-  /* Gradient / theme backdrop must cover under the status bar */
-  .home-theme-backdrop {
-    top: calc(-1 * env(safe-area-inset-top, 0px) - 40px) !important;
-    left: -40px !important;
-    right: -40px !important;
-    width: auto !important;
-    border-radius: 0 !important;
+  /* Home: no top padding on content — gradient paints under status bar.
+     Safe-area padding is applied inside .home-view instead. */
+  .app-main:has(.home-view) .content {
+    padding-top: 0 !important;
   }
 
   .home-view {
     border-radius: 0 !important;
     overflow: visible !important;
+    /* push interactive content below the status bar */
+    padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
   }
 
-  /* Player + nav: full width, no rounded outer frame */
+  /* Gradient covers the status-bar zone (negative top cancels home-view padding) */
+  .home-theme-backdrop {
+    top: calc(-1 * (12px + env(safe-area-inset-top, 0px))) !important;
+    left: -24px !important;
+    right: -24px !important;
+    width: auto !important;
+    height: min(70vh, 640px) !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Library / flow / settings still need safe-area top inset */
+  .app-main:has(.topbar-hide-mobile):not(:has(.home-view)) .content,
+  .app-main:has(.topbar-hide):not(:has(.home-view)) .content {
+    padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  /* Mood chips: never clip the first chip */
+  .home-chips {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .home-chip {
+    flex-shrink: 0 !important;
+    padding: 8px 16px !important;
+  }
+
+  .home-header {
+    margin-bottom: 10px !important;
+  }
+
+  .home-view .home-app-name {
+    font-size: 28px !important;
+  }
+
   .player-bar,
   .sidebar {
     left: 0 !important;
