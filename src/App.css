@@ -3131,7 +3131,10 @@ button.now-playing-artist-link:hover {
   left: 0;
   right: 0;
   z-index: 20;
-  background: transparent;
+  /* subtle bar even at rest so list content never shows through the search row */
+  background: rgba(15, 15, 15, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
   border-bottom: 1px solid transparent;
   pointer-events: none;
@@ -3143,12 +3146,22 @@ button.now-playing-artist-link:hover {
   pointer-events: auto;
 }
 
+/* Fully solid once the user scrolls (matches localhost) */
 .topbar-wrap.topbar-scrolled {
-  background: rgba(15, 15, 15, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 15, 15, 0.97);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
   border-bottom-color: var(--border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* On Home at the very top, stay more transparent so the theme backdrop shows */
+.topbar-wrap.topbar-home:not(.topbar-scrolled) {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom-color: transparent;
+  box-shadow: none;
 }
 
 .topbar {
@@ -3160,7 +3173,7 @@ button.now-playing-artist-link:hover {
 .content {
   flex: 1;
   overflow-y: auto;
-  padding: 76px 32px 40px; /* room for overlaid search */
+  padding: 88px 32px 40px; /* matches topbar height so tracks never sit under search */
 }
 
 .app-main:has(.topbar-hide) .content {
@@ -3169,5 +3182,6 @@ button.now-playing-artist-link:hover {
 
 .app-main {
   position: relative;
+  overflow: hidden;
 }
 

@@ -298,7 +298,7 @@ const handleContentScroll = (e: React.UIEvent<HTMLElement>) => {
                   : view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
                     ? 'topbar-hide-mobile'
                     : ''
-              } ${topbarScrolled ? 'topbar-scrolled' : ''}`}
+              } ${view === 'home' ? 'topbar-home' : ''} ${topbarScrolled ? 'topbar-scrolled' : ''}`}
             >
 
             <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />

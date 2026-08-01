@@ -33,68 +33,107 @@ function normalizeColors(raw: unknown, fallbackA: string, fallbackB: string): st
   return [fallbackA, fallbackB]
 }
 
-function rowToTheme(row: any): ThemeState {
-  // Support legacy cycle_a / cycle_b columns and newer colors array
-  const colors = normalizeColors(
-    row.colors ?? (row.cycle_a && row.cycle_b ? [row.cycle_a, row.cycle_b, row.cycle_c, row.cycle_d] : null),
-    row.cycle_a ?? '#f5f5f2',
-    row.cycle_b ?? '#7dd3fc'
-  )
-  return {
-    mode: row.mode,
-    solid: row.solid,
-    colors,
-    speed: row.speed,
+function normalizeTheme(input: Partial<ThemeState> & Record<string, any>, fallback: ThemeState): ThemeState {
+  const solid = typeof input.solid === 'string' ? input.solid : fallback.solid
+  const mode =
+    input.mode === 'solid' || input.mode === 'cycle' || input.mode === 'pulse' ? input.mode : fallback.mode
+  const speed = typeof input.speed === 'number' && input.speed > 0 ? input.speed : fallback.speed
+
+  let colors: string[]
+  if (Array.isArray(input.colors) && input.colors.length >= 2) {
+    colors = normalizeColors(input.colors, solid, solid)
+  } else if (typeof input.cycleA === 'string' && typeof input.cycleB === 'string') {
+    colors = [input.cycleA, input.cycleB, input.cycleC, input.cycleD].filter(
+      (c): c is string => typeof c === 'string' && c.length > 0
+    )
+    if (colors.length < 2) colors = [solid, solid]
+  } else {
+    colors = [...fallback.colors]
   }
+
+  return { mode, solid, colors: colors.slice(0, 4), speed }
+}
+
+function rowToTheme(row: any): ThemeState {
+  if (row.accent_json) {
+    try {
+      const parsed = typeof row.accent_json === 'string' ? JSON.parse(row.accent_json) : row.accent_json
+      return normalizeTheme(parsed, DEFAULT_THEME)
+    } catch {
+      /* fall through */
+    }
+  }
+  return normalizeTheme(
+    {
+      mode: row.mode,
+      solid: row.solid,
+      speed: row.speed,
+      colors: row.colors,
+      cycleA: row.cycle_a,
+      cycleB: row.cycle_b,
+      cycleC: row.cycle_c,
+      cycleD: row.cycle_d,
+    },
+    DEFAULT_THEME
+  )
 }
 
 function rowToBackgroundTheme(row: any): ThemeState {
-  const colors = normalizeColors(
-    row.bg_colors ??
-      (row.bg_cycle_a && row.bg_cycle_b
-        ? [row.bg_cycle_a, row.bg_cycle_b, row.bg_cycle_c, row.bg_cycle_d]
-        : null),
-    row.bg_cycle_a ?? '#7c3aed',
-    row.bg_cycle_b ?? '#ec4899'
-  )
-  return {
-    mode: row.bg_mode,
-    solid: row.bg_solid,
-    colors,
-    speed: row.bg_speed,
+  if (row.bg_json) {
+    try {
+      const parsed = typeof row.bg_json === 'string' ? JSON.parse(row.bg_json) : row.bg_json
+      return normalizeTheme(parsed, DEFAULT_BACKGROUND_THEME)
+    } catch {
+      /* fall through */
+    }
   }
+  return normalizeTheme(
+    {
+      mode: row.bg_mode,
+      solid: row.bg_solid,
+      speed: row.bg_speed,
+      colors: row.bg_colors,
+      cycleA: row.bg_cycle_a,
+      cycleB: row.bg_cycle_b,
+      cycleC: row.bg_cycle_c,
+      cycleD: row.bg_cycle_d,
+    },
+    DEFAULT_BACKGROUND_THEME
+  )
+}
+
+function rowToOutline(row: any): OutlineTheme {
+  if (row.outline_json) {
+    try {
+      const parsed = typeof row.outline_json === 'string' ? JSON.parse(row.outline_json) : row.outline_json
+      if (parsed && typeof parsed.color === 'string') {
+        return {
+          color: parsed.color,
+          thickness: typeof parsed.thickness === 'number' ? parsed.thickness : 0,
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (typeof row.outline_color === 'string') {
+    return {
+      color: row.outline_color,
+      thickness: typeof row.outline_thickness === 'number' ? row.outline_thickness : 0,
+    }
+  }
+  return DEFAULT_OUTLINE
 }
 
 function isValidTheme(value: unknown): value is ThemeState {
   if (!value || typeof value !== 'object') return false
   const t = value as any
-  // Migrate old cycleA/cycleB shape
-  if (
+  return (
     (t.mode === 'solid' || t.mode === 'cycle' || t.mode === 'pulse') &&
     typeof t.solid === 'string' &&
-    typeof t.speed === 'number'
-  ) {
-    if (Array.isArray(t.colors) && t.colors.length >= 2) return true
-    if (typeof t.cycleA === 'string' && typeof t.cycleB === 'string') return true
-  }
-  return false
-}
-
-function migrateTheme(value: any): ThemeState {
-  if (Array.isArray(value.colors) && value.colors.length >= 2) {
-    return {
-      mode: value.mode,
-      solid: value.solid,
-      colors: value.colors.slice(0, 4),
-      speed: value.speed,
-    }
-  }
-  return {
-    mode: value.mode,
-    solid: value.solid,
-    colors: [value.cycleA ?? value.solid, value.cycleB ?? '#7dd3fc'].filter(Boolean).slice(0, 4),
-    speed: value.speed,
-  }
+    typeof t.speed === 'number' &&
+    (Array.isArray(t.colors) || (typeof t.cycleA === 'string' && typeof t.cycleB === 'string'))
+  )
 }
 
 function isValidOutline(value: unknown): value is OutlineTheme {
@@ -109,7 +148,7 @@ function loadCachedTheme(key: string, fallback: ThemeState): ThemeState {
     if (!raw) return fallback
     const parsed = JSON.parse(raw)
     if (!isValidTheme(parsed)) return fallback
-    return migrateTheme(parsed)
+    return normalizeTheme(parsed, fallback)
   } catch {
     return fallback
   }
@@ -130,11 +169,10 @@ function saveCached(key: string, value: unknown) {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // ignore quota / private mode
+    // ignore
   }
 }
 
-/** Apply colors[0..3] as CSS vars; missing slots repeat the last color. */
 function applyColorVars(prefix: 'accent' | 'bg', theme: ThemeState) {
   const root = document.documentElement
   const cols = theme.colors.length >= 2 ? theme.colors : [theme.solid, theme.solid]
@@ -144,7 +182,6 @@ function applyColorVars(prefix: 'accent' | 'bg', theme: ThemeState) {
   root.style.setProperty(`--${prefix}-c`, cols[2] ?? cols[1] ?? cols[0] ?? theme.solid)
   root.style.setProperty(`--${prefix}-d`, cols[3] ?? cols[2] ?? cols[1] ?? cols[0] ?? theme.solid)
   root.style.setProperty(`--${prefix}-speed`, `${theme.speed}s`)
-  // How many distinct stops are active (2–4) — used by gradient CSS
   root.style.setProperty(`--${prefix}-stops`, String(Math.min(4, Math.max(2, cols.length))))
 }
 
@@ -170,9 +207,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     supabase
       .from('theme_settings')
-      .select(
-        'mode, solid, cycle_a, cycle_b, cycle_c, cycle_d, colors, speed, bg_mode, bg_solid, bg_cycle_a, bg_cycle_b, bg_cycle_c, bg_cycle_d, bg_colors, bg_speed, outline_color, outline_thickness'
-      )
+      .select('*')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -187,20 +222,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setThemeState(next)
         saveCached(THEME_STORAGE_KEY, next)
 
-        if (data.bg_mode) {
+        if (data.bg_mode || data.bg_json || data.bg_solid) {
           const nextBg = rowToBackgroundTheme(data)
           setBackgroundThemeState(nextBg)
           saveCached(BG_THEME_STORAGE_KEY, nextBg)
         }
 
-        if (typeof data.outline_color === 'string') {
-          const nextOutline: OutlineTheme = {
-            color: data.outline_color,
-            thickness: typeof data.outline_thickness === 'number' ? data.outline_thickness : 0,
-          }
-          setOutlineState(nextOutline)
-          saveCached(OUTLINE_STORAGE_KEY, nextOutline)
-        }
+        const nextOutline = rowToOutline(data)
+        setOutlineState(nextOutline)
+        saveCached(OUTLINE_STORAGE_KEY, nextOutline)
       })
 
     return () => {
@@ -212,53 +242,72 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!user) return
     const a = accent.colors
     const b = background.colors
+
+    const payload: Record<string, unknown> = {
+      user_id: user.id,
+      mode: accent.mode,
+      solid: accent.solid,
+      cycle_a: a[0] ?? accent.solid,
+      cycle_b: a[1] ?? a[0] ?? accent.solid,
+      cycle_c: a[2] ?? null,
+      cycle_d: a[3] ?? null,
+      colors: a,
+      speed: accent.speed,
+      bg_mode: background.mode,
+      bg_solid: background.solid,
+      bg_cycle_a: b[0] ?? background.solid,
+      bg_cycle_b: b[1] ?? b[0] ?? background.solid,
+      bg_cycle_c: b[2] ?? null,
+      bg_cycle_d: b[3] ?? null,
+      bg_colors: b,
+      bg_speed: background.speed,
+      outline_color: outlineNext.color,
+      outline_thickness: outlineNext.thickness,
+      accent_json: accent,
+      bg_json: background,
+      outline_json: outlineNext,
+      updated_at: new Date().toISOString(),
+    }
+
     supabase
       .from('theme_settings')
-      .upsert(
-        {
+      .upsert(payload, { onConflict: 'user_id' })
+      .then(({ error }) => {
+        if (!error) return
+        console.error('Failed to save theme settings (full payload):', error)
+
+        const minimal = {
           user_id: user.id,
           mode: accent.mode,
           solid: accent.solid,
           cycle_a: a[0] ?? accent.solid,
           cycle_b: a[1] ?? a[0] ?? accent.solid,
-          cycle_c: a[2] ?? null,
-          cycle_d: a[3] ?? null,
-          colors: a,
           speed: accent.speed,
           bg_mode: background.mode,
           bg_solid: background.solid,
           bg_cycle_a: b[0] ?? background.solid,
           bg_cycle_b: b[1] ?? b[0] ?? background.solid,
-          bg_cycle_c: b[2] ?? null,
-          bg_cycle_d: b[3] ?? null,
-          bg_colors: b,
           bg_speed: background.speed,
-          outline_color: outlineNext.color,
-          outline_thickness: outlineNext.thickness,
           updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-      .then(({ error }) => {
-        if (error) console.error('Failed to save theme settings:', error)
+        }
+        supabase
+          .from('theme_settings')
+          .upsert(minimal, { onConflict: 'user_id' })
+          .then(({ error: err2 }) => {
+            if (err2) console.error('Failed to save theme settings (minimal):', err2)
+          })
       })
   }
 
   const setTheme = (next: ThemeState) => {
-    const normalized: ThemeState = {
-      ...next,
-      colors: (next.colors?.length >= 2 ? next.colors : [next.solid, next.solid]).slice(0, 4),
-    }
+    const normalized = normalizeTheme(next, DEFAULT_THEME)
     setThemeState(normalized)
     saveCached(THEME_STORAGE_KEY, normalized)
     persist(normalized, backgroundTheme, outline)
   }
 
   const setBackgroundTheme = (next: ThemeState) => {
-    const normalized: ThemeState = {
-      ...next,
-      colors: (next.colors?.length >= 2 ? next.colors : [next.solid, next.solid]).slice(0, 4),
-    }
+    const normalized = normalizeTheme(next, DEFAULT_BACKGROUND_THEME)
     setBackgroundThemeState(normalized)
     saveCached(BG_THEME_STORAGE_KEY, normalized)
     persist(theme, normalized, outline)
