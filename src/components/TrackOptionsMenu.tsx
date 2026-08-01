@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import type { Track } from '../types'
+import { useOffline } from '../offline/OfflineContext'
 import './TrackOptionsMenu.css'
 
 interface TrackOptionsMenuProps {
@@ -31,6 +32,10 @@ export function TrackOptionsMenu({
 }: TrackOptionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { isDownloaded, isDownloading, download, removeDownload } = useOffline()
+
+  const downloaded = track ? isDownloaded(track.videoId) : false
+  const downloading = track ? isDownloading(track.videoId) : false
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,6 +50,20 @@ export function TrackOptionsMenu({
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen])
+
+  const handleDownload = useCallback(async () => {
+    if (!track || downloading) return
+    setIsOpen(false)
+    try {
+      if (downloaded) {
+        await removeDownload(track.videoId)
+      } else {
+        await download(track)
+      }
+    } catch (err) {
+      console.error('Download action failed:', err)
+    }
+  }, [track, downloading, downloaded, download, removeDownload])
 
   if (!track) return null
 
@@ -203,6 +222,41 @@ export function TrackOptionsMenu({
           )}
 
           <div className="track-options-divider" />
+
+          <button
+            className={`track-option-item ${downloading ? 'track-option-item-disabled' : ''}`}
+            onClick={handleDownload}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                className="track-option-spinner"
+              >
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+                <path
+                  d="M21 12a9 9 0 0 0-9-9"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : downloaded ? (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+              </svg>
+            )}
+            <span>
+              {downloading ? 'Downloading…' : downloaded ? 'Remove download' : 'Download'}
+            </span>
+          </button>
 
           <button
             className="track-option-item"

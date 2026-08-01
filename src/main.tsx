@@ -5,13 +5,16 @@ import App from './App'
 import { AuthProvider } from './auth/AuthContext'
 import { ThemeProvider } from './theme/ThemeContext'
 import { PlaylistProvider } from './playlists/PlaylistContext'
+import { OfflineProvider } from './offline/OfflineContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <ThemeProvider>
         <PlaylistProvider>
-          <App />
+          <OfflineProvider>
+            <App />
+          </OfflineProvider>
         </PlaylistProvider>
       </ThemeProvider>
     </AuthProvider>

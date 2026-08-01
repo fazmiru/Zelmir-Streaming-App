@@ -7,7 +7,7 @@ import type { Track } from '../types'
  * update this array. Kept in priority order; each search tries them in turn
  * until one responds.
  */
-const PIPED_INSTANCES = [
+export const PIPED_INSTANCES = [
   'https://pipedapi.kavin.rocks',
   'https://pipedapi-libre.kavin.rocks',
   'https://piped-api.privacy.com.de',

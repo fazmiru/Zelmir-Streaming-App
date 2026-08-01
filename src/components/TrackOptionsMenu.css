@@ -71,3 +71,18 @@
   background-color: rgba(255, 255, 255, 0.1);
   margin: 6px 0;
 }
+
+.track-option-item-disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.track-option-spinner {
+  animation: track-option-spin 0.7s linear infinite;
+}
+
+@keyframes track-option-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
