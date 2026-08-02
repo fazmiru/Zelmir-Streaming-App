@@ -4631,3 +4631,123 @@ html.theme-pulse .transport-button-main.accent-fill {
     color: rgba(255, 255, 255, 0.85) !important;
   }
 }
+
+
+/* ============================================================
+   ADAPTIVE BOTTOM NAV — any iPhone size (standalone PWA)
+   Nav is glued to the physical bottom; safe-area is padding inside,
+   never an offset that lifts the whole bar.
+   ============================================================ */
+@media (max-width: 900px) {
+  html {
+    height: 100% !important;
+    height: -webkit-fill-available !important;
+  }
+
+  body, #root {
+    min-height: 100% !important;
+    min-height: -webkit-fill-available !important;
+    min-height: 100dvh !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    background: #0b0b0d !important;
+  }
+
+  .app-shell {
+    min-height: 100% !important;
+    min-height: 100dvh !important;
+    min-height: -webkit-fill-available !important;
+    height: auto !important;
+    max-height: none !important;
+    /* Do NOT transform/filter this node — it would trap position:fixed */
+    transform: none !important;
+    filter: none !important;
+    padding-bottom: 0 !important;
+  }
+
+  :root {
+    --nav-h: 56px;
+    --player-h: 58px;
+  }
+
+  /* Bottom tab bar — physical bottom of the screen */
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-top: 1px solid var(--border) !important;
+    border-radius: 0 !important;
+    z-index: 300 !important;
+    background: var(--bg) !important;
+    box-sizing: border-box !important;
+    /* Height grows into the home-indicator; content stays above it */
+    height: auto !important;
+    min-height: var(--nav-h) !important;
+    padding: 0 !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-gap, 0px)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  .sidebar > *:not(.nav) {
+    display: none !important;
+  }
+
+  .sidebar .nav {
+    flex: 0 0 var(--nav-h) !important;
+    height: var(--nav-h) !important;
+    min-height: var(--nav-h) !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 4px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+  }
+
+  .sidebar .nav-item {
+    flex: 1 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 6px 2px !important;
+    gap: 2px !important;
+    font-size: 10px !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+
+  /* Player sits directly above the tab bar (above safe-area padding) */
+  .player-bar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: calc(var(--nav-h) + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-gap, 0px))) !important;
+    height: var(--player-h) !important;
+    min-height: var(--player-h) !important;
+    max-height: var(--player-h) !important;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    z-index: 301 !important;
+    border-radius: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    transform: none !important;
+  }
+
+  .app-main {
+    padding-bottom: calc(
+      var(--nav-h) + var(--player-h) + max(env(safe-area-inset-bottom, 0px), var(--vv-bottom-gap, 0px)) + 8px
+    ) !important;
+  }
+}
