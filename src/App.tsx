@@ -718,6 +718,8 @@ function App() {
             queue={player.queue}
             queueIndex={player.queueIndex}
             isPlaying={player.isPlaying}
+            currentTime={player.currentTime}
+            duration={player.duration}
             apiKey={API_KEY}
             shuffle={player.shuffle}
             repeatMode={player.repeatMode}
@@ -725,6 +727,7 @@ function App() {
             onToggle={player.togglePlay}
             onNext={player.next}
             onPrev={player.prev}
+            onSeek={player.seekTo}
             onToggleShuffle={player.toggleShuffle}
             onCycleRepeat={player.cycleRepeat}
             onPlayFromQueue={(track, source) => player.playTrack(track, source)}

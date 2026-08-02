@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import type { RepeatMode, Track, YouTubeSearchItem } from '../types'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import type { RepeatMode, Track } from '../types'
 import { PlayIcon, PauseIcon, NextIcon, PrevIcon, CloseIcon, ShuffleIcon, RepeatIcon } from './Icons'
 import { searchPipedTracksSimple } from '../utils/piped'
 import { fetchLyrics } from '../utils/lyrics'
 
-// YouTube always has hqdefault; maxres/sd only exist for some videos, so we
-// cascade down instead of stretching the small "medium" thumbnail we use elsewhere.
 const COVER_FALLBACKS = ['maxresdefault', 'sddefault', 'hqdefault'] as const
 
 type Tab = 'upnext' | 'lyrics' | 'recommended'
@@ -15,6 +13,8 @@ interface NowPlayingProps {
   queue: Track[]
   queueIndex: number
   isPlaying: boolean
+  currentTime: number
+  duration: number
   apiKey: string | undefined
   shuffle: boolean
   repeatMode: RepeatMode
@@ -22,19 +22,119 @@ interface NowPlayingProps {
   onToggle: () => void
   onNext: () => void
   onPrev: () => void
+  onSeek: (seconds: number) => void
   onToggleShuffle: () => void
   onCycleRepeat: () => void
   onPlayFromQueue: (track: Track, source: Track[]) => void
   onOpenArtist: (artist: string) => void
 }
 
-function toTrack(item: YouTubeSearchItem): Track {
-  return {
-    videoId: item.id.videoId,
-    title: item.snippet.title,
-    artist: item.snippet.channelTitle,
-    thumbnail: item.snippet.thumbnails.medium.url,
-  }
+function formatTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return (
+    '#' +
+    [r, g, b]
+      .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
+      .join('')
+  )
+}
+
+/** Pull a few vibrant colors from an image for the cycling play / seek accents. */
+function extractAlbumColors(imageUrl: string): Promise<string[]> {
+  return new Promise((resolve) => {
+    const fallback = ['#f0a030', '#e07020', '#c04010', '#f5c060']
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const size = 48
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          resolve(fallback)
+          return
+        }
+        ctx.drawImage(img, 0, 0, size, size)
+        const { data } = ctx.getImageData(0, 0, size, size)
+
+        // Bucket by coarse RGB for dominant colors
+        const buckets = new Map<string, { r: number; g: number; b: number; n: number; score: number }>()
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          const a = data[i + 3]
+          if (a < 128) continue
+          // Skip near-black / near-white
+          const max = Math.max(r, g, b)
+          const min = Math.min(r, g, b)
+          if (max < 40 || min > 230) continue
+          const sat = max === 0 ? 0 : (max - min) / max
+          if (sat < 0.12) continue
+          const key = `${r >> 4},${g >> 4},${b >> 4}`
+          const prev = buckets.get(key)
+          const score = sat * 1.4 + (max / 255) * 0.6
+          if (prev) {
+            prev.r += r
+            prev.g += g
+            prev.b += b
+            prev.n += 1
+            prev.score += score
+          } else {
+            buckets.set(key, { r, g, b, n: 1, score })
+          }
+        }
+
+        const ranked = [...buckets.values()]
+          .map((v) => ({
+            r: v.r / v.n,
+            g: v.g / v.n,
+            b: v.b / v.n,
+            weight: v.score,
+          }))
+          .sort((a, b) => b.weight - a.weight)
+
+        const picked: string[] = []
+        for (const c of ranked) {
+          const hex = rgbToHex(c.r, c.g, c.b)
+          // Prefer distinct hues
+          const tooClose = picked.some((p) => {
+            const pr = parseInt(p.slice(1, 3), 16)
+            const pg = parseInt(p.slice(3, 5), 16)
+            const pb = parseInt(p.slice(5, 7), 16)
+            const dr = pr - c.r
+            const dg = pg - c.g
+            const db = pb - c.b
+            return dr * dr + dg * dg + db * db < 70 * 70
+          })
+          if (tooClose) continue
+          picked.push(hex)
+          if (picked.length >= 4) break
+        }
+
+        if (picked.length === 0) {
+          resolve(fallback)
+          return
+        }
+        while (picked.length < 4) {
+          picked.push(picked[picked.length - 1])
+        }
+        resolve(picked)
+      } catch {
+        resolve(fallback)
+      }
+    }
+    img.onerror = () => resolve(fallback)
+    img.src = imageUrl
+  })
 }
 
 export function NowPlaying({
@@ -42,6 +142,8 @@ export function NowPlaying({
   queue,
   queueIndex,
   isPlaying,
+  currentTime,
+  duration,
   apiKey,
   shuffle,
   repeatMode,
@@ -49,6 +151,7 @@ export function NowPlaying({
   onToggle,
   onNext,
   onPrev,
+  onSeek,
   onToggleShuffle,
   onCycleRepeat,
   onPlayFromQueue,
@@ -70,12 +173,25 @@ export function NowPlaying({
   const [loadingLyrics, setLoadingLyrics] = useState(false)
   const lyricsFetchedFor = useRef<string | null>(null)
 
-  const upNext = queue.slice(queueIndex + 1)
+  const [albumColors, setAlbumColors] = useState<string[]>(['#f0a030', '#e07020', '#c04010', '#f5c060'])
 
-  // Reset the cover fallback cascade whenever the track changes.
+  const upNext = queue.slice(queueIndex + 1)
+  const seekProgress = duration > 0 ? (currentTime / duration) * 100 : 0
+
   useEffect(() => {
     setCoverStage(0)
   }, [track.videoId])
+
+  // Extract palette whenever cover URL is ready
+  useEffect(() => {
+    let cancelled = false
+    extractAlbumColors(coverSrc).then((colors) => {
+      if (!cancelled) setAlbumColors(colors)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [coverSrc])
 
   useEffect(() => {
     if (tab !== 'lyrics') return
@@ -84,12 +200,12 @@ export function NowPlaying({
     setLoadingLyrics(true)
     setLyrics(null)
     setLyricsNotFound(false)
-
     fetchLyrics(track.artist, track.title)
-      .then((result) => {
-        setLyrics(result.lyrics)
-        setLyricsNotFound(!!result.notFound)
+      .then((text) => {
+        if (text) setLyrics(text)
+        else setLyricsNotFound(true)
       })
+      .catch(() => setLyricsNotFound(true))
       .finally(() => setLoadingLyrics(false))
   }, [tab, track.videoId, track.artist, track.title])
 
@@ -98,53 +214,61 @@ export function NowPlaying({
     if (fetchedFor.current === track.videoId) return
     fetchedFor.current = track.videoId
     setLoadingRecommended(true)
-
-    searchPipedTracksSimple(track.artist)
-      .then(async (tracks) => {
-        const filtered = tracks.filter((t) => t.videoId !== track.videoId)
-        if (filtered.length > 0 || !apiKey) return filtered
-        // Piped returned nothing (likely every instance was down) — fall back to Google.
-        const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(
-            track.artist
-          )}&type=video&maxResults=14&key=${apiKey}`
-        )
-        const data = await response.json()
-        return (data.items || []).map(toTrack).filter((t: Track) => t.videoId !== track.videoId)
+    setRecommended([])
+    const q = `${track.artist} ${track.title.split(/[-(|]/)[0].trim()}`.trim()
+    searchPipedTracksSimple(q)
+      .then((tracks) => {
+        setRecommended(tracks.filter((t) => t.videoId !== track.videoId).slice(0, 20))
       })
-      .then((items) => setRecommended(items))
       .catch(() => setRecommended([]))
       .finally(() => setLoadingRecommended(false))
-  }, [tab, track.videoId, track.artist, apiKey])
+  }, [tab, track.videoId, track.artist, track.title, apiKey])
+
+  const npStyle = {
+    '--np-a': albumColors[0],
+    '--np-b': albumColors[1],
+    '--np-c': albumColors[2],
+    '--np-d': albumColors[3],
+  } as CSSProperties
 
   return (
-    <div className="now-playing-overlay">
-      {/* Blurred, saturated album art fills the screen — glossy colored backdrop */}
+    <div className="now-playing-overlay" style={npStyle}>
       <div className="now-playing-backdrop" aria-hidden>
-        <img src={coverSrc} alt="" className="now-playing-backdrop-img" />
+        <img
+          className="now-playing-backdrop-img"
+          src={coverSrc}
+          alt=""
+          onError={() => setCoverStage((s) => s + 1)}
+        />
         <div className="now-playing-backdrop-shade" />
         <div className="now-playing-backdrop-vignette" />
       </div>
 
-      <button className="now-playing-close" onClick={onClose} aria-label="Close now playing">
-        <CloseIcon />
-      </button>
-
       <div className="now-playing-body">
         <div className="now-playing-left">
-          <img
-            src={coverSrc}
-            alt={track.title}
-            className="now-playing-cover"
-            onError={() => setCoverStage((s) => s + 1)}
-          />
-          <h1 className="now-playing-title">{track.title}</h1>
-          <button className="now-playing-artist now-playing-artist-link" onClick={() => onOpenArtist(track.artist)}>
+          <div className="now-playing-cover-wrap">
+            <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
+              <CloseIcon size={18} />
+            </button>
+            <img
+              className="now-playing-cover"
+              src={coverSrc}
+              alt=""
+              onError={() => setCoverStage((s) => s + 1)}
+            />
+          </div>
+          <h2 className="now-playing-title">{track.title}</h2>
+          <button
+            type="button"
+            className="now-playing-artist now-playing-artist-link"
+            onClick={() => onOpenArtist(track.artist)}
+          >
             {track.artist}
           </button>
 
           <div className="now-playing-transport">
             <button
+              type="button"
               className={`transport-button transport-button-toggle ${shuffle ? 'transport-button-on' : ''}`}
               onClick={onToggleShuffle}
               aria-label="Shuffle"
@@ -153,46 +277,68 @@ export function NowPlaying({
             >
               <ShuffleIcon size={19} />
             </button>
-            <button className="transport-button" onClick={onPrev} aria-label="Previous">
+            <button type="button" className="transport-button" onClick={onPrev} aria-label="Previous">
               <PrevIcon size={22} />
             </button>
             <button
-              className="transport-button transport-button-main accent-fill now-playing-play"
+              type="button"
+              className="transport-button transport-button-main now-playing-play"
               onClick={onToggle}
-              aria-label="Play or pause"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
             </button>
-            <button className="transport-button" onClick={onNext} aria-label="Next">
+            <button type="button" className="transport-button" onClick={onNext} aria-label="Next">
               <NextIcon size={22} />
             </button>
             <button
+              type="button"
               className={`transport-button transport-button-toggle ${repeatMode !== 'off' ? 'transport-button-on' : ''}`}
               onClick={onCycleRepeat}
               aria-label="Repeat"
               title={repeatMode === 'off' ? 'Repeat off' : repeatMode === 'all' ? 'Repeat all' : 'Repeat one'}
             >
               <RepeatIcon size={19} />
-              {repeatMode === 'one' && <span className="repeat-one-dot accent-fill" />}
+              {repeatMode === 'one' && <span className="repeat-one-dot now-playing-dot" />}
             </button>
+          </div>
+
+          {/* Seek / duration bar */}
+          <div className="now-playing-seek">
+            <span className="now-playing-time">{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              className="now-playing-seek-bar"
+              min={0}
+              max={duration > 0 ? duration : 100}
+              step={0.1}
+              value={currentTime}
+              onChange={(e) => onSeek(Number(e.target.value))}
+              style={{ '--progress': `${seekProgress}%` } as CSSProperties}
+              aria-label="Seek"
+            />
+            <span className="now-playing-time">{formatTime(duration)}</span>
           </div>
         </div>
 
         <div className="now-playing-right">
           <div className="now-playing-tabs">
             <button
+              type="button"
               className={`now-playing-tab ${tab === 'upnext' ? 'now-playing-tab-active' : ''}`}
               onClick={() => setTab('upnext')}
             >
               Up next
             </button>
             <button
+              type="button"
               className={`now-playing-tab ${tab === 'lyrics' ? 'now-playing-tab-active' : ''}`}
               onClick={() => setTab('lyrics')}
             >
               Lyrics
             </button>
             <button
+              type="button"
               className={`now-playing-tab ${tab === 'recommended' ? 'now-playing-tab-active' : ''}`}
               onClick={() => setTab('recommended')}
             >
@@ -206,7 +352,7 @@ export function NowPlaying({
                 <div className="now-playing-row now-playing-row-current">
                   <img src={track.thumbnail} alt="" className="now-playing-row-thumb" />
                   <div className="now-playing-row-meta">
-                    <span className="now-playing-row-title accent-text">{track.title}</span>
+                    <span className="now-playing-row-title">{track.title}</span>
                     <span className="now-playing-row-artist">{track.artist}</span>
                   </div>
                 </div>
@@ -217,7 +363,11 @@ export function NowPlaying({
                   </p>
                 ) : (
                   upNext.map((t) => (
-                    <div key={t.videoId} className="now-playing-row" onClick={() => onPlayFromQueue(t, queue)}>
+                    <div
+                      key={t.videoId}
+                      className="now-playing-row"
+                      onClick={() => onPlayFromQueue(t, queue)}
+                    >
                       <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
                       <div className="now-playing-row-meta">
                         <span className="now-playing-row-title">{t.title}</span>
@@ -232,14 +382,12 @@ export function NowPlaying({
             {tab === 'lyrics' && (
               <div className="now-playing-lyrics">
                 {loadingLyrics && <p className="now-playing-empty">Looking up lyrics…</p>}
-
                 {!loadingLyrics && lyrics && <p className="now-playing-lyrics-text">{lyrics}</p>}
-
                 {!loadingLyrics && !lyrics && (
                   <div className="now-playing-lyrics-placeholder">
                     <p>{lyricsNotFound ? "Couldn't find lyrics for this track." : 'Lyrics unavailable.'}</p>
                     <a
-                      className="now-playing-lyrics-link accent-text"
+                      className="now-playing-lyrics-link"
                       href={`https://genius.com/search?q=${encodeURIComponent(`${track.artist} ${track.title}`)}`}
                       target="_blank"
                       rel="noreferrer"
@@ -256,7 +404,11 @@ export function NowPlaying({
                 {loadingRecommended && <p className="now-playing-empty">Finding similar tracks…</p>}
                 {!loadingRecommended &&
                   recommended.map((t) => (
-                    <div key={t.videoId} className="now-playing-row" onClick={() => onPlayFromQueue(t, recommended)}>
+                    <div
+                      key={t.videoId}
+                      className="now-playing-row"
+                      onClick={() => onPlayFromQueue(t, recommended)}
+                    >
                       <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
                       <div className="now-playing-row-meta">
                         <span className="now-playing-row-title">{t.title}</span>

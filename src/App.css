@@ -1247,6 +1247,19 @@ button.track-artist-link:hover {
   );
 }
 
+.now-playing-cover-wrap {
+  position: relative;
+  display: inline-block;
+  width: min(100%, 420px);
+  max-width: 420px;
+}
+
+.now-playing-cover-wrap .now-playing-cover {
+  width: 100%;
+  max-width: none;
+  display: block;
+}
+
 .now-playing-close {
   position: relative;
   z-index: 1;
@@ -2893,54 +2906,12 @@ button.now-playing-artist-link:hover {
   color: var(--text-dim);
 }
 
-/* ---- Play button: accent fill + optional outline, dark icon ---- */
-.transport-button-main,
-.transport-button-main.accent-fill,
-.player-controls .transport-button-main,
-.now-playing-transport .transport-button-main {
-  background: var(--accent-solid) !important;
-  color: #0b0b0d !important;
+/* Play button base — theme modes applied in FINAL ACCENT block at file end */
+.transport-button-main {
   border-radius: 50%;
-  border: var(--btn-outline-width) solid var(--btn-outline-color) !important;
+  color: #0b0b0d;
   box-sizing: border-box;
 }
-
-.theme-cycle .transport-button-main,
-.theme-cycle .transport-button-main.accent-fill,
-.theme-cycle .player-controls .transport-button-main,
-.theme-cycle .now-playing-transport .transport-button-main {
-  /* Must override the solid `background` shorthand, not only background-image */
-  background: linear-gradient(
-    90deg,
-    var(--accent-a) 0%,
-    var(--accent-b) 12.5%,
-    var(--accent-c) 25%,
-    var(--accent-d) 37.5%,
-    var(--accent-a) 50%,
-    var(--accent-b) 62.5%,
-    var(--accent-c) 75%,
-    var(--accent-d) 87.5%,
-    var(--accent-a) 100%
-  ) !important;
-  background-size: 200% 100% !important;
-  background-repeat: repeat !important;
-  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
-}
-
-.theme-pulse .transport-button-main,
-.theme-pulse .transport-button-main.accent-fill,
-.theme-pulse .player-controls .transport-button-main,
-.theme-pulse .now-playing-transport .transport-button-main {
-  background: linear-gradient(
-    90deg,
-    var(--accent-a),
-    var(--accent-b),
-    var(--accent-c),
-    var(--accent-d)
-  ) !important;
-  animation: accent-pulse var(--accent-speed, 4s) ease-in-out infinite !important;
-}
-
 .transport-button-main svg,
 .player-controls .transport-button-main svg,
 .now-playing-transport .transport-button-main svg {
@@ -3817,11 +3788,43 @@ html, body, #root, .app-shell, .app-main {
     background: var(--bg) !important;
   }
 
-  .sidebar > * {
-    display: revert !important;
+  .sidebar .wordmark,
+  .sidebar .nav,
+  .sidebar .sidebar-divider,
+  .sidebar .playlists-section,
+  .sidebar .sidebar-footer,
+  .sidebar .sidebar-new-playlist,
+  .sidebar .sidebar-spotify-import {
+    display: flex !important;
+  }
+
+  .sidebar .sidebar-divider {
+    display: block !important;
+    height: 1px !important;
+    width: 100% !important;
+    background: var(--border) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sidebar .wordmark {
+    display: block !important;
+  }
+
+  .sidebar .playlists-section {
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    gap: 8px !important;
+  }
+
+  .sidebar .sidebar-footer {
+    flex-direction: column !important;
+    margin-top: auto !important;
   }
 
   .sidebar .nav {
+    display: flex !important;
     flex-direction: column !important;
     height: auto !important;
     min-height: 0 !important;
@@ -3830,21 +3833,74 @@ html, body, #root, .app-shell, .app-main {
     gap: 2px !important;
     justify-content: flex-start !important;
     align-items: stretch !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .sidebar .nav-item {
+    display: flex !important;
     flex: none !important;
+    flex-direction: row !important;
+    align-items: center !important;
     height: auto !important;
     min-height: 0 !important;
+    width: 100% !important;
     padding: 11px 16px !important;
     font-size: 14px !important;
+    font-weight: 500 !important;
     gap: 16px !important;
-    flex-direction: row !important;
+    border-radius: 999px !important;
+    color: var(--text-dim) !important;
+    background: transparent !important;
+  }
+
+  .sidebar .nav-item:hover {
+    background: var(--surface-2) !important;
+    color: var(--text) !important;
+  }
+
+  .sidebar .nav-item-active {
+    background: var(--surface-3) !important;
+    color: var(--text) !important;
+  }
+
+  .sidebar .nav-item span {
+    display: inline !important;
+    font-size: 14px !important;
   }
 
   .sidebar .nav-icon {
     width: 20px !important;
     height: 20px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sidebar .sidebar-new-playlist {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: calc(100% - 8px) !important;
+    margin: 0 4px 6px !important;
+    padding: 8px 8px 8px 10px !important;
+    border-radius: 999px !important;
+    background: var(--surface-3) !important;
+    color: var(--text) !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+
+  .sidebar .sidebar-spotify-import {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 10px !important;
+    width: calc(100% - 8px) !important;
+    margin: 0 4px 10px !important;
+    padding: 9px 14px !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-dim) !important;
+    font-size: 13px !important;
   }
 
   .app-main {
@@ -4182,5 +4238,298 @@ html, body, #root, .app-shell, .app-main {
     width: 36px !important;
     height: 36px !important;
     border-radius: 50% !important;
+  }
+}
+
+
+/* ============================================================
+   FINAL: play button accent cycle (must win over all earlier rules)
+   ============================================================ */
+html.theme-solid .transport-button-main,
+html.theme-solid .transport-button-main.accent-fill {
+  background: var(--accent-solid) !important;
+  background-image: none !important;
+  animation: none !important;
+  color: #0b0b0d !important;
+  border: var(--btn-outline-width, 0px) solid var(--btn-outline-color, transparent) !important;
+}
+
+html.theme-cycle .transport-button-main,
+html.theme-cycle .transport-button-main.accent-fill {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a) 0%,
+    var(--accent-b) 14%,
+    var(--accent-c) 28%,
+    var(--accent-d) 42%,
+    var(--accent-a) 56%,
+    var(--accent-b) 70%,
+    var(--accent-c) 84%,
+    var(--accent-d) 100%
+  ) !important;
+  background-size: 300% 100% !important;
+  background-repeat: repeat !important;
+  background-position: 0% 50% !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+  color: #0b0b0d !important;
+  border: var(--btn-outline-width, 0px) solid var(--btn-outline-color, transparent) !important;
+}
+
+html.theme-pulse .transport-button-main,
+html.theme-pulse .transport-button-main.accent-fill {
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d)
+  ) !important;
+  background-size: 100% 100% !important;
+  animation: accent-pulse var(--accent-speed, 4s) ease-in-out infinite !important;
+  color: #0b0b0d !important;
+}
+
+/* ============================================================
+   FINAL desktop sidebar (901+) — clean nav, one active item
+   ============================================================ */
+@media (min-width: 901px) {
+  .sidebar .nav-item {
+    background: transparent !important;
+    color: var(--text-dim) !important;
+  }
+  .sidebar .nav-item:hover {
+    background: var(--surface-2) !important;
+    color: var(--text) !important;
+  }
+  .sidebar .nav-item-active,
+  .sidebar .nav-item.nav-item-active {
+    background: var(--surface-3) !important;
+    color: var(--text) !important;
+  }
+  .sidebar .nav-item-active:hover {
+    background: var(--surface-3) !important;
+  }
+}
+
+
+/* ============================================================
+   Now Playing — seek bar + album-color cycling play button
+   ============================================================ */
+
+.now-playing-seek {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(360px, 100%);
+  margin-top: 18px;
+}
+
+.now-playing-time {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.now-playing-time:last-child {
+  text-align: right;
+}
+
+.now-playing-seek-bar {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--np-a, #f0a030) 0%,
+    var(--np-b, #e07020) var(--progress, 0%),
+    rgba(255, 255, 255, 0.2) var(--progress, 0%),
+    rgba(255, 255, 255, 0.2) 100%
+  );
+}
+
+.now-playing-seek-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--np-a, #f0a030);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.now-playing-seek-bar::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--np-a, #f0a030);
+  border: none;
+  cursor: pointer;
+}
+
+/* Play button: cycle left→right using colors pulled from the album art */
+.now-playing-play {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  color: #0b0b0d !important;
+  border: none !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    var(--np-a, #f0a030) 0%,
+    var(--np-b, #e07020) 25%,
+    var(--np-c, #c04010) 50%,
+    var(--np-d, #f5c060) 75%,
+    var(--np-a, #f0a030) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: repeat !important;
+  animation: accent-slide 4s linear infinite !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.now-playing-play svg {
+  fill: #0b0b0d !important;
+  color: #0b0b0d !important;
+}
+
+.now-playing-dot {
+  background: var(--np-a, #f0a030) !important;
+}
+
+@media (max-width: 700px) {
+  .now-playing-seek {
+    width: 100%;
+    max-width: 320px;
+    margin-top: 14px;
+  }
+
+  .now-playing-play {
+    width: 52px !important;
+    height: 52px !important;
+  }
+}
+
+
+/* ============================================================
+   CLOSE ON COVER + mobile seek bar
+   ============================================================ */
+
+.now-playing-cover-wrap {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 0 auto;
+}
+
+.now-playing-cover-wrap .now-playing-cover {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}
+
+/* X sits on the top-right corner of the album art */
+.now-playing-cover-wrap .now-playing-close {
+  position: absolute !important;
+  top: 10px !important;
+  right: 10px !important;
+  left: auto !important;
+  z-index: 5 !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  cursor: pointer;
+}
+
+.now-playing-cover-wrap .now-playing-close:hover {
+  background: rgba(0, 0, 0, 0.65) !important;
+}
+
+/* Seek always visible under transport (desktop + mobile) */
+.now-playing-seek {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: min(360px, 100%) !important;
+  margin: 16px auto 0 !important;
+}
+
+.now-playing-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  .now-playing-overlay {
+    padding: 12px 16px 20px !important;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  .now-playing-body {
+    flex-direction: column !important;
+    gap: 16px !important;
+    overflow-y: auto !important;
+  }
+
+  .now-playing-left {
+    width: 100% !important;
+    align-items: center !important;
+  }
+
+  .now-playing-cover-wrap {
+    width: min(100%, 280px) !important;
+    max-width: 280px !important;
+  }
+
+  .now-playing-title {
+    font-size: 18px !important;
+    text-align: center !important;
+    margin-top: 14px !important;
+  }
+
+  .now-playing-artist,
+  button.now-playing-artist-link {
+    text-align: center !important;
+  }
+
+  .now-playing-transport {
+    justify-content: center !important;
+    gap: 18px !important;
+    margin-top: 8px !important;
+  }
+
+  .now-playing-seek {
+    width: 100% !important;
+    max-width: 300px !important;
+    margin-top: 14px !important;
+    display: flex !important;
+  }
+
+  .now-playing-right {
+    width: 100% !important;
+  }
+
+  .now-playing-cover-wrap .now-playing-close {
+    top: 8px !important;
+    right: 8px !important;
+    width: 34px !important;
+    height: 34px !important;
   }
 }
