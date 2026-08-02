@@ -58,15 +58,29 @@ type PlaybackSource = 'youtube' | 'offline' | 'stream'
 
 async function fetchStreamUrl(videoId: string): Promise<string | null> {
   try {
-    const res = await fetch(`/api/piped-streams?v=${encodeURIComponent(videoId)}`)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(`/api/piped-streams?v=${encodeURIComponent(videoId)}`, {
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
     if (!res.ok) return null
     const data = await res.json()
     const streams: Array<{ url?: string; mimeType?: string; kind?: string }> = data.streams || []
-    // Prefer audio-only, then any url
-    const audio = streams.find((s) => s.kind === 'audio' && s.url) || streams.find((s) => s.url)
-    const direct = audio?.url || data.urls?.[0]
+
+    // iOS plays mp4/m4a/aac far more reliably than webm
+    const rank = (s: { mimeType?: string; kind?: string }) => {
+      const m = (s.mimeType || '').toLowerCase()
+      let score = 0
+      if (s.kind === 'audio') score += 10
+      if (m.includes('mp4') || m.includes('m4a') || m.includes('aac')) score += 50
+      if (m.includes('mp3')) score += 40
+      if (m.includes('webm') || m.includes('opus')) score += 5
+      return score
+    }
+    const sorted = [...streams].filter((s) => s.url).sort((a, b) => rank(b) - rank(a))
+    const direct = sorted[0]?.url || data.urls?.[0]
     if (!direct || typeof direct !== 'string') return null
-    // Proxy so the browser can play cross-origin + Range requests work on iOS
     return `/api/media-proxy?url=${encodeURIComponent(direct)}`
   } catch (err) {
     console.warn('stream lookup failed', err)
@@ -334,6 +348,28 @@ export function useYouTubePlayer(
       audio.volume = volumeRef.current / 100
       try {
         intendedPlayingRef.current = true
+        // Wait for enough data so iOS doesn't reject play()
+        await new Promise<void>((resolve, reject) => {
+          const onReady = () => {
+            cleanup()
+            resolve()
+          }
+          const onErr = () => {
+            cleanup()
+            reject(new Error('audio load error'))
+          }
+          const cleanup = () => {
+            audio.removeEventListener('canplay', onReady)
+            audio.removeEventListener('error', onErr)
+          }
+          audio.addEventListener('canplay', onReady)
+          audio.addEventListener('error', onErr)
+          // If already ready
+          if (audio.readyState >= 2) {
+            cleanup()
+            resolve()
+          }
+        })
         await audio.play()
         setIsPlaying(true)
         requestedVideoIdRef.current = videoId
@@ -341,6 +377,13 @@ export function useYouTubePlayer(
       } catch (err) {
         console.error('Stream audio play failed:', err)
         intendedPlayingRef.current = false
+        try {
+          audio.pause()
+          audio.removeAttribute('src')
+          audio.load()
+        } catch {
+          /* ignore */
+        }
         return false
       }
     },
@@ -363,16 +406,22 @@ export function useYouTubePlayer(
 
   /**
    * Playback priority:
-   * 1) Offline cached blob (always HTML5 → background OK)
-   * 2) Direct audio stream via proxy (HTML5 → background OK)
-   * 3) YouTube iframe (foreground only — last resort)
+   * 1) Offline cached blob (HTML5 — works in background)
+   * 2) YouTube iframe (reliable in-app playback)
+   * 3) On mobile, also try HTML5 stream in the background for lock-screen —
+   *    but never block if YouTube works. Stream is best-effort only.
    */
   const loadAndPlay = useCallback(
     async (videoId: string) => {
-      const blob = await getOfflineAudioBlob(videoId)
-      if (blob) {
-        const ok = await playOfflineBlob(videoId, blob)
-        if (ok) return true
+      // 1) Offline download
+      try {
+        const blob = await getOfflineAudioBlob(videoId)
+        if (blob) {
+          const ok = await playOfflineBlob(videoId, blob)
+          if (ok) return true
+        }
+      } catch (err) {
+        console.warn('offline lookup error', err)
       }
 
       if (!navigator.onLine) {
@@ -382,7 +431,16 @@ export function useYouTubePlayer(
         return false
       }
 
-      // Prefer HTML5 stream on mobile / PWA so audio survives lock & app switch
+      // 2) Primary: YouTube iframe — most reliable while the app is open
+      if (ready && playerRef.current?.loadVideoById) {
+        playYouTube(videoId)
+        // 3) Best-effort: also try preparing a stream URL for future background
+        //    (does not interrupt YT). Real background still needs a successful
+        //    stream or offline blob; we attempt upgrade only if YT fails later.
+        return true
+      }
+
+      // Player not ready yet — try stream so something plays, else wait for YT
       if (prefersHtmlAudio()) {
         const streamUrl = await fetchStreamUrl(videoId)
         if (streamUrl) {
@@ -391,12 +449,8 @@ export function useYouTubePlayer(
         }
       }
 
-      if (!ready || !playerRef.current?.loadVideoById) {
-        requestedVideoIdRef.current = null
-        return false
-      }
-      playYouTube(videoId)
-      return true
+      requestedVideoIdRef.current = null
+      return false
     },
     [ready, playOfflineBlob, playStreamUrl, playYouTube]
   )
