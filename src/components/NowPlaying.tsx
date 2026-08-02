@@ -201,8 +201,8 @@ export function NowPlaying({
     setLyrics(null)
     setLyricsNotFound(false)
     fetchLyrics(track.artist, track.title)
-      .then((text) => {
-        if (text) setLyrics(text)
+      .then((result) => {
+        if (result.lyrics) setLyrics(result.lyrics)
         else setLyricsNotFound(true)
       })
       .catch(() => setLyricsNotFound(true))
