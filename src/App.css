@@ -1195,12 +1195,17 @@ button.track-artist-link:hover {
   position: fixed;
   inset: 0;
   background: #0a0a0c;
-  z-index: 200;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   padding: 24px 40px 32px;
   overflow: hidden;
   isolation: isolate;
+  /* iOS PWA: use dynamic viewport so content isn't clipped */
+  height: 100%;
+  height: 100dvh;
+  height: -webkit-fill-available;
+  box-sizing: border-box;
 }
 
 /* ---- Blurred glossy album-art backdrop ---- */
@@ -4531,5 +4536,98 @@ html.theme-pulse .transport-button-main.accent-fill {
     right: 8px !important;
     width: 34px !important;
     height: 34px !important;
+  }
+}
+
+
+/* ============================================================
+   NOW PLAYING PWA BLACK SCREEN FIX
+   iOS standalone often paints large filter:blur layers as solid black.
+   ============================================================ */
+@media (max-width: 900px) {
+  .now-playing-overlay {
+    z-index: 9999 !important;
+    background: #121214 !important;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px
+      calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    height: 100% !important;
+    height: 100dvh !important;
+    height: -webkit-fill-available !important;
+  }
+
+  /* Soft color wash instead of heavy blur (blur = black on many iPhones) */
+  .now-playing-backdrop-img {
+    filter: none !important;
+    transform: none !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    opacity: 0.35 !important;
+  }
+
+  .now-playing-backdrop-shade {
+    background: linear-gradient(
+      to bottom,
+      rgba(10, 10, 14, 0.55) 0%,
+      rgba(10, 10, 14, 0.82) 55%,
+      rgba(10, 10, 14, 0.95) 100%
+    ) !important;
+  }
+
+  .now-playing-body {
+    flex-direction: column !important;
+    gap: 16px !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+
+  .now-playing-left {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .now-playing-cover-wrap {
+    width: min(72vw, 280px) !important;
+    max-width: 280px !important;
+  }
+
+  .now-playing-cover-wrap .now-playing-cover,
+  .now-playing-cover {
+    width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    object-fit: cover !important;
+    border-radius: 12px !important;
+    /* Avoid filter-based shadows that can fail on iOS */
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .now-playing-title,
+  .now-playing-artist,
+  button.now-playing-artist-link {
+    color: #fff !important;
+    opacity: 1 !important;
+  }
+
+  .now-playing-right {
+    width: 100% !important;
+    flex: none !important;
+    min-height: 200px !important;
+  }
+
+  .now-playing-panel {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .now-playing-transport .transport-button {
+    color: rgba(255, 255, 255, 0.85) !important;
   }
 }
