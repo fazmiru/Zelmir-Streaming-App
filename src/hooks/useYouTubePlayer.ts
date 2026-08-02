@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useCallback, type RefObject } from 'react'
 import type { RepeatMode, Track } from '../types'
 import { getOfflineAudioBlob } from '../utils/offline'
 
-// Minimal shape of the bits of the YouTube IFrame API we use.
 declare global {
   interface Window {
     YT: any
@@ -25,7 +24,6 @@ function loadYouTubeApi(): Promise<void> {
   return apiPromise
 }
 
-/** Picks the next queue index given shuffle/repeat state. Returns null when playback should stop. */
 function computeNextIndex(
   currentIndex: number,
   queueLength: number,
@@ -44,7 +42,37 @@ function computeNextIndex(
   return repeatMode === 'all' ? 0 : null
 }
 
-type PlaybackSource = 'youtube' | 'offline'
+/** True when HTML5 audio can keep playing after the tab/app is backgrounded. */
+function prefersHtmlAudio(): boolean {
+  if (typeof window === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true
+  // Always prefer stream audio on mobile / PWA — YouTube iframe dies in background
+  return isIOS || isStandalone || /Android/i.test(ua) || window.innerWidth <= 900
+}
+
+type PlaybackSource = 'youtube' | 'offline' | 'stream'
+
+async function fetchStreamUrl(videoId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/piped-streams?v=${encodeURIComponent(videoId)}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    const streams: Array<{ url?: string; mimeType?: string; kind?: string }> = data.streams || []
+    // Prefer audio-only, then any url
+    const audio = streams.find((s) => s.kind === 'audio' && s.url) || streams.find((s) => s.url)
+    const direct = audio?.url || data.urls?.[0]
+    if (!direct || typeof direct !== 'string') return null
+    // Proxy so the browser can play cross-origin + Range requests work on iOS
+    return `/api/media-proxy?url=${encodeURIComponent(direct)}`
+  } catch (err) {
+    console.warn('stream lookup failed', err)
+    return null
+  }
+}
 
 export function useYouTubePlayer(
   containerRef: RefObject<HTMLDivElement>,
@@ -59,6 +87,7 @@ export function useYouTubePlayer(
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const sourceRef = useRef<PlaybackSource>('youtube')
+  const intendedPlayingRef = useRef(false)
 
   const [ready, setReady] = useState(false)
   const [queue, setQueue] = useState<Track[]>([])
@@ -70,15 +99,14 @@ export function useYouTubePlayer(
   const [shuffle, setShuffle] = useState(false)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
 
-  // Refs so event handlers always see current values.
   const queueRef = useRef(queue)
   const queueIndexRef = useRef(queueIndex)
+  const isPlayingRef = useRef(isPlaying)
   const shuffleRef = useRef(shuffle)
   const repeatModeRef = useRef(repeatMode)
+  const volumeRef = useRef(volume)
   const historyRef = useRef<number[]>([])
   const requestedVideoIdRef = useRef<string | null>(null)
-  const volumeRef = useRef(volume)
-  const isPlayingRef = useRef(isPlaying)
 
   useEffect(() => {
     queueRef.current = queue
@@ -86,6 +114,9 @@ export function useYouTubePlayer(
   useEffect(() => {
     queueIndexRef.current = queueIndex
   }, [queueIndex])
+  useEffect(() => {
+    isPlayingRef.current = isPlaying
+  }, [isPlaying])
   useEffect(() => {
     shuffleRef.current = shuffle
   }, [shuffle])
@@ -95,9 +126,6 @@ export function useYouTubePlayer(
   useEffect(() => {
     volumeRef.current = volume
   }, [volume])
-  useEffect(() => {
-    isPlayingRef.current = isPlaying
-  }, [isPlaying])
 
   const current = queue[queueIndex] ?? null
 
@@ -108,82 +136,94 @@ export function useYouTubePlayer(
     }
   }
 
-  const stopOfflineAudio = useCallback(() => {
-    const a = audioRef.current
-    if (a) {
-      a.pause()
-      a.removeAttribute('src')
-      a.load()
-    }
-    revokeObjectUrl()
-  }, [])
-
   const stopYouTube = useCallback(() => {
     try {
       playerRef.current?.pauseVideo?.()
       playerRef.current?.stopVideo?.()
     } catch {
-      // ignore
+      /* ignore */
     }
+  }, [])
+
+  const stopHtmlAudio = useCallback(() => {
+    const a = audioRef.current
+    if (!a) return
+    try {
+      a.pause()
+      a.removeAttribute('src')
+      a.load()
+    } catch {
+      /* ignore */
+    }
+    revokeObjectUrl()
   }, [])
 
   const handleTrackEnded = useCallback(() => {
     if (repeatModeRef.current === 'one') {
-      if (sourceRef.current === 'offline' && audioRef.current) {
+      if (sourceRef.current === 'youtube') {
+        playerRef.current?.seekTo?.(0, true)
+        playerRef.current?.playVideo?.()
+      } else if (audioRef.current) {
         audioRef.current.currentTime = 0
         void audioRef.current.play()
-        return
       }
-      playerRef.current?.seekTo?.(0, true)
-      playerRef.current?.playVideo?.()
       return
     }
-    const next = computeNextIndex(
+    const nextIndex = computeNextIndex(
       queueIndexRef.current,
       queueRef.current.length,
       shuffleRef.current,
       repeatModeRef.current
     )
-    if (next !== null) {
-      historyRef.current.push(queueIndexRef.current)
-      setQueueIndex(next)
-      // loadAndPlay is triggered by the effect / next() path via requestedVideoIdRef reset
-      requestedVideoIdRef.current = null
-    } else {
+    if (nextIndex === null) {
       setIsPlaying(false)
-      // Playlist / queue finished (not looping) — let the app continue with recommendations
-      try {
-        onQueueEndedRef.current?.()
-      } catch {
-        // ignore
-      }
+      intendedPlayingRef.current = false
+      onQueueEndedRef.current?.()
+      return
     }
+    historyRef.current.push(queueIndexRef.current)
+    setQueueIndex(nextIndex)
+    requestedVideoIdRef.current = null
   }, [])
 
-  // Hidden <audio> for offline blob playback
+  // Hidden <audio> — offline blobs + streamed audio (background-capable)
   useEffect(() => {
     const audio = new Audio()
     audio.preload = 'auto'
+    audio.setAttribute('playsinline', 'true')
+    audio.setAttribute('webkit-playsinline', 'true')
+    // Helps some browsers treat this as media that can continue in background
+    ;(audio as any).disableRemotePlayback = false
     audioRef.current = audio
 
-    const onPlay = () => setIsPlaying(true)
+    const onPlay = () => {
+      setIsPlaying(true)
+      intendedPlayingRef.current = true
+    }
     const onPause = () => {
-      if (sourceRef.current === 'offline') setIsPlaying(false)
+      // Only clear playing if we meant to pause (not a transient browser pause)
+      if (!intendedPlayingRef.current) setIsPlaying(false)
+      else setIsPlaying(false)
     }
     const onEnded = () => {
-      if (sourceRef.current === 'offline') handleTrackEnded()
+      if (sourceRef.current === 'offline' || sourceRef.current === 'stream') handleTrackEnded()
     }
     const onTime = () => {
-      if (sourceRef.current !== 'offline') return
+      if (sourceRef.current !== 'offline' && sourceRef.current !== 'stream') return
       setCurrentTime(audio.currentTime)
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration)
       }
     }
     const onMeta = () => {
-      if (sourceRef.current !== 'offline') return
+      if (sourceRef.current !== 'offline' && sourceRef.current !== 'stream') return
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration)
+      }
+    }
+    const onError = () => {
+      if (sourceRef.current === 'stream' || sourceRef.current === 'offline') {
+        console.warn('HTML audio error', audio.error)
       }
     }
 
@@ -192,6 +232,7 @@ export function useYouTubePlayer(
     audio.addEventListener('ended', onEnded)
     audio.addEventListener('timeupdate', onTime)
     audio.addEventListener('loadedmetadata', onMeta)
+    audio.addEventListener('error', onError)
 
     return () => {
       audio.removeEventListener('play', onPlay)
@@ -199,35 +240,43 @@ export function useYouTubePlayer(
       audio.removeEventListener('ended', onEnded)
       audio.removeEventListener('timeupdate', onTime)
       audio.removeEventListener('loadedmetadata', onMeta)
+      audio.removeEventListener('error', onError)
       audio.pause()
       revokeObjectUrl()
       audioRef.current = null
     }
   }, [handleTrackEnded])
 
+  // YouTube iframe (fallback when streams unavailable — does NOT background on iOS)
   useEffect(() => {
     let cancelled = false
-    loadYouTubeApi().then(() => {
+    const target = containerRef.current
+    if (!target) return
+
+    void loadYouTubeApi().then(() => {
       if (cancelled || !containerRef.current) return
-
-      const target = document.createElement('div')
-      containerRef.current.appendChild(target)
-
-      playerRef.current = new window.YT.Player(target, {
-        height: '1',
-        width: '1',
-        playerVars: { playsinline: 1 },
+      playerRef.current = new window.YT.Player(containerRef.current, {
+        height: '0',
+        width: '0',
+        playerVars: {
+          playsinline: 1,
+          controls: 0,
+          rel: 0,
+          modestbranding: 1,
+        },
         events: {
-          onReady: (e: any) => {
-            e.target.setVolume(volumeRef.current)
-            setReady(true)
-          },
+          onReady: () => setReady(true),
           onStateChange: (e: any) => {
             if (sourceRef.current !== 'youtube') return
-            const YT = window.YT
-            if (e.data === YT.PlayerState.PLAYING) setIsPlaying(true)
-            if (e.data === YT.PlayerState.PAUSED) setIsPlaying(false)
-            if (e.data === YT.PlayerState.ENDED) {
+            if (e.data === window.YT.PlayerState.PLAYING) {
+              setIsPlaying(true)
+              intendedPlayingRef.current = true
+            }
+            if (e.data === window.YT.PlayerState.PAUSED) {
+              setIsPlaying(false)
+              intendedPlayingRef.current = false
+            }
+            if (e.data === window.YT.PlayerState.ENDED) {
               handleTrackEnded()
             }
           },
@@ -237,52 +286,86 @@ export function useYouTubePlayer(
 
     return () => {
       cancelled = true
-      if (playerRef.current?.destroy) {
-        playerRef.current.destroy()
-        playerRef.current = null
+      try {
+        playerRef.current?.destroy?.()
+      } catch {
+        /* ignore */
       }
+      playerRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [containerRef, handleTrackEnded])
 
-  const playOfflineBlob = useCallback(async (videoId: string, blob: Blob) => {
-    stopYouTube()
-    sourceRef.current = 'offline'
-    const audio = audioRef.current
-    if (!audio) return false
+  const playOfflineBlob = useCallback(
+    async (videoId: string, blob: Blob) => {
+      stopYouTube()
+      sourceRef.current = 'offline'
+      const audio = audioRef.current
+      if (!audio) return false
 
-    revokeObjectUrl()
-    const url = URL.createObjectURL(blob)
-    objectUrlRef.current = url
-    audio.src = url
-    audio.volume = volumeRef.current / 100
-    try {
-      await audio.play()
-      setIsPlaying(true)
-      requestedVideoIdRef.current = videoId
-      return true
-    } catch (err) {
-      console.error('Offline audio play failed:', err)
-      return false
-    }
-  }, [stopYouTube])
+      revokeObjectUrl()
+      const url = URL.createObjectURL(blob)
+      objectUrlRef.current = url
+      audio.src = url
+      audio.volume = volumeRef.current / 100
+      try {
+        intendedPlayingRef.current = true
+        await audio.play()
+        setIsPlaying(true)
+        requestedVideoIdRef.current = videoId
+        return true
+      } catch (err) {
+        console.error('Offline audio play failed:', err)
+        intendedPlayingRef.current = false
+        return false
+      }
+    },
+    [stopYouTube]
+  )
+
+  const playStreamUrl = useCallback(
+    async (videoId: string, streamUrl: string) => {
+      stopYouTube()
+      sourceRef.current = 'stream'
+      const audio = audioRef.current
+      if (!audio) return false
+
+      revokeObjectUrl()
+      audio.src = streamUrl
+      audio.volume = volumeRef.current / 100
+      try {
+        intendedPlayingRef.current = true
+        await audio.play()
+        setIsPlaying(true)
+        requestedVideoIdRef.current = videoId
+        return true
+      } catch (err) {
+        console.error('Stream audio play failed:', err)
+        intendedPlayingRef.current = false
+        return false
+      }
+    },
+    [stopYouTube]
+  )
 
   const playYouTube = useCallback(
     (videoId: string) => {
-      stopOfflineAudio()
+      stopHtmlAudio()
       sourceRef.current = 'youtube'
       const p = playerRef.current
       if (!p?.loadVideoById) return
       requestedVideoIdRef.current = videoId
+      intendedPlayingRef.current = true
       p.loadVideoById(videoId)
       p.playVideo()
     },
-    [stopOfflineAudio]
+    [stopHtmlAudio]
   )
 
   /**
-   * Prefer cached offline audio; fall back to YouTube when online.
-   * Returns true if something started playing.
+   * Playback priority:
+   * 1) Offline cached blob (always HTML5 → background OK)
+   * 2) Direct audio stream via proxy (HTML5 → background OK)
+   * 3) YouTube iframe (foreground only — last resort)
    */
   const loadAndPlay = useCallback(
     async (videoId: string) => {
@@ -292,32 +375,39 @@ export function useYouTubePlayer(
         if (ok) return true
       }
 
-      // No offline audio (or play failed) — need network + YouTube player
       if (!navigator.onLine) {
-        console.warn('Track has no offline audio and device is offline:', videoId)
+        console.warn('No offline audio and device offline:', videoId)
         setIsPlaying(false)
+        intendedPlayingRef.current = false
         return false
       }
 
+      // Prefer HTML5 stream on mobile / PWA so audio survives lock & app switch
+      if (prefersHtmlAudio()) {
+        const streamUrl = await fetchStreamUrl(videoId)
+        if (streamUrl) {
+          const ok = await playStreamUrl(videoId, streamUrl)
+          if (ok) return true
+        }
+      }
+
       if (!ready || !playerRef.current?.loadVideoById) {
-        // Player not ready yet; effect below will retry once ready
         requestedVideoIdRef.current = null
         return false
       }
       playYouTube(videoId)
       return true
     },
-    [ready, playOfflineBlob, playYouTube]
+    [ready, playOfflineBlob, playStreamUrl, playYouTube]
   )
 
-  // Fallback when track changes without a direct gesture (or after YT becomes ready)
   useEffect(() => {
     if (!current) return
     if (requestedVideoIdRef.current === current.videoId) return
     void loadAndPlay(current.videoId)
   }, [ready, current?.videoId, loadAndPlay])
 
-  // Poll YouTube progress while playing from YT
+  // Poll YouTube progress
   useEffect(() => {
     if (!isPlaying || sourceRef.current !== 'youtube') return
     const id = setInterval(() => {
@@ -330,6 +420,113 @@ export function useYouTubePlayer(
     }, 500)
     return () => clearInterval(id)
   }, [isPlaying])
+
+  // ---- Media Session (lock screen / Control Center / notification) ----
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const track = queue[queueIndex]
+    if (!track) {
+      try {
+        navigator.mediaSession.metadata = null
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title,
+        artist: track.artist,
+        album: 'Zelmir',
+        artwork: track.thumbnail
+          ? [
+              { src: track.thumbnail, sizes: '96x96', type: 'image/jpeg' },
+              { src: track.thumbnail, sizes: '256x256', type: 'image/jpeg' },
+              { src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' },
+            ]
+          : [],
+      })
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+    } catch {
+      /* ignore */
+    }
+  }, [queue, queueIndex, isPlaying])
+
+  // Media Session action handlers (stable refs via loadAndPlay / next wiring below)
+  const nextRef = useRef<() => void>(() => {})
+  const prevRef = useRef<() => void>(() => {})
+  const toggleRef = useRef<() => void>(() => {})
+  const seekRef = useRef<(s: number) => void>(() => {})
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+
+    const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler)
+      } catch {
+        /* unsupported action */
+      }
+    }
+
+    setHandler('play', () => toggleRef.current())
+    setHandler('pause', () => toggleRef.current())
+    setHandler('previoustrack', () => prevRef.current())
+    setHandler('nexttrack', () => nextRef.current())
+    setHandler('seekto', (details) => {
+      if (typeof details.seekTime === 'number') seekRef.current(details.seekTime)
+    })
+    setHandler('seekbackward', (details) => {
+      const off = details.seekOffset ?? 10
+      const t = Math.max(0, (audioRef.current?.currentTime ?? 0) - off)
+      seekRef.current(t)
+    })
+    setHandler('seekforward', (details) => {
+      const off = details.seekOffset ?? 10
+      const t = (audioRef.current?.currentTime ?? 0) + off
+      seekRef.current(t)
+    })
+
+    return () => {
+      setHandler('play', null)
+      setHandler('pause', null)
+      setHandler('previoustrack', null)
+      setHandler('nexttrack', null)
+      setHandler('seekto', null)
+      setHandler('seekbackward', null)
+      setHandler('seekforward', null)
+    }
+  }, [])
+
+  // Keep position updated for lock screen scrubber
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    if (!isPlaying) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: duration || 0,
+        playbackRate: 1,
+        position: Math.min(currentTime, duration || currentTime),
+      })
+    } catch {
+      /* ignore */
+    }
+  }, [currentTime, duration, isPlaying])
+
+  // If the browser pauses HTML audio when backgrounding incorrectly, try resume
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return
+      if (!intendedPlayingRef.current) return
+      if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
+        const a = audioRef.current
+        if (a && a.paused) void a.play().catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   const playTrack = useCallback(
     (track: Track, newQueue?: Track[]) => {
@@ -348,7 +545,6 @@ export function useYouTubePlayer(
           return [...q, track]
         })
       }
-      // Reset so loadAndPlay always runs for this gesture
       requestedVideoIdRef.current = null
       void loadAndPlay(track.videoId)
     },
@@ -365,12 +561,12 @@ export function useYouTubePlayer(
       const currentId = q[queueIndexRef.current]?.videoId
       const currentPos = currentId ? without.findIndex((t) => t.videoId === currentId) : -1
       const insertAt = currentPos === -1 ? without.length : currentPos + 1
-      const next = [...without.slice(0, insertAt), track, ...without.slice(insertAt)]
+      const nextQ = [...without.slice(0, insertAt), track, ...without.slice(insertAt)]
       if (currentId) {
-        const newIdx = next.findIndex((t) => t.videoId === currentId)
+        const newIdx = nextQ.findIndex((t) => t.videoId === currentId)
         if (newIdx !== -1) setQueueIndex(newIdx)
       }
-      return next
+      return nextQ
     })
   }, [])
 
@@ -382,17 +578,27 @@ export function useYouTubePlayer(
   }, [])
 
   const togglePlay = useCallback(() => {
-    if (sourceRef.current === 'offline') {
+    if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
       const a = audioRef.current
       if (!a) return
-      if (isPlayingRef.current) a.pause()
-      else void a.play()
+      if (isPlayingRef.current) {
+        intendedPlayingRef.current = false
+        a.pause()
+      } else {
+        intendedPlayingRef.current = true
+        void a.play()
+      }
       return
     }
     const p = playerRef.current
     if (!p) return
-    if (isPlayingRef.current) p.pauseVideo()
-    else p.playVideo()
+    if (isPlayingRef.current) {
+      intendedPlayingRef.current = false
+      p.pauseVideo()
+    } else {
+      intendedPlayingRef.current = true
+      p.playVideo()
+    }
   }, [])
 
   const next = useCallback(() => {
@@ -434,7 +640,7 @@ export function useYouTubePlayer(
   }, [loadAndPlay])
 
   const seekTo = useCallback((seconds: number) => {
-    if (sourceRef.current === 'offline' && audioRef.current) {
+    if ((sourceRef.current === 'offline' || sourceRef.current === 'stream') && audioRef.current) {
       audioRef.current.currentTime = seconds
       setCurrentTime(seconds)
       return
@@ -457,6 +663,14 @@ export function useYouTubePlayer(
   const cycleRepeat = useCallback(() => {
     setRepeatMode((m) => (m === 'off' ? 'all' : m === 'all' ? 'one' : 'off'))
   }, [])
+
+  // Keep action handler refs current
+  useEffect(() => {
+    nextRef.current = next
+    prevRef.current = prev
+    toggleRef.current = togglePlay
+    seekRef.current = seekTo
+  }, [next, prev, togglePlay, seekTo])
 
   return {
     current,
