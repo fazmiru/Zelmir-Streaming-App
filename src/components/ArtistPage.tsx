@@ -1,11 +1,16 @@
 import type { Track } from '../types'
+import type { ArtistAlbum } from '../utils/piped'
 import { PlayIcon, ShuffleIcon } from './Icons'
 import { VideoGrid } from './VideoGrid'
 
 interface ArtistPageProps {
   artist: string
   tracks: Track[]
+  albums: ArtistAlbum[]
   loading: boolean
+  loadingMore: boolean
+  loadingAlbums: boolean
+  hasMore: boolean
   description?: string | null
   subscriberText?: string | null
   coverUrl?: string | null
@@ -13,6 +18,8 @@ interface ArtistPageProps {
   currentVideoId?: string | null
   onPlay: (track: Track, source?: Track[]) => void
   onShufflePlay: () => void
+  onShowMore: () => void
+  onOpenAlbum: (album: ArtistAlbum) => void
   onOpenArtist?: (artist: string) => void
   onPlayNext?: (track: Track) => void
   onAddToQueue?: (track: Track) => void
@@ -22,7 +29,11 @@ interface ArtistPageProps {
 export function ArtistPage({
   artist,
   tracks,
+  albums,
   loading,
+  loadingMore,
+  loadingAlbums,
+  hasMore,
   description,
   subscriberText,
   coverUrl,
@@ -30,14 +41,15 @@ export function ArtistPage({
   currentVideoId,
   onPlay,
   onShufflePlay,
+  onShowMore,
+  onOpenAlbum,
   onOpenArtist,
   onPlayNext,
   onAddToQueue,
   onStartMix,
 }: ArtistPageProps) {
-  const topTracks = tracks.slice(0, 10)
-  // Channel banner / avatar only — avoid square album thumbnails in the hero
   const heroSrc = coverUrl || avatarUrl || ''
+  const visible = tracks
 
   return (
     <div className="artist-page">
@@ -97,33 +109,60 @@ export function ArtistPage({
         {loading ? (
           <p className="empty-state">Loading…</p>
         ) : (
-          <VideoGrid
-            tracks={topTracks.length ? topTracks : tracks}
-            onPlay={onPlay}
-            currentVideoId={currentVideoId}
-            emptyLabel="Couldn't find anything for this artist."
-            onOpenArtist={onOpenArtist}
-            onPlayNext={onPlayNext}
-            onAddToQueue={onAddToQueue}
-            onStartMix={onStartMix}
-          />
+          <>
+            <VideoGrid
+              tracks={visible}
+              onPlay={onPlay}
+              currentVideoId={currentVideoId}
+              emptyLabel="Couldn't find anything for this artist."
+              onOpenArtist={onOpenArtist}
+              onPlayNext={onPlayNext}
+              onAddToQueue={onAddToQueue}
+              onStartMix={onStartMix}
+            />
+            {(hasMore || loadingMore) && (
+              <div className="artist-show-more-wrap">
+                <button
+                  type="button"
+                  className="artist-show-more"
+                  onClick={onShowMore}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Show all'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {!loading && tracks.length > 10 && (
-        <div className="artist-section">
-          <h2 className="artist-section-title">More from {artist}</h2>
-          <VideoGrid
-            tracks={tracks.slice(10)}
-            onPlay={onPlay}
-            currentVideoId={currentVideoId}
-            onOpenArtist={onOpenArtist}
-            onPlayNext={onPlayNext}
-            onAddToQueue={onAddToQueue}
-            onStartMix={onStartMix}
-          />
+      <div className="artist-section">
+        <div className="artist-section-head">
+          <h2 className="artist-section-title">Albums</h2>
         </div>
-      )}
+        {loadingAlbums && albums.length === 0 ? (
+          <p className="empty-state">Loading albums…</p>
+        ) : albums.length === 0 ? (
+          <p className="empty-state">No albums found.</p>
+        ) : (
+          <div className="artist-albums-row">
+            {albums.map((al) => (
+              <button
+                key={al.id}
+                type="button"
+                className="artist-album-card"
+                onClick={() => onOpenAlbum(al)}
+              >
+                <img src={al.thumbnail} alt="" className="artist-album-art" />
+                <span className="artist-album-name">{al.name}</span>
+                <span className="artist-album-meta">
+                  {al.videoCount > 0 ? `${al.videoCount} songs` : 'Album'}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

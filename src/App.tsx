@@ -6,6 +6,7 @@ import { Flow } from './components/Flow'
 import { PlayerBar } from './components/PlayerBar'
 import { NowPlaying } from './components/NowPlaying'
 import { ArtistPage } from './components/ArtistPage'
+import { AlbumPage } from './components/AlbumPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeSettings } from './components/ThemeSettings'
 import { AuthScreen } from './components/AuthScreen'
@@ -14,10 +15,11 @@ import { useYouTubePlayer } from './hooks/useYouTubePlayer'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
-import { searchPipedTracks, searchPipedTracksSimple, fetchArtistChannel, fetchSimilarTracks } from './utils/piped'
+import { searchPipedTracks, searchPipedTracksSimple, fetchArtistChannel, searchArtistTracks, searchArtistTracksMore, searchArtistAlbums, fetchPlaylistTracks, fetchSimilarTracks } from './utils/piped'
 import { handleSpotifyRedirect } from './utils/spotifyAuth'
 import { PlaylistHeader } from './components/PlaylistHeader'
 import type { Track } from './types'
+import type { ArtistAlbum } from './utils/piped'
 import './App.css'
 
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
@@ -44,6 +46,20 @@ function App() {
   const [artistMeta, setArtistMeta] = useState<string | null>(null)
   const [artistCoverUrl, setArtistCoverUrl] = useState<string | null>(null)
   const [artistAvatarUrl, setArtistAvatarUrl] = useState<string | null>(null)
+  const [artistAlbums, setArtistAlbums] = useState<ArtistAlbum[]>([])
+  const [loadingArtistAlbums, setLoadingArtistAlbums] = useState(false)
+  const [loadingArtistMore, setLoadingArtistMore] = useState(false)
+  const [artistHasMore, setArtistHasMore] = useState(true)
+  const [artistMoreSalt, setArtistMoreSalt] = useState(0)
+  const [activeAlbumId, setActiveAlbumId] = useState<string | null>(null)
+  const [albumName, setAlbumName] = useState('')
+  const [albumArtist, setAlbumArtist] = useState('')
+  const [albumDescription, setAlbumDescription] = useState('')
+  const [albumThumbnail, setAlbumThumbnail] = useState('')
+  const [albumTracks, setAlbumTracks] = useState<Track[]>([])
+  const [loadingAlbum, setLoadingAlbum] = useState(false)
+  const [albumReleases, setAlbumReleases] = useState<ArtistAlbum[]>([])
+  const [loadingAlbumReleases, setLoadingAlbumReleases] = useState(false)
   const [quickPicks, setQuickPicks] = useState<Track[]>([])
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
   const [quickPicksSalt, setQuickPicksSalt] = useState(0)
@@ -281,19 +297,25 @@ function App() {
     setActiveArtist(artist)
     setView('artist')
     setLoadingArtist(true)
+    setLoadingArtistAlbums(true)
     setArtistDescription(null)
     setArtistMeta(null)
     setArtistCoverUrl(null)
     setArtistAvatarUrl(null)
+    setArtistAlbums([])
+    setArtistHasMore(true)
+    setArtistMoreSalt(0)
+    let channelId: string | undefined
     try {
       const [tracks, channel] = await Promise.all([
-        searchPipedTracksSimple(artist),
+        searchArtistTracks(artist),
         fetchArtistChannel(artist),
       ])
       setArtistTracks(tracks)
+      setArtistHasMore(tracks.length >= 8)
+      channelId = channel?.id
 
       if (channel) {
-        // YTM-style hero: enlarged profile picture fills the rectangle
         if (channel.avatarUrl) {
           setArtistAvatarUrl(channel.avatarUrl)
           setArtistCoverUrl(channel.avatarUrl)
@@ -318,6 +340,114 @@ function App() {
     } finally {
       setLoadingArtist(false)
     }
+
+    void searchArtistAlbums(artist, channelId)
+      .then((albums) => setArtistAlbums(albums))
+      .catch(() => setArtistAlbums([]))
+      .finally(() => setLoadingArtistAlbums(false))
+  }
+
+  const handleArtistShowMore = async () => {
+    if (!activeArtist || loadingArtistMore) return
+    setLoadingArtistMore(true)
+    try {
+      const more = await searchArtistTracksMore(activeArtist, artistTracks, artistMoreSalt)
+      setArtistMoreSalt((s) => s + 1)
+      if (more.length === 0) setArtistHasMore(false)
+      else setArtistTracks((prev) => {
+        const seen = new Set(prev.map((t) => t.videoId))
+        return [...prev, ...more.filter((t) => !seen.has(t.videoId))]
+      })
+    } catch {
+      setArtistHasMore(false)
+    } finally {
+      setLoadingArtistMore(false)
+    }
+  }
+
+  const handleOpenAlbum = async (album: ArtistAlbum, artistHint?: string) => {
+    setActiveAlbumId(album.id)
+    setAlbumName(album.name)
+    setAlbumArtist(artistHint || activeArtist || album.uploaderName)
+    setAlbumThumbnail(album.thumbnail)
+    setAlbumDescription('')
+    setAlbumTracks([])
+    setView('album')
+    setLoadingAlbum(true)
+    setLoadingAlbumReleases(true)
+    setAlbumReleases([])
+    try {
+      const data = await fetchPlaylistTracks(album.id, API_KEY)
+      setAlbumName(data.name || album.name)
+      setAlbumDescription(data.description)
+      setAlbumThumbnail(data.thumbnail || album.thumbnail)
+      if (data.uploaderName) setAlbumArtist(data.uploaderName)
+      let tracks = data.tracks
+      // Last-resort: search album title and keep artist-matching uploads
+      if (!tracks.length) {
+        const q = `${album.name} ${artistHint || activeArtist || album.uploaderName || ''}`.trim()
+        try {
+          const found = await searchPipedTracksSimple(q)
+          const artistNorm = (artistHint || activeArtist || album.uploaderName || '')
+            .toLowerCase()
+            .trim()
+          tracks = artistNorm
+            ? found.filter((t) => t.artist.toLowerCase().includes(artistNorm) || artistNorm.includes(t.artist.toLowerCase()))
+            : found
+          if (!tracks.length) tracks = found
+        } catch {
+          /* leave empty */
+        }
+      }
+      setAlbumTracks(tracks)
+    } catch (err) {
+      console.error('Album load failed', err)
+    } finally {
+      setLoadingAlbum(false)
+    }
+
+    // Releases for you — based on liked / saved playlist seeds, not only this artist
+    try {
+      const liked =
+        playlists.find((p) => p.name === 'Liked Songs')?.tracks ||
+        playlists.flatMap((p) => p.tracks).slice(0, 20)
+      const seeds = liked.length ? liked : artistTracks.slice(0, 5)
+      if (seeds.length) {
+        const similar = await fetchSimilarTracks(
+          seeds,
+          new Set(seeds.map((t) => t.videoId)),
+          10,
+          Date.now() % 50
+        )
+        // Map similar tracks into "release" cards (use track as single-ish release art)
+        const recs: ArtistAlbum[] = similar.slice(0, 10).map((t) => ({
+          id: `rec-${t.videoId}`,
+          name: t.title,
+          thumbnail: t.thumbnail,
+          uploaderName: t.artist,
+          videoCount: 0,
+        }))
+        // Also pull a few playlists related to seed artists
+        const seedArtist = seeds[0]?.artist
+        if (seedArtist) {
+          try {
+            const moreAlbums = await searchArtistAlbums(seedArtist)
+            for (const a of moreAlbums) {
+              if (a.id === album.id) continue
+              if (recs.some((r) => r.id === a.id)) continue
+              recs.push(a)
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        setAlbumReleases(recs.slice(0, 12))
+      }
+    } catch {
+      setAlbumReleases([])
+    } finally {
+      setLoadingAlbumReleases(false)
+    }
   }
 
   const handleArtistShuffle = () => {
@@ -336,11 +466,13 @@ function App() {
         ? activePlaylist?.tracks ?? []
         : view === 'artist'
           ? artistTracks
-          : view === 'home'
-            ? quickPicks.length
-              ? quickPicks
-              : player.queue
-            : results
+          : view === 'album'
+            ? albumTracks
+            : view === 'home'
+              ? quickPicks.length
+                ? quickPicks
+                : player.queue
+              : results
     player.playTrack(track, resolvedSource)
   }
 
@@ -567,7 +699,11 @@ function App() {
             <ArtistPage
               artist={activeArtist}
               tracks={artistTracks}
+              albums={artistAlbums}
               loading={loadingArtist}
+              loadingMore={loadingArtistMore}
+              loadingAlbums={loadingArtistAlbums}
+              hasMore={artistHasMore}
               description={artistDescription}
               subscriberText={artistMeta}
               coverUrl={artistCoverUrl}
@@ -575,6 +711,44 @@ function App() {
               currentVideoId={player.current?.videoId}
               onPlay={handlePlay}
               onShufflePlay={handleArtistShuffle}
+              onShowMore={handleArtistShowMore}
+              onOpenAlbum={(al) => void handleOpenAlbum(al, activeArtist)}
+              onOpenArtist={handleOpenArtist}
+              {...gridQueueHandlers}
+            />
+          )}
+
+          {view === 'album' && activeAlbumId && (
+            <AlbumPage
+              name={albumName}
+              artist={albumArtist}
+              description={albumDescription}
+              thumbnail={albumThumbnail}
+              tracks={albumTracks}
+              loading={loadingAlbum}
+              releases={albumReleases}
+              loadingReleases={loadingAlbumReleases}
+              currentVideoId={player.current?.videoId}
+              onPlay={handlePlay}
+              onPlayAll={() => {
+                if (albumTracks[0]) player.playTrack(albumTracks[0], albumTracks)
+              }}
+              onOpenRelease={(rel) => {
+                if (rel.id.startsWith('rec-')) {
+                  const vid = rel.id.replace(/^rec-/, '')
+                  const track =
+                    albumTracks.find((t) => t.videoId === vid) ||
+                    ({
+                      videoId: vid,
+                      title: rel.name,
+                      artist: rel.uploaderName,
+                      thumbnail: rel.thumbnail,
+                    } as Track)
+                  player.playTrack(track)
+                  return
+                }
+                void handleOpenAlbum(rel)
+              }}
               onOpenArtist={handleOpenArtist}
               {...gridQueueHandlers}
             />
