@@ -5235,3 +5235,485 @@ button.now-playing-artist-link:hover {
 .now-playing-cover-wrap .now-playing-close:hover {
   background: rgba(0, 0, 0, 0.7) !important;
 }
+
+
+/* ============================================================
+   Artist page (YouTube Music–style)
+   ============================================================ */
+.artist-page {
+  margin: -28px -32px 0;
+  padding-bottom: 40px;
+}
+
+.artist-hero {
+  position: relative;
+  min-height: 340px;
+  max-height: 480px;
+  height: 42vh;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  color: #fff;
+}
+
+.artist-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.artist-hero-fallback {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #2a2030, #121218);
+}
+
+.artist-hero-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(8, 8, 12, 0.92) 0%,
+    rgba(8, 8, 12, 0.55) 42%,
+    rgba(8, 8, 12, 0.2) 70%,
+    rgba(8, 8, 12, 0.35) 100%
+  ),
+  linear-gradient(
+    to top,
+    rgba(8, 8, 12, 0.95) 0%,
+    rgba(8, 8, 12, 0.35) 45%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.artist-hero-content {
+  position: relative;
+  z-index: 1;
+  padding: 32px 40px 36px;
+  max-width: 640px;
+}
+
+.artist-hero-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.artist-hero-name {
+  margin: 0;
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+}
+
+.artist-hero-meta {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.artist-hero-bio {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 520px;
+}
+
+.artist-hero-bio-muted {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.artist-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.artist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.12s, filter 0.12s;
+}
+
+.artist-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.artist-btn:not(:disabled):hover {
+  transform: scale(1.03);
+  filter: brightness(1.06);
+}
+
+.artist-btn-primary {
+  background: #fff;
+  color: #0b0b0d;
+}
+
+.artist-btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.artist-section {
+  padding: 28px 40px 8px;
+}
+
+.artist-section-title {
+  margin: 0 0 14px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Full-bleed hero when content has reduced mobile padding */
+@media (max-width: 900px) {
+  .artist-page {
+    margin: -12px -16px 0;
+  }
+
+  .artist-hero {
+    min-height: 280px;
+    height: 38vh;
+  }
+
+  .artist-hero-content {
+    padding: 20px 18px 24px;
+  }
+
+  .artist-hero-name {
+    font-size: 36px;
+  }
+
+  .artist-section {
+    padding: 20px 16px 8px;
+  }
+
+  .artist-hero-shade {
+    background: linear-gradient(
+      to top,
+      rgba(8, 8, 12, 0.96) 0%,
+      rgba(8, 8, 12, 0.5) 50%,
+      rgba(8, 8, 12, 0.25) 100%
+    );
+  }
+}
+
+
+/* ============================================================
+   Artist hero — full-bleed channel art (YTM-like)
+   ============================================================ */
+.artist-page {
+  margin: -28px -32px 0 !important;
+  padding-bottom: 48px !important;
+}
+
+.artist-hero {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 460px !important;
+  height: min(68vh, 680px) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  background: #0a0a0c !important;
+}
+
+.artist-hero-img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  /* Fill the entire hero box edge-to-edge */
+  transform: scale(1.02) !important;
+}
+
+.artist-hero-fallback {
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(135deg, #2a2030, #121218) !important;
+}
+
+/* Left-weighted gradient so text stays readable; image stays vivid on the right */
+.artist-hero-shade {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(
+      to right,
+      rgba(10, 10, 14, 0.97) 0%,
+      rgba(10, 10, 14, 0.82) 28%,
+      rgba(10, 10, 14, 0.35) 55%,
+      rgba(10, 10, 14, 0.15) 75%,
+      rgba(10, 10, 14, 0.4) 100%
+    ),
+    linear-gradient(
+      to top,
+      rgba(10, 10, 14, 0.9) 0%,
+      rgba(10, 10, 14, 0.25) 40%,
+      transparent 65%
+    ) !important;
+}
+
+.artist-hero-content {
+  position: relative !important;
+  z-index: 2 !important;
+  padding: 40px 48px 44px !important;
+  max-width: min(560px, 48%) !important;
+}
+
+.artist-hero-name {
+  margin: 0 !important;
+  font-size: clamp(42px, 7vw, 72px) !important;
+  font-weight: 800 !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.03em !important;
+  color: #fff !important;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.5) !important;
+}
+
+.artist-hero-meta {
+  margin: 10px 0 0 !important;
+  font-size: 14px !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.artist-hero-bio {
+  margin: 14px 0 0 !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.artist-hero-more {
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.artist-hero-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  margin-top: 24px !important;
+}
+
+.artist-section {
+  padding: 28px 40px 8px !important;
+}
+
+@media (max-width: 900px) {
+  .artist-page {
+    margin: -12px -16px 0 !important;
+  }
+
+  .artist-hero {
+    min-height: 360px !important;
+    height: 52vh !important;
+  }
+
+  .artist-hero-content {
+    max-width: 100% !important;
+    padding: 24px 18px 28px !important;
+  }
+
+  .artist-hero-name {
+    font-size: 40px !important;
+  }
+
+  .artist-section {
+    padding: 20px 16px 8px !important;
+  }
+
+  .artist-hero-shade {
+    background:
+      linear-gradient(
+        to top,
+        rgba(10, 10, 14, 0.95) 0%,
+        rgba(10, 10, 14, 0.45) 45%,
+        rgba(10, 10, 14, 0.2) 100%
+      ) !important;
+  }
+}
+
+
+/* ============================================================
+   Artist hero — full rectangle, sharp channel art (no album squares)
+   ============================================================ */
+.artist-hero {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 460px !important;
+  height: min(68vh, 680px) !important;
+  overflow: hidden !important;
+  background: #0c0c10 !important;
+}
+
+.artist-hero-img {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  /* Sharp — never blur the hero */
+  filter: none !important;
+  transform: none !important;
+  image-rendering: auto !important;
+}
+
+.artist-hero-shade {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(8, 8, 12, 0.94) 0%,
+      rgba(8, 8, 12, 0.72) 26%,
+      rgba(8, 8, 12, 0.25) 52%,
+      rgba(8, 8, 12, 0.1) 70%,
+      rgba(8, 8, 12, 0.35) 100%
+    ),
+    linear-gradient(
+      0deg,
+      rgba(8, 8, 12, 0.88) 0%,
+      rgba(8, 8, 12, 0.2) 42%,
+      transparent 70%
+    ) !important;
+}
+
+.artist-hero-fallback {
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(135deg, #1a1520, #0c0c10) !important;
+}
+
+
+/* Profile-pic hero: full clean enlarge (YTM-style) */
+.artist-hero-img {
+  object-fit: cover !important;
+  object-position: center 20% !important;
+  /* Keep the full portrait sharp while filling the wide rectangle */
+  width: 100% !important;
+  height: 100% !important;
+  filter: none !important;
+  image-rendering: auto !important;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Soft left gradient only — don't muddy the portrait */
+.artist-hero-shade {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(8, 8, 12, 0.92) 0%,
+      rgba(8, 8, 12, 0.55) 32%,
+      rgba(8, 8, 12, 0.15) 58%,
+      rgba(8, 8, 12, 0.05) 78%,
+      rgba(8, 8, 12, 0.25) 100%
+    ),
+    linear-gradient(
+      0deg,
+      rgba(8, 8, 12, 0.75) 0%,
+      rgba(8, 8, 12, 0.15) 38%,
+      transparent 65%
+    ) !important;
+}
+
+
+/* ARTIST HERO TALLER — more of the cover visible */
+.artist-hero {
+  min-height: 460px !important;
+  height: min(68vh, 700px) !important;
+}
+@media (max-width: 900px) {
+  .artist-hero {
+    min-height: 360px !important;
+    height: 52vh !important;
+  }
+}
+
+
+/* ============================================================
+   Artist page — cover goes under topbar down to Top songs
+   ============================================================ */
+main.content.content-artist {
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.artist-page {
+  margin: 0 !important;
+  padding-bottom: 40px !important;
+}
+
+.artist-hero {
+  /* Start at the very top of the content (under the floating search bar) */
+  margin-top: 0 !important;
+  min-height: 520px !important;
+  height: min(72vh, 760px) !important;
+  border-radius: 0 !important;
+}
+
+.artist-section {
+  padding-left: 40px !important;
+  padding-right: 40px !important;
+}
+
+/* Transparent topbar over artist cover (same as home) */
+.topbar-wrap.topbar-home:not(.topbar-scrolled) {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  backdrop-filter: none !important;
+}
+
+@media (max-width: 900px) {
+  main.content.content-artist {
+    padding-top: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .artist-hero {
+    min-height: 400px !important;
+    height: 58vh !important;
+  }
+
+  .artist-section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}

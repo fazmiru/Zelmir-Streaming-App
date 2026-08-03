@@ -169,3 +169,109 @@ export async function fetchSimilarTracks(
   }
   return out
 }
+
+
+export interface ArtistChannelInfo {
+  id: string
+  name: string
+  description: string
+  avatarUrl: string
+  bannerUrl: string
+  subscribers: number | null
+}
+
+/** Rewrite Piped image proxy URLs to direct yt3 hosts at a larger size. */
+function upgradeImageUrl(url: string | undefined | null, kind: 'avatar' | 'banner'): string {
+  if (!url) return ''
+  try {
+    const u = new URL(url)
+    const host = u.searchParams.get('host')
+    // path is /{id}=s160-... or /{id}=w2560-...
+    let path = u.pathname.replace(/^\//, '')
+    if (kind === 'avatar') {
+      path = path.replace(/=s\d+/, '=s1200')
+    } else {
+      path = path.replace(/=w\d+/, '=w2560')
+      if (!path.includes('=w')) path = path.includes('=') ? path : `${path}=w2560`
+    }
+    if (host) return `https://${host}/${path}`
+    // already direct
+    if (url.includes('yt3.')) {
+      return kind === 'avatar'
+        ? url.replace(/=s\d+/, '=s1200')
+        : url.replace(/=w\d+/, '=w2560')
+    }
+    return url
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Resolve a YouTube channel for an artist name via Piped (no API key).
+ * Prefers exact verified name matches with the most subscribers.
+ */
+export async function fetchArtistChannel(artist: string): Promise<ArtistChannelInfo | null> {
+  const q = encodeURIComponent(artist.trim())
+  let data: any = null
+  try {
+    data = await pipedFetch(`/search?q=${q}&filter=channels`)
+  } catch {
+    return null
+  }
+  const items: any[] = data?.items || []
+  if (!items.length) return null
+
+  const lower = artist.trim().toLowerCase()
+  const scored = items
+    .filter((it) => it?.type === 'channel' || it?.url?.includes('/channel/'))
+    .map((it) => {
+      const name = String(it.name || '')
+      const nameL = name.toLowerCase()
+      let score = Number(it.subscribers) || 0
+      if (nameL === lower) score += 1e12
+      else if (nameL.startsWith(lower)) score += 1e10
+      else if (nameL.includes(lower)) score += 1e8
+      if (it.verified) score += 1e9
+      return { it, score }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  const best = scored[0]?.it
+  if (!best) return null
+
+  const idMatch = /\/channel\/([^/?]+)/.exec(String(best.url || ''))
+  const id = idMatch?.[1] || ''
+
+  // Prefer full channel endpoint for banner
+  let bannerUrl = ''
+  let avatarUrl = upgradeImageUrl(best.thumbnail, 'avatar')
+  let description = String(best.description || '')
+  let subscribers: number | null = Number(best.subscribers) || null
+  let name = String(best.name || artist)
+
+  if (id) {
+    try {
+      const ch = await pipedFetch(`/channel/${id}`)
+      if (ch) {
+        name = ch.name || name
+        description = ch.description || description
+        avatarUrl = upgradeImageUrl(ch.avatarUrl, 'avatar') || avatarUrl
+        bannerUrl = upgradeImageUrl(ch.bannerUrl, 'banner')
+        if (typeof ch.subscriberCount === 'number') subscribers = ch.subscriberCount
+        else if (typeof ch.subscribers === 'number') subscribers = ch.subscribers
+      }
+    } catch {
+      /* avatar-only is fine */
+    }
+  }
+
+  return {
+    id,
+    name,
+    description,
+    avatarUrl,
+    bannerUrl,
+    subscribers,
+  }
+}

@@ -5,6 +5,7 @@ import { VideoGrid } from './components/VideoGrid'
 import { Flow } from './components/Flow'
 import { PlayerBar } from './components/PlayerBar'
 import { NowPlaying } from './components/NowPlaying'
+import { ArtistPage } from './components/ArtistPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeSettings } from './components/ThemeSettings'
 import { AuthScreen } from './components/AuthScreen'
@@ -13,7 +14,7 @@ import { useYouTubePlayer } from './hooks/useYouTubePlayer'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
-import { searchPipedTracks, searchPipedTracksSimple, fetchSimilarTracks } from './utils/piped'
+import { searchPipedTracks, searchPipedTracksSimple, fetchArtistChannel, fetchSimilarTracks } from './utils/piped'
 import { handleSpotifyRedirect } from './utils/spotifyAuth'
 import { PlaylistHeader } from './components/PlaylistHeader'
 import type { Track } from './types'
@@ -39,6 +40,10 @@ function App() {
   const [activeArtist, setActiveArtist] = useState<string | null>(null)
   const [artistTracks, setArtistTracks] = useState<Track[]>([])
   const [loadingArtist, setLoadingArtist] = useState(false)
+  const [artistDescription, setArtistDescription] = useState<string | null>(null)
+  const [artistMeta, setArtistMeta] = useState<string | null>(null)
+  const [artistCoverUrl, setArtistCoverUrl] = useState<string | null>(null)
+  const [artistAvatarUrl, setArtistAvatarUrl] = useState<string | null>(null)
   const [quickPicks, setQuickPicks] = useState<Track[]>([])
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
   const [quickPicksSalt, setQuickPicksSalt] = useState(0)
@@ -276,15 +281,49 @@ function App() {
     setActiveArtist(artist)
     setView('artist')
     setLoadingArtist(true)
+    setArtistDescription(null)
+    setArtistMeta(null)
+    setArtistCoverUrl(null)
+    setArtistAvatarUrl(null)
     try {
-      const tracks = await searchPipedTracksSimple(artist)
+      const [tracks, channel] = await Promise.all([
+        searchPipedTracksSimple(artist),
+        fetchArtistChannel(artist),
+      ])
       setArtistTracks(tracks)
+
+      if (channel) {
+        // YTM-style hero: enlarged profile picture fills the rectangle
+        if (channel.avatarUrl) {
+          setArtistAvatarUrl(channel.avatarUrl)
+          setArtistCoverUrl(channel.avatarUrl)
+        } else if (channel.bannerUrl) {
+          setArtistCoverUrl(channel.bannerUrl)
+        }
+        if (channel.description) setArtistDescription(channel.description)
+        if (channel.subscribers != null && channel.subscribers > 0) {
+          const n = channel.subscribers
+          const pretty =
+            n >= 1_000_000
+              ? `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+              : n >= 1_000
+                ? `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`
+                : String(n)
+          setArtistMeta(`${pretty} subscribers`)
+        }
+      }
     } catch (err) {
       console.error('Artist lookup failed:', err)
       setArtistTracks([])
     } finally {
       setLoadingArtist(false)
     }
+  }
+
+  const handleArtistShuffle = () => {
+    if (!artistTracks.length) return
+    const shuffled = [...artistTracks].sort(() => Math.random() - 0.5)
+    player.playTrack(shuffled[0], shuffled)
   }
 
   const handlePlay = (track: Track, source?: Track[]) => {
@@ -368,12 +407,15 @@ function App() {
                   : view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
                     ? 'topbar-hide-mobile'
                     : ''
-              } ${view === 'home' ? 'topbar-home' : ''} ${topbarScrolled ? 'topbar-scrolled' : ''}`}
+              } ${view === 'home' || view === 'artist' ? 'topbar-home' : ''} ${topbarScrolled ? 'topbar-scrolled' : ''}`}
             >
               <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
             </div>
 
-        <main className="content" onScroll={handleContentScroll}>
+        <main
+          className={`content ${view === 'artist' ? 'content-artist' : ''} ${view === 'home' ? 'content-home' : ''}`}
+          onScroll={handleContentScroll}
+        >
           {error && <p className="error-banner">{error}</p>}
 
           {view === 'home' && (
@@ -522,21 +564,20 @@ function App() {
           )}
 
           {view === 'artist' && activeArtist && (
-            <>
-              <h2 className="section-heading">{activeArtist}</h2>
-              {loadingArtist ? (
-                <p className="empty-state">Loading…</p>
-              ) : (
-                <VideoGrid
-                  tracks={artistTracks}
-                  onPlay={handlePlay}
-                  currentVideoId={player.current?.videoId}
-                  emptyLabel="Couldn't find anything for this artist."
-                  onOpenArtist={handleOpenArtist}
-                  {...gridQueueHandlers}
-                />
-              )}
-            </>
+            <ArtistPage
+              artist={activeArtist}
+              tracks={artistTracks}
+              loading={loadingArtist}
+              description={artistDescription}
+              subscriberText={artistMeta}
+              coverUrl={artistCoverUrl}
+              avatarUrl={artistAvatarUrl}
+              currentVideoId={player.current?.videoId}
+              onPlay={handlePlay}
+              onShufflePlay={handleArtistShuffle}
+              onOpenArtist={handleOpenArtist}
+              {...gridQueueHandlers}
+            />
           )}
 
           {view === 'library' && (
