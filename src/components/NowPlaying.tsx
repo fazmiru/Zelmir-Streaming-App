@@ -183,18 +183,19 @@ export function NowPlaying({
         <div className="now-playing-backdrop-shade" />
       </div>
 
-      <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
-        <CloseIcon size={20} />
-      </button>
-
       <div className="now-playing-body">
         <div className="now-playing-left">
-          <img
-            className="now-playing-cover"
-            src={coverSrc}
-            alt=""
-            onError={() => setCoverStage((s) => s + 1)}
-          />
+          <div className="now-playing-cover-wrap">
+            <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
+              <CloseIcon size={18} />
+            </button>
+            <img
+              className="now-playing-cover"
+              src={coverSrc}
+              alt=""
+              onError={() => setCoverStage((s) => s + 1)}
+            />
+          </div>
           <h2 className="now-playing-title">{track.title || 'Unknown'}</h2>
           <button
             type="button"
