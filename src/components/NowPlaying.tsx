@@ -215,7 +215,7 @@ export function NowPlaying({
     fetchedFor.current = track.videoId
     setLoadingRecommended(true)
     setRecommended([])
-    const q = `${track.artist} ${track.title.split(/[-(|]/)[0].trim()}`.trim()
+    const q = `${track.artist || "Unknown"} ${track.title.split(/[-(|]/)[0].trim()}`.trim()
     searchPipedTracksSimple(q)
       .then((tracks) => {
         setRecommended(tracks.filter((t) => t.videoId !== track.videoId).slice(0, 20))
@@ -257,7 +257,7 @@ export function NowPlaying({
               onError={() => setCoverStage((s) => s + 1)}
             />
           </div>
-          <h2 className="now-playing-title">{track.title}</h2>
+          <h2 className="now-playing-title">{track.title || "Unknown"}</h2>
           <button
             type="button"
             className="now-playing-artist now-playing-artist-link"
