@@ -36,104 +36,45 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-function rgbToHex(r: number, g: number, b: number) {
-  return (
-    '#' +
-    [r, g, b]
-      .map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0'))
-      .join('')
-  )
-}
-
-/** Pull a few vibrant colors from an image for the cycling play / seek accents. */
 function extractAlbumColors(imageUrl: string): Promise<string[]> {
+  const fallback = ['#c45c26', '#e8a04a', '#8b3a1a', '#f0c070']
   return new Promise((resolve) => {
-    const fallback = ['#f0a030', '#e07020', '#c04010', '#f5c060']
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const size = 48
-        const canvas = document.createElement('canvas')
-        canvas.width = size
-        canvas.height = size
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })
-        if (!ctx) {
-          resolve(fallback)
-          return
-        }
-        ctx.drawImage(img, 0, 0, size, size)
-        const { data } = ctx.getImageData(0, 0, size, size)
-
-        // Bucket by coarse RGB for dominant colors
-        const buckets = new Map<string, { r: number; g: number; b: number; n: number; score: number }>()
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i]
-          const g = data[i + 1]
-          const b = data[i + 2]
-          const a = data[i + 3]
-          if (a < 128) continue
-          // Skip near-black / near-white
-          const max = Math.max(r, g, b)
-          const min = Math.min(r, g, b)
-          if (max < 40 || min > 230) continue
-          const sat = max === 0 ? 0 : (max - min) / max
-          if (sat < 0.12) continue
-          const key = `${r >> 4},${g >> 4},${b >> 4}`
-          const prev = buckets.get(key)
-          const score = sat * 1.4 + (max / 255) * 0.6
-          if (prev) {
-            prev.r += r
-            prev.g += g
-            prev.b += b
-            prev.n += 1
-            prev.score += score
-          } else {
-            buckets.set(key, { r, g, b, n: 1, score })
+    try {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      const done = (colors: string[]) => resolve(colors)
+      img.onload = () => {
+        try {
+          const size = 32
+          const canvas = document.createElement('canvas')
+          canvas.width = size
+          canvas.height = size
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return done(fallback)
+          ctx.drawImage(img, 0, 0, size, size)
+          const { data } = ctx.getImageData(0, 0, size, size)
+          let r = 0, g = 0, b = 0, n = 0
+          for (let i = 0; i < data.length; i += 16) {
+            const rr = data[i], gg = data[i + 1], bb = data[i + 2]
+            if (rr + gg + bb < 40 || rr + gg + bb > 720) continue
+            r += rr; g += gg; b += bb; n++
           }
+          if (!n) return done(fallback)
+          r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n)
+          const hex = (x: number) => x.toString(16).padStart(2, '0')
+          const base = `#${hex(r)}${hex(g)}${hex(b)}`
+          const light = `#${hex(Math.min(255, r + 40))}${hex(Math.min(255, g + 30))}${hex(Math.min(255, b + 20))}`
+          const dark = `#${hex(Math.max(0, r - 30))}${hex(Math.max(0, g - 25))}${hex(Math.max(0, b - 20))}`
+          done([base, light, dark, light])
+        } catch {
+          done(fallback)
         }
-
-        const ranked = [...buckets.values()]
-          .map((v) => ({
-            r: v.r / v.n,
-            g: v.g / v.n,
-            b: v.b / v.n,
-            weight: v.score,
-          }))
-          .sort((a, b) => b.weight - a.weight)
-
-        const picked: string[] = []
-        for (const c of ranked) {
-          const hex = rgbToHex(c.r, c.g, c.b)
-          // Prefer distinct hues
-          const tooClose = picked.some((p) => {
-            const pr = parseInt(p.slice(1, 3), 16)
-            const pg = parseInt(p.slice(3, 5), 16)
-            const pb = parseInt(p.slice(5, 7), 16)
-            const dr = pr - c.r
-            const dg = pg - c.g
-            const db = pb - c.b
-            return dr * dr + dg * dg + db * db < 70 * 70
-          })
-          if (tooClose) continue
-          picked.push(hex)
-          if (picked.length >= 4) break
-        }
-
-        if (picked.length === 0) {
-          resolve(fallback)
-          return
-        }
-        while (picked.length < 4) {
-          picked.push(picked[picked.length - 1])
-        }
-        resolve(picked)
-      } catch {
-        resolve(fallback)
       }
+      img.onerror = () => done(fallback)
+      img.src = imageUrl
+    } catch {
+      resolve(fallback)
     }
-    img.onerror = () => resolve(fallback)
-    img.src = imageUrl
   })
 }
 
@@ -142,9 +83,8 @@ export function NowPlaying({
   queue,
   queueIndex,
   isPlaying,
-  currentTime,
-  duration,
-  apiKey,
+  currentTime = 0,
+  duration = 0,
   shuffle,
   repeatMode,
   onClose,
@@ -166,23 +106,23 @@ export function NowPlaying({
   const coverSrc =
     coverStage < COVER_FALLBACKS.length
       ? `https://i.ytimg.com/vi/${track.videoId}/${COVER_FALLBACKS[coverStage]}.jpg`
-      : track.thumbnail
+      : track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
 
   const [lyrics, setLyrics] = useState<string | null>(null)
   const [lyricsNotFound, setLyricsNotFound] = useState(false)
   const [loadingLyrics, setLoadingLyrics] = useState(false)
   const lyricsFetchedFor = useRef<string | null>(null)
 
-  const [albumColors, setAlbumColors] = useState<string[]>(['#f0a030', '#e07020', '#c04010', '#f5c060'])
+  const [albumColors, setAlbumColors] = useState<string[]>(['#c45c26', '#e8a04a', '#8b3a1a', '#f0c070'])
 
-  const upNext = queue.slice(queueIndex + 1)
-  const seekProgress = duration > 0 ? (currentTime / duration) * 100 : 0
+  const safeQueue = Array.isArray(queue) ? queue : []
+  const upNext = safeQueue.slice(Math.max(0, queueIndex) + 1)
+  const seekProgress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
 
   useEffect(() => {
     setCoverStage(0)
   }, [track.videoId])
 
-  // Extract palette whenever cover URL is ready
   useEffect(() => {
     let cancelled = false
     extractAlbumColors(coverSrc).then((colors) => {
@@ -200,9 +140,9 @@ export function NowPlaying({
     setLoadingLyrics(true)
     setLyrics(null)
     setLyricsNotFound(false)
-    fetchLyrics(track.artist, track.title)
+    fetchLyrics(track.artist || '', track.title || '')
       .then((result) => {
-        if (result.lyrics) setLyrics(result.lyrics)
+        if (result?.lyrics) setLyrics(result.lyrics)
         else setLyricsNotFound(true)
       })
       .catch(() => setLyricsNotFound(true))
@@ -215,14 +155,14 @@ export function NowPlaying({
     fetchedFor.current = track.videoId
     setLoadingRecommended(true)
     setRecommended([])
-    const q = `${track.artist || "Unknown"} ${track.title.split(/[-(|]/)[0].trim()}`.trim()
+    const q = `${track.artist || ''} ${(track.title || '').split(/[-(|]/)[0].trim()}`.trim()
     searchPipedTracksSimple(q)
       .then((tracks) => {
-        setRecommended(tracks.filter((t) => t.videoId !== track.videoId).slice(0, 20))
+        setRecommended((tracks || []).filter((t) => t.videoId !== track.videoId).slice(0, 20))
       })
       .catch(() => setRecommended([]))
       .finally(() => setLoadingRecommended(false))
-  }, [tab, track.videoId, track.artist, track.title, apiKey])
+  }, [tab, track.videoId, track.artist, track.title])
 
   const npStyle = {
     '--np-a': albumColors[0],
@@ -233,7 +173,7 @@ export function NowPlaying({
 
   return (
     <div className="now-playing-overlay" style={npStyle}>
-      <div className="now-playing-backdrop" aria-hidden>
+      <div className="now-playing-backdrop" aria-hidden="true">
         <img
           className="now-playing-backdrop-img"
           src={coverSrc}
@@ -241,29 +181,27 @@ export function NowPlaying({
           onError={() => setCoverStage((s) => s + 1)}
         />
         <div className="now-playing-backdrop-shade" />
-        <div className="now-playing-backdrop-vignette" />
       </div>
+
+      <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
+        <CloseIcon size={20} />
+      </button>
 
       <div className="now-playing-body">
         <div className="now-playing-left">
-          <div className="now-playing-cover-wrap">
-            <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
-              <CloseIcon size={18} />
-            </button>
-            <img
-              className="now-playing-cover"
-              src={coverSrc}
-              alt=""
-              onError={() => setCoverStage((s) => s + 1)}
-            />
-          </div>
-          <h2 className="now-playing-title">{track.title || "Unknown"}</h2>
+          <img
+            className="now-playing-cover"
+            src={coverSrc}
+            alt=""
+            onError={() => setCoverStage((s) => s + 1)}
+          />
+          <h2 className="now-playing-title">{track.title || 'Unknown'}</h2>
           <button
             type="button"
             className="now-playing-artist now-playing-artist-link"
-            onClick={() => onOpenArtist(track.artist)}
+            onClick={() => onOpenArtist(track.artist || '')}
           >
-            {track.artist}
+            {track.artist || 'Unknown'}
           </button>
 
           <div className="now-playing-transport">
@@ -272,8 +210,6 @@ export function NowPlaying({
               className={`transport-button transport-button-toggle ${shuffle ? 'transport-button-on' : ''}`}
               onClick={onToggleShuffle}
               aria-label="Shuffle"
-              aria-pressed={shuffle}
-              title="Shuffle"
             >
               <ShuffleIcon size={19} />
             </button>
@@ -296,14 +232,12 @@ export function NowPlaying({
               className={`transport-button transport-button-toggle ${repeatMode !== 'off' ? 'transport-button-on' : ''}`}
               onClick={onCycleRepeat}
               aria-label="Repeat"
-              title={repeatMode === 'off' ? 'Repeat off' : repeatMode === 'all' ? 'Repeat all' : 'Repeat one'}
             >
               <RepeatIcon size={19} />
               {repeatMode === 'one' && <span className="repeat-one-dot now-playing-dot" />}
             </button>
           </div>
 
-          {/* Seek / duration bar */}
           <div className="now-playing-seek">
             <span className="now-playing-time">{formatTime(currentTime)}</span>
             <input
@@ -312,8 +246,8 @@ export function NowPlaying({
               min={0}
               max={duration > 0 ? duration : 100}
               step={0.1}
-              value={currentTime}
-              onChange={(e) => onSeek(Number(e.target.value))}
+              value={Number.isFinite(currentTime) ? currentTime : 0}
+              onChange={(e) => onSeek?.(Number(e.target.value))}
               style={{ '--progress': `${seekProgress}%` } as CSSProperties}
               aria-label="Seek"
             />
@@ -350,23 +284,20 @@ export function NowPlaying({
             {tab === 'upnext' && (
               <>
                 <div className="now-playing-row now-playing-row-current">
-                  <img src={track.thumbnail} alt="" className="now-playing-row-thumb" />
+                  <img src={track.thumbnail || coverSrc} alt="" className="now-playing-row-thumb" />
                   <div className="now-playing-row-meta">
                     <span className="now-playing-row-title">{track.title}</span>
                     <span className="now-playing-row-artist">{track.artist}</span>
                   </div>
                 </div>
-
                 {upNext.length === 0 ? (
-                  <p className="now-playing-empty">
-                    Nothing queued after this — add more songs from Search or a playlist.
-                  </p>
+                  <p className="now-playing-empty">Nothing queued after this.</p>
                 ) : (
                   upNext.map((t) => (
                     <div
                       key={t.videoId}
                       className="now-playing-row"
-                      onClick={() => onPlayFromQueue(t, queue)}
+                      onClick={() => onPlayFromQueue(t, safeQueue)}
                     >
                       <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
                       <div className="now-playing-row-meta">
@@ -386,14 +317,6 @@ export function NowPlaying({
                 {!loadingLyrics && !lyrics && (
                   <div className="now-playing-lyrics-placeholder">
                     <p>{lyricsNotFound ? "Couldn't find lyrics for this track." : 'Lyrics unavailable.'}</p>
-                    <a
-                      className="now-playing-lyrics-link"
-                      href={`https://genius.com/search?q=${encodeURIComponent(`${track.artist} ${track.title}`)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Search for it on Genius →
-                    </a>
                   </div>
                 )}
               </div>
