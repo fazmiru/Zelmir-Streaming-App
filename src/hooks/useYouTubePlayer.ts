@@ -261,41 +261,56 @@ export function useYouTubePlayer(
     }
   }, [handleTrackEnded])
 
-  // YouTube iframe (fallback when streams unavailable — does NOT background on iOS)
+  // YouTube iframe — mount into a *child* node so React never sees YT replace its node.
+  // (YT.Player replaces the target element; that used to detach React's ref and cause
+  // insertBefore NotFoundError when opening Now Playing.)
   useEffect(() => {
     let cancelled = false
-    const target = containerRef.current
-    if (!target) return
+    const host = containerRef.current
+    if (!host) return
+
+    // Stable host owned by React; YT may replace `mount`
+    const mount = document.createElement('div')
+    mount.setAttribute('data-yt-mount', '1')
+    host.appendChild(mount)
 
     void loadYouTubeApi().then(() => {
-      if (cancelled || !containerRef.current) return
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        height: '0',
-        width: '0',
-        playerVars: {
-          playsinline: 1,
-          controls: 0,
-          rel: 0,
-          modestbranding: 1,
-        },
-        events: {
-          onReady: () => setReady(true),
-          onStateChange: (e: any) => {
-            if (sourceRef.current !== 'youtube') return
-            if (e.data === window.YT.PlayerState.PLAYING) {
-              setIsPlaying(true)
-              intendedPlayingRef.current = true
-            }
-            if (e.data === window.YT.PlayerState.PAUSED) {
-              setIsPlaying(false)
-              intendedPlayingRef.current = false
-            }
-            if (e.data === window.YT.PlayerState.ENDED) {
-              handleTrackEnded()
-            }
+      if (cancelled) return
+      // If YT already replaced mount, use whatever is still under host
+      const target = host.querySelector('[data-yt-mount]') || mount
+      try {
+        playerRef.current = new window.YT.Player(target, {
+          height: '0',
+          width: '0',
+          playerVars: {
+            playsinline: 1,
+            controls: 0,
+            rel: 0,
+            modestbranding: 1,
           },
-        },
-      })
+          events: {
+            onReady: () => {
+              if (!cancelled) setReady(true)
+            },
+            onStateChange: (e: any) => {
+              if (sourceRef.current !== 'youtube') return
+              if (e.data === window.YT.PlayerState.PLAYING) {
+                setIsPlaying(true)
+                intendedPlayingRef.current = true
+              }
+              if (e.data === window.YT.PlayerState.PAUSED) {
+                setIsPlaying(false)
+                intendedPlayingRef.current = false
+              }
+              if (e.data === window.YT.PlayerState.ENDED) {
+                handleTrackEnded()
+              }
+            },
+          },
+        })
+      } catch (err) {
+        console.error('YT.Player init failed', err)
+      }
     })
 
     return () => {
@@ -306,6 +321,12 @@ export function useYouTubePlayer(
         /* ignore */
       }
       playerRef.current = null
+      // Clear host so React's empty div stays consistent
+      try {
+        host.innerHTML = ''
+      } catch {
+        /* ignore */
+      }
     }
   }, [containerRef, handleTrackEnded])
 

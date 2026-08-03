@@ -750,8 +750,10 @@ function App() {
         youtubeApiKey={API_KEY}
       />
 
+      {/* YT replaces a *child* of this host — never put React children inside */}
       <div
         ref={ytContainerRef}
+        aria-hidden
         style={{
           position: 'fixed',
           bottom: 0,
@@ -761,6 +763,7 @@ function App() {
           opacity: 0,
           overflow: 'hidden',
           pointerEvents: 'none',
+          zIndex: -1,
         }}
       />
     </div>
