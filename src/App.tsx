@@ -698,9 +698,12 @@ function App() {
 
       {nowPlayingOpen && player.current && (
         <ErrorBoundary
-          fallback={(reset) => (
-            <div className="now-playing-overlay now-playing-error">
-              <p>Now Playing hit a snag and had to close.</p>
+          fallback={(reset, error) => (
+            <div className="now-playing-overlay now-playing-error" style={{ color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 }}>
+              <p style={{ fontSize: 16, fontWeight: 600 }}>Now Playing hit a snag.</p>
+              <pre style={{ maxWidth: 480, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, color: '#f5a8a8', textAlign: 'left' }}>
+                {error?.message || 'Unknown error'}
+              </pre>
               <button
                 className="accent-fill now-playing-error-button"
                 onClick={() => {
@@ -714,6 +717,7 @@ function App() {
           )}
         >
           <NowPlaying
+            key={player.current.videoId}
             track={player.current}
             queue={player.queue}
             queueIndex={player.queueIndex}
