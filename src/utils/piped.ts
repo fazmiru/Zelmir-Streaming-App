@@ -403,7 +403,6 @@ function playlistIdFromUrl(url: string): string | null {
 /** Albums / playlists associated with an artist (channel playlists preferred). */
 export async function searchArtistAlbums(artist: string, channelId?: string): Promise<ArtistAlbum[]> {
   const channel = channelId ? null : await fetchArtistChannel(artist)
-  const id = channelId || channel?.id || ''
   const channelName = (channel?.name || artist).trim()
   const nameNorm = normalizeArtistName(channelName)
   const artistNorm = normalizeArtistName(artist)

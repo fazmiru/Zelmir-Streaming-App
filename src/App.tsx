@@ -747,7 +747,13 @@ function App() {
                   player.playTrack(track)
                   return
                 }
-                void handleOpenAlbum(rel)
+                void handleOpenAlbum({
+                  id: rel.id,
+                  name: rel.name,
+                  thumbnail: rel.thumbnail,
+                  uploaderName: rel.uploaderName || albumArtist,
+                  videoCount: rel.videoCount || 0,
+                })
               }}
               onOpenArtist={handleOpenArtist}
               {...gridQueueHandlers}

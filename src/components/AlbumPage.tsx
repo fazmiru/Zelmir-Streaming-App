@@ -6,6 +6,8 @@ export interface AlbumRelease {
   id: string
   name: string
   thumbnail: string
+  uploaderName?: string
+  videoCount?: number
   meta?: string
 }
 
