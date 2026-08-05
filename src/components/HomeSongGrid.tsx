@@ -54,19 +54,22 @@ export function HomeSongGrid({
     }
   }
 
-
   if (!tracks.length) {
     return <p className="empty-state">{emptyLabel}</p>
   }
 
+  const canPrev = safePage > 0
+  const canNext = safePage < pageCount - 1
+
   return (
     <div className="home-song-grid-wrap">
+      {/* Edge arrows — same style as album shelves, far left/right of the grid */}
       {pageCount > 1 && (
-        <div className="home-song-grid-arrows">
+        <>
           <button
             type="button"
-            className="home-arrow-btn"
-            disabled={safePage <= 0}
+            className="home-shelf-edge-btn home-shelf-edge-prev home-song-grid-edge"
+            disabled={!canPrev}
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             aria-label="Previous"
           >
@@ -74,14 +77,14 @@ export function HomeSongGrid({
           </button>
           <button
             type="button"
-            className="home-arrow-btn"
-            disabled={safePage >= pageCount - 1}
+            className="home-shelf-edge-btn home-shelf-edge-next home-song-grid-edge"
+            disabled={!canNext}
             onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
             aria-label="Next"
           >
             ›
           </button>
-        </div>
+        </>
       )}
       <div
         className="home-song-grid"

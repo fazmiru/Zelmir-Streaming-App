@@ -1045,13 +1045,15 @@ function App() {
                     <p className="home-section-sub">Fresh tracks in your taste · no remixes</p>
                   </div>
                   {newReleases.length > 0 && (
-                    <button
-                      type="button"
-                      className="home-play-all"
-                      onClick={() => handlePlay(newReleases[0], newReleases)}
-                    >
-                      Play all
-                    </button>
+                    <div className="home-section-actions">
+                      <button
+                        type="button"
+                        className="home-play-all"
+                        onClick={() => handlePlay(newReleases[0], newReleases)}
+                      >
+                        Play all
+                      </button>
+                    </div>
                   )}
                 </div>
                 {loadingNewReleases ? (
@@ -1094,13 +1096,15 @@ function App() {
                     <p className="home-section-sub">What listeners with your taste are into</p>
                   </div>
                   {trendingTracks.length > 0 && (
-                    <button
-                      type="button"
-                      className="home-play-all"
-                      onClick={() => handlePlay(trendingTracks[0], trendingTracks)}
-                    >
-                      Play all
-                    </button>
+                    <div className="home-section-actions">
+                      <button
+                        type="button"
+                        className="home-play-all"
+                        onClick={() => handlePlay(trendingTracks[0], trendingTracks)}
+                      >
+                        Play all
+                      </button>
+                    </div>
                   )}
                 </div>
                 {loadingTrending ? (

@@ -1,4 +1,4 @@
-/* Home song cell actions + horizontal shelf arrows */
+/* Home song cell actions (like / ⋮) */
 .home-song-cell { position: relative; }
 .home-song-cell-actions {
   display: none;
@@ -24,8 +24,72 @@
   text-decoration: underline;
   color: rgba(255, 255, 255, 0.85);
 }
-.home-shelf-wrap { position: relative; }
+
+/* Horizontal shelf — arrows on far left/right of the row (mid-height) */
+.home-shelf-wrap {
+  position: relative;
+}
+
+/* Hide old header-style arrows if any remain */
 .home-shelf-arrows {
+  display: none !important;
+}
+
+.home-shelf-edge-btn {
+  position: absolute;
+  top: 80px; /* roughly center of 160px album art */
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 20, 24, 0.85);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, opacity 0.15s, transform 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.home-shelf-edge-btn:hover:not(:disabled) {
+  background: rgba(40, 40, 48, 0.95);
+  transform: scale(1.06);
+}
+
+.home-shelf-edge-btn:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-shelf-edge-prev {
+  left: 4px;
+}
+
+.home-shelf-edge-next {
+  right: 4px;
+}
+
+@media (max-width: 700px) {
+  .home-shelf-edge-btn {
+    top: 66px; /* 132px art */
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+}
+
+/* Home song grid page arrows — sit in header row, left of Play all space */
+.home-song-grid-wrap {
+  position: relative;
+  overflow: visible;
+}
+
+.home-song-grid-arrows {
   position: absolute;
   right: 0;
   top: -48px;
@@ -33,5 +97,53 @@
   gap: 8px;
   z-index: 3;
 }
-.home-song-grid-wrap { overflow: visible; }
-.home-section-header { position: relative; }
+
+/* When section header already has actions (Play all), leave room */
+.home-section-header .home-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 80px; /* room for grid page arrows */
+}
+
+.home-section-header {
+  position: relative;
+}
+
+
+/* Trending / Quick picks grid — edge arrows mid-height of the grid */
+.home-song-grid-wrap {
+  position: relative;
+  overflow: visible;
+}
+
+/* Hide old header arrows for song grid */
+.home-song-grid-arrows {
+  display: none !important;
+}
+
+.home-song-grid-edge.home-shelf-edge-btn {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.home-song-grid-edge.home-shelf-edge-btn:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.06);
+}
+
+.home-song-grid-edge.home-shelf-edge-prev {
+  left: -8px;
+}
+
+.home-song-grid-edge.home-shelf-edge-next {
+  right: -8px;
+}
+
+@media (max-width: 700px) {
+  .home-song-grid-edge.home-shelf-edge-prev {
+    left: 0;
+  }
+  .home-song-grid-edge.home-shelf-edge-next {
+    right: 0;
+  }
+}
