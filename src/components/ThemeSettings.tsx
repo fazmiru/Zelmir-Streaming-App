@@ -6,7 +6,6 @@ import {
   DEFAULT_AMBIENT,
   type ThemeState,
   type OutlineTheme,
-  type AmbientTheme,
   type AmbientStyle,
 } from '../types'
 
