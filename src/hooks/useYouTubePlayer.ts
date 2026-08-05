@@ -607,8 +607,16 @@ export function useYouTubePlayer(
     (track: Track, newQueue?: Track[]) => {
       historyRef.current = []
       if (newQueue) {
-        setQueue(newQueue)
-        setQueueIndex(newQueue.findIndex((t) => t.videoId === track.videoId))
+        // Recommended / external tracks may not be in the source list.
+        // Always ensure the playing track is in the queue so the player bar updates.
+        let idx = newQueue.findIndex((t) => t.videoId === track.videoId)
+        let q = newQueue
+        if (idx === -1) {
+          q = [track, ...newQueue]
+          idx = 0
+        }
+        setQueue(q)
+        setQueueIndex(idx)
       } else {
         setQueue((q) => {
           const existing = q.findIndex((t) => t.videoId === track.videoId)

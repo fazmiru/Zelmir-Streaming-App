@@ -885,7 +885,7 @@ function App() {
                   ) : (
                     <VideoGrid
                       tracks={playlistRecs}
-                      onPlay={handlePlay}
+                      onPlay={(track) => handlePlay(track, playlistRecs)}
                       currentVideoId={player.current?.videoId}
                       emptyLabel=""
                       onOpenArtist={handleOpenArtist}
