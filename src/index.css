@@ -570,3 +570,6 @@ input[type='text'] {
     justify-content: center;
   }
 }
+
+
+/* MOBILE SCROLL NOTE: actual scrolling is on .content (see App.css final mobile block) */

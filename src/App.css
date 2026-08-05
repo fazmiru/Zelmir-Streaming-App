@@ -6879,87 +6879,6 @@ main.content.content-artist {
 }
 
 
-/* ============================================================
-   PWA: lock bottom nav + player — no scroll chaining / rubber-band
-   ============================================================ */
-
-html, body {
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: auto;
-}
-
-/* Only the main content pane scrolls */
-.app-shell {
-  overscroll-behavior: none;
-  touch-action: pan-y;
-}
-
-.app-main {
-  overscroll-behavior: none;
-}
-
-.content {
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Bottom tab bar: never capture scroll / never move with overscroll */
-@media (max-width: 900px) {
-  .sidebar {
-    touch-action: none !important;
-    overscroll-behavior: none !important;
-    /* Keep nav painted above content during iOS rubber-band */
-    z-index: 40 !important;
-  }
-
-  .sidebar .nav,
-  .sidebar .nav-item,
-  .sidebar .wordmark {
-    touch-action: manipulation !important;
-  }
-
-  /* Prevent vertical scroll gestures that start on the nav from scrolling page */
-  .sidebar * {
-    overscroll-behavior: none;
-  }
-
-  .player-bar {
-    touch-action: manipulation !important;
-    overscroll-behavior: none !important;
-    z-index: 45 !important;
-    /* Stay fixed — never translate with body overscroll */
-    position: fixed !important;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-  }
-
-  /* Content must end above player + nav so scroll can't cover them */
-  .app-shell {
-    padding-bottom: 0 !important;
-  }
-
-  .content {
-    /* Keep last items clear of player + nav */
-    padding-bottom: calc(
-      var(--mobile-player-h, 56px) + var(--mobile-nav-h, 52px) +
-      env(safe-area-inset-bottom, 0px) + 16px
-    ) !important;
-  }
-
-  /* Stop iOS from scrolling the whole app when dragging near the bottom */
-  .app-shell,
-  .app-main {
-    overflow: hidden !important;
-  }
-
-  .content {
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-  }
-}
-
-
 /* Player bar: like + add-to-playlist next to track meta */
 .player-track-actions {
   display: flex;
@@ -7020,5 +6939,129 @@ html, body {
 @media (max-width: 900px) {
   .player-track-actions {
     margin-left: auto;
+  }
+}
+
+
+/* ============================================================
+   MOBILE PWA FIX (final overrides) — scroll + player / nav stack
+   ============================================================ */
+@media (max-width: 900px) {
+  :root {
+    --nav-h: 56px;
+    --mobile-nav-h: 56px;
+    --player-h: 64px;
+    --mobile-player-h: 64px;
+  }
+
+  html, body, #root {
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
+
+  /* Shell fills the screen; only .content scrolls */
+  .app-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+    grid-template-columns: none !important;
+  }
+
+  .app-main {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+    width: 100% !important;
+  }
+
+  /* THE scroll container */
+  .content {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-y: contain !important;
+    /* room for player + tab bar + home indicator */
+    padding-bottom: calc(
+      var(--player-h) + var(--nav-h) + env(safe-area-inset-bottom, 0px) + 20px
+    ) !important;
+  }
+
+  /* Bottom tab bar — flush to physical bottom, icons above home indicator */
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    margin: 0 !important;
+    z-index: 300 !important;
+    box-sizing: border-box !important;
+    background: var(--bg, #0b0b0d) !important;
+    border-top: 1px solid var(--border, rgba(255,255,255,0.08)) !important;
+    border-right: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+  }
+
+  .sidebar .nav {
+    flex: 0 0 var(--nav-h) !important;
+    height: var(--nav-h) !important;
+    min-height: var(--nav-h) !important;
+    max-height: var(--nav-h) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-around !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .sidebar > *:not(.nav) {
+    display: none !important;
+  }
+
+  /* Player sits directly ABOVE the tab icons (not overlapping) */
+  .player-bar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    /* top of nav icon row = nav-h + safe-area from bottom */
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)) !important;
+    height: var(--player-h) !important;
+    min-height: var(--player-h) !important;
+    max-height: var(--player-h) !important;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    z-index: 301 !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    touch-action: manipulation !important;
+    overscroll-behavior: none !important;
   }
 }
