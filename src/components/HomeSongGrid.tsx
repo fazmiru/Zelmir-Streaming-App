@@ -1,5 +1,12 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import type { Track } from '../types'
+import { ThumbsUpIcon } from './Icons'
+import { AddToPlaylistMenu } from './AddToPlaylistMenu'
+import { TrackOptionsMenu } from './TrackOptionsMenu'
+import { usePlaylists } from '../playlists/PlaylistContext'
+import './homeExtras.css'
+
+const LIKED_SONGS_PLAYLIST_NAME = 'Liked Songs'
 
 interface HomeSongGridProps {
   tracks: Track[]
@@ -8,6 +15,10 @@ interface HomeSongGridProps {
   columns?: number
   rows?: number
   emptyLabel?: string
+  onOpenArtist?: (artist: string) => void
+  onPlayNext?: (track: Track) => void
+  onAddToQueue?: (track: Track) => void
+  onStartMix?: (track: Track) => void
 }
 
 export function HomeSongGrid({
@@ -17,12 +28,32 @@ export function HomeSongGrid({
   columns = 3,
   rows = 5,
   emptyLabel = 'Nothing here yet.',
+  onOpenArtist,
+  onPlayNext,
+  onAddToQueue,
+  onStartMix,
 }: HomeSongGridProps) {
+  const { playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist } = usePlaylists()
+  const likedPlaylist = playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME)
+  const [playlistMenuTrack, setPlaylistMenuTrack] = useState<Track | null>(null)
+
   const pageSize = columns * rows
   const pageCount = Math.max(1, Math.ceil(Math.max(tracks.length, 1) / pageSize))
   const [page, setPage] = useState(0)
   const safePage = Math.min(page, pageCount - 1)
   const slice = tracks.slice(safePage * pageSize, safePage * pageSize + pageSize)
+
+  const isLiked = (track: Track) => !!likedPlaylist?.tracks.some((t) => t.videoId === track.videoId)
+
+  const toggleLike = (track: Track) => {
+    if (likedPlaylist) {
+      if (isLiked(track)) removeTrackFromPlaylist(likedPlaylist.id, track.videoId)
+      else addTrackToPlaylist(likedPlaylist.id, track)
+    } else {
+      createPlaylist(LIKED_SONGS_PLAYLIST_NAME, [track])
+    }
+  }
+
 
   if (!tracks.length) {
     return <p className="empty-state">{emptyLabel}</p>
@@ -30,26 +61,28 @@ export function HomeSongGrid({
 
   return (
     <div className="home-song-grid-wrap">
-      <div className="home-song-grid-arrows">
-        <button
-          type="button"
-          className="home-arrow-btn"
-          disabled={safePage <= 0}
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          aria-label="Previous"
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          className="home-arrow-btn"
-          disabled={safePage >= pageCount - 1}
-          onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-          aria-label="Next"
-        >
-          ›
-        </button>
-      </div>
+      {pageCount > 1 && (
+        <div className="home-song-grid-arrows">
+          <button
+            type="button"
+            className="home-arrow-btn"
+            disabled={safePage <= 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="home-arrow-btn"
+            disabled={safePage >= pageCount - 1}
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
+      )}
       <div
         className="home-song-grid"
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
@@ -58,21 +91,70 @@ export function HomeSongGrid({
           const idx = safePage * pageSize + i
           const active = currentVideoId === t.videoId
           return (
-            <button
+            <div
               key={`${t.videoId}-${idx}`}
-              type="button"
               className={`home-song-cell ${active ? 'home-song-cell-active' : ''}`}
+              role="button"
+              tabIndex={0}
               onClick={() => onPlay(t, tracks)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onPlay(t, tracks)
+                }
+              }}
             >
               <img src={t.thumbnail} alt="" className="home-song-cell-art" />
               <div className="home-song-cell-meta">
                 <span className="home-song-cell-title">{t.title}</span>
-                <span className="home-song-cell-artist">{t.artist}</span>
+                {onOpenArtist ? (
+                  <button
+                    type="button"
+                    className="home-song-cell-artist home-song-cell-artist-link"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenArtist(t.artist)
+                    }}
+                  >
+                    {t.artist}
+                  </button>
+                ) : (
+                  <span className="home-song-cell-artist">{t.artist}</span>
+                )}
               </div>
-            </button>
+              <div className="home-song-cell-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className={`track-hover-btn ${isLiked(t) ? 'track-hover-btn-active' : ''}`}
+                  onClick={() => toggleLike(t)}
+                  aria-label={isLiked(t) ? 'Unlike' : 'Like'}
+                  title={isLiked(t) ? 'Unlike' : 'Like'}
+                >
+                  <ThumbsUpIcon size={16} />
+                </button>
+                <AddToPlaylistMenu track={t} />
+                <TrackOptionsMenu
+                  track={t}
+                  isLiked={isLiked(t)}
+                  onGoToArtist={onOpenArtist ? (artist) => onOpenArtist(artist) : undefined}
+                  onPlayNext={onPlayNext}
+                  onAddToQueue={onAddToQueue}
+                  onStartMix={onStartMix}
+                  onSaveToLibrary={toggleLike}
+                  onSaveToPlaylist={(tr) => setPlaylistMenuTrack(tr)}
+                />
+              </div>
+            </div>
           )
         })}
       </div>
+      {playlistMenuTrack && (
+        <AddToPlaylistMenu
+          track={playlistMenuTrack}
+          forceOpen
+          onClose={() => setPlaylistMenuTrack(null)}
+        />
+      )}
     </div>
   )
 }

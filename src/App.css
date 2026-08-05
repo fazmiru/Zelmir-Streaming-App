@@ -6627,6 +6627,7 @@ main.content.content-artist {
 
 .home-song-grid-wrap {
   position: relative;
+  overflow: visible;
 }
 
 .home-song-grid-arrows {
@@ -6828,5 +6829,132 @@ main.content.content-artist {
   }
   .home-album-art {
     height: 132px;
+  }
+}
+
+
+/* ---- Home song cell actions (like / ⋮) ---- */
+.home-song-cell {
+  position: relative;
+}
+.home-song-cell-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.home-song-cell:hover .home-song-cell-actions,
+.home-song-cell:focus-within .home-song-cell-actions {
+  display: flex;
+}
+.home-song-cell-artist-link {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.home-song-cell-artist-link:hover {
+  text-decoration: underline;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---- Horizontal shelf with arrows (albums / new releases) ---- */
+.home-shelf-wrap {
+  position: relative;
+}
+.home-shelf-arrows {
+  position: absolute;
+  right: 0;
+  top: -48px;
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+}
+.home-section-header {
+  position: relative;
+}
+
+
+/* ============================================================
+   PWA: lock bottom nav + player — no scroll chaining / rubber-band
+   ============================================================ */
+
+html, body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+/* Only the main content pane scrolls */
+.app-shell {
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+
+.app-main {
+  overscroll-behavior: none;
+}
+
+.content {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Bottom tab bar: never capture scroll / never move with overscroll */
+@media (max-width: 900px) {
+  .sidebar {
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+    /* Keep nav painted above content during iOS rubber-band */
+    z-index: 40 !important;
+  }
+
+  .sidebar .nav,
+  .sidebar .nav-item,
+  .sidebar .wordmark {
+    touch-action: manipulation !important;
+  }
+
+  /* Prevent vertical scroll gestures that start on the nav from scrolling page */
+  .sidebar * {
+    overscroll-behavior: none;
+  }
+
+  .player-bar {
+    touch-action: manipulation !important;
+    overscroll-behavior: none !important;
+    z-index: 45 !important;
+    /* Stay fixed — never translate with body overscroll */
+    position: fixed !important;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  /* Content must end above player + nav so scroll can't cover them */
+  .app-shell {
+    padding-bottom: 0 !important;
+  }
+
+  .content {
+    /* Keep last items clear of player + nav */
+    padding-bottom: calc(
+      var(--mobile-player-h, 56px) + var(--mobile-nav-h, 52px) +
+      env(safe-area-inset-bottom, 0px) + 16px
+    ) !important;
+  }
+
+  /* Stop iOS from scrolling the whole app when dragging near the bottom */
+  .app-shell,
+  .app-main {
+    overflow: hidden !important;
+  }
+
+  .content {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 }

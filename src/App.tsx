@@ -3,6 +3,7 @@ import { Sidebar, type View } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { VideoGrid } from './components/VideoGrid'
 import { HomeSongGrid } from './components/HomeSongGrid'
+import { HorizontalShelf } from './components/HorizontalShelf'
 import { Flow } from './components/Flow'
 import { PlayerBar } from './components/PlayerBar'
 import { NowPlaying } from './components/NowPlaying'
@@ -30,37 +31,74 @@ const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
 const MOOD_CHIPS = ['Relax', 'Energise', 'Party', 'Focus', 'Sleep', 'Workout', 'Sad', 'Romance'] as const
 
 const MOOD_MIX_QUERIES: Record<string, { label: string; queries: string[] }> = {
+  // Relax stays global / instrumental-friendly
   Relax: {
     label: 'FOR RELAXING',
     queries: ['chill lofi mix', 'relaxing ambient music', 'soft acoustic chill', 'peaceful piano calm'],
   },
+  // Other moods: bias hard toward English-language results (YouTube region often returns Hindi otherwise)
   Energise: {
     label: 'FOR ENERGY',
-    queries: ['energetic pop hits', 'upbeat electronic dance', 'high energy workout mix', 'motivational rock energy'],
+    queries: [
+      'english energetic pop hits 2024',
+      'english upbeat electronic dance',
+      'english high energy workout mix',
+      'english motivational rock energy',
+    ],
   },
   Party: {
     label: 'FOR THE PARTY',
-    queries: ['party anthems mix', 'dance club hits', 'hip hop party playlist', 'edm festival bangers'],
+    queries: [
+      'english party anthems mix',
+      'english dance club hits',
+      'english hip hop party playlist',
+      'english edm festival bangers',
+    ],
   },
   Focus: {
     label: 'FOR FOCUS',
-    queries: ['focus study lofi', 'deep concentration music', 'instrumental focus beats', 'coding ambient focus'],
+    queries: [
+      'english focus study lofi',
+      'english deep concentration music',
+      'instrumental focus beats english',
+      'english coding ambient focus',
+    ],
   },
   Sleep: {
     label: 'FOR SLEEP',
-    queries: ['sleep ambient sounds', 'deep sleep music calm', 'night rain soft piano', 'dreamy atmospheric sleep'],
+    queries: [
+      'english sleep ambient sounds',
+      'english deep sleep music calm',
+      'night rain soft piano english',
+      'english dreamy atmospheric sleep',
+    ],
   },
   Workout: {
     label: 'FOR WORKOUT',
-    queries: ['workout gym motivation', 'running high tempo', 'beast mode gym mix', 'cardio energy tracks'],
+    queries: [
+      'english workout gym motivation',
+      'english running high tempo',
+      'english beast mode gym mix',
+      'english cardio energy tracks',
+    ],
   },
   Sad: {
     label: 'FOR WHEN IT HURTS',
-    queries: ['sad emotional songs', 'heartbreak ballads mix', 'melancholy indie sad', 'crying at night playlist'],
+    queries: [
+      'english sad emotional songs',
+      'english heartbreak ballads mix',
+      'english melancholy indie sad',
+      'english crying at night playlist',
+    ],
   },
   Romance: {
     label: 'FOR ROMANCE',
-    queries: ['romantic love songs', 'r&b slow jams', 'intimate acoustic love', 'date night soft pop'],
+    queries: [
+      'english romantic love songs',
+      'english r&b slow jams',
+      'english intimate acoustic love',
+      'english date night soft pop',
+    ],
   },
 }
 
@@ -466,8 +504,20 @@ function App() {
       const results = await Promise.all(
         cfg.queries.map((q) => searchPipedTracksSimple(q).catch(() => [] as Track[]))
       )
+      // Drop Indic-script titles/artists for non-Relax moods so lists stay ~English
+      const preferEnglish = chip !== 'Relax'
+      const isIndic = (s: string) =>
+        /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F]/.test(
+          s
+        )
+      const filterEnglish = (tracks: Track[]) => {
+        if (!preferEnglish) return tracks
+        const kept = tracks.filter((tr) => !isIndic(`${tr.title} ${tr.artist}`))
+        // Keep ~90% english: if filter wiped too much, fall back to original
+        return kept.length >= Math.max(3, Math.floor(tracks.length * 0.4)) ? kept : tracks
+      }
       const mixes: MoodMix[] = results.map((tracks, i) => {
-        const list = tracks.slice(0, 12)
+        const list = filterEnglish(tracks).slice(0, 12)
         const artists = [...new Set(list.map((t) => t.artist).filter(Boolean))].slice(0, 4)
         return {
           id: `${chip}-${i}`,
@@ -939,6 +989,10 @@ function App() {
                     columns={3}
                     rows={5}
                     emptyLabel="Play a few songs and we’ll suggest more here."
+                    onOpenArtist={handleOpenArtist}
+                    onPlayNext={player.playNext}
+                    onAddToQueue={player.addToQueue}
+                    onStartMix={handleStartMix}
                   />
                 )}
               </section>
@@ -956,7 +1010,7 @@ function App() {
                 ) : homeAlbums.length === 0 ? (
                   <p className="empty-state">Save songs to playlists so we can suggest albums.</p>
                 ) : (
-                  <div className="home-album-row">
+                  <HorizontalShelf>
                     {homeAlbums.map((al) => (
                       <button
                         key={al.id}
@@ -979,7 +1033,7 @@ function App() {
                         </span>
                       </button>
                     ))}
-                  </div>
+                  </HorizontalShelf>
                 )}
               </section>
 
@@ -1003,7 +1057,7 @@ function App() {
                 {loadingNewReleases ? (
                   <p className="empty-state">Scanning new music…</p>
                 ) : (
-                  <div className="home-album-row">
+                  <HorizontalShelf>
                     {newReleases.map((t) => (
                       <button
                         key={t.videoId}
@@ -1028,7 +1082,7 @@ function App() {
                     {!newReleases.length && (
                       <p className="empty-state">No new releases found yet.</p>
                     )}
-                  </div>
+                  </HorizontalShelf>
                 )}
               </section>
 
@@ -1058,7 +1112,11 @@ function App() {
                     currentVideoId={player.current?.videoId}
                     columns={3}
                     rows={4}
-                    emptyLabel="Play more music so we can trend with your taste."
+                    emptyLabel="No trending picks yet."
+                    onOpenArtist={handleOpenArtist}
+                    onPlayNext={player.playNext}
+                    onAddToQueue={player.addToQueue}
+                    onStartMix={handleStartMix}
                   />
                 )}
               </section>

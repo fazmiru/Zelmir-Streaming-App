@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { Track } from '../types'
-import { PlayIcon, GripIcon, ThumbsUpIcon, ThumbsDownIcon } from './Icons'
+import { PlayIcon, GripIcon, ThumbsUpIcon } from './Icons'
 import { AddToPlaylistMenu } from './AddToPlaylistMenu'
 import { TrackOptionsMenu } from './TrackOptionsMenu'
 import { usePlaylists } from '../playlists/PlaylistContext'
@@ -38,10 +38,6 @@ export function VideoGrid({
 }: VideoGridProps) {
   const { playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist } = usePlaylists()
   const likedPlaylist = playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME)
-  // Dislike has no real destination in this app (no recommendation feed to
-  // steer) — it's a purely visual, per-session toggle to match the hover UI,
-  // not a persisted preference.
-  const [dislikedIds, setDislikedIds] = useState<Set<string>>(new Set())
   // When "Save to playlist" is chosen from the ⋮ menu, open the add modal for this track.
   const [playlistMenuTrack, setPlaylistMenuTrack] = useState<Track | null>(null)
 
@@ -56,14 +52,6 @@ export function VideoGrid({
     }
   }
 
-  const toggleDislike = (videoId: string) => {
-    setDislikedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(videoId)) next.delete(videoId)
-      else next.add(videoId)
-      return next
-    })
-  }
 
   // Local copy so we can show live reordering while dragging, without waiting on the parent.
   const [order, setOrder] = useState(tracks)
@@ -197,15 +185,6 @@ export function VideoGrid({
                   title={isLiked(track) ? 'Unlike' : 'Like'}
                 >
                   <ThumbsUpIcon size={17} />
-                </button>
-                <button
-                  className={`track-hover-btn ${dislikedIds.has(track.videoId) ? 'track-hover-btn-active' : ''}`}
-                  onClick={() => toggleDislike(track.videoId)}
-                  aria-label="Dislike"
-                  aria-pressed={dislikedIds.has(track.videoId)}
-                  title="Dislike"
-                >
-                  <ThumbsDownIcon size={17} />
                 </button>
                 <AddToPlaylistMenu track={track} />
                 <TrackOptionsMenu
