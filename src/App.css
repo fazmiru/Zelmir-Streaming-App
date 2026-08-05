@@ -5922,3 +5922,29 @@ main.content.content-artist {
     height: 140px;
   }
 }
+
+
+/* ============================================================
+   PWA mobile — player bar must sit flush above the tab bar
+   (no double safe-area gap that floats it upward)
+   ============================================================ */
+@media (max-width: 900px) {
+  .player-bar {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    /* Only the nav *content* height — safe-area is padding inside the nav itself */
+    bottom: var(--nav-h, var(--mobile-nav-h, 52px)) !important;
+    margin: 0 !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+  }
+
+  .sidebar {
+    bottom: 0 !important;
+    top: auto !important;
+    margin: 0 !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+  }
+}

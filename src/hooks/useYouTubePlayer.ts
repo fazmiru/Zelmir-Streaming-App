@@ -473,15 +473,31 @@ export function useYouTubePlayer(
     async (videoId: string) => {
       intendedPlayingRef.current = true
 
-      // CRITICAL (mobile): start YouTube *before* any await so we stay inside the
-      // user-gesture window. Awaiting offline/IndexedDB first causes playVideo to
-      // be ignored and the track sits paused in the bar.
-      const ytReady = ready && !!playerRef.current?.loadVideoById
-      if (ytReady && navigator.onLine) {
-        playYouTube(videoId)
+      // Unlock HTML5 audio inside the user-gesture stack (required on iOS/PWA)
+      try {
+        const a = audioRef.current
+        if (a) {
+          const prev = a.src
+          // silent unlock — ignore failures
+          void a.play().then(() => {
+            if (!intendedPlayingRef.current) a.pause()
+          }).catch(() => {})
+          if (!prev) {
+            try {
+              a.pause()
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      } catch {
+        /* ignore */
       }
 
-      // Offline upgrade (async is fine — YT already started if available)
+      const mobile = prefersHtmlAudio()
+      const ytReady = ready && !!playerRef.current?.loadVideoById
+
+      // Offline first when available
       try {
         const blob = await getOfflineAudioBlob(videoId)
         if (blob) {
@@ -493,28 +509,51 @@ export function useYouTubePlayer(
       }
 
       if (!navigator.onLine) {
-        if (!ytReady) {
-          console.warn('No offline audio and device offline:', videoId)
-          setIsPlaying(false)
-          intendedPlayingRef.current = false
-          return false
-        }
-        return true
+        console.warn('No offline audio and device offline:', videoId)
+        setIsPlaying(false)
+        intendedPlayingRef.current = false
+        return false
       }
 
-      // YT already kicked off above
-      if (ytReady) return true
-
-      // Player not ready yet — try stream so something plays, else effect retries when ready
-      if (prefersHtmlAudio()) {
+      // Mobile / PWA: prefer real HTML5 stream — YT iframe often stays paused in standalone
+      if (mobile) {
         const streamUrl = await fetchStreamUrl(videoId)
         if (streamUrl) {
           const ok = await playStreamUrl(videoId, streamUrl)
           if (ok) return true
         }
+        // Fall back to YouTube iframe
+        if (ytReady) {
+          playYouTube(videoId)
+          // If still not playing shortly, try stream again / another play kick
+          window.setTimeout(() => {
+            if (!intendedPlayingRef.current) return
+            if (isPlayingRef.current) return
+            try {
+              playerRef.current?.playVideo?.()
+            } catch {
+              /* ignore */
+            }
+          }, 400)
+          return true
+        }
+        requestedVideoIdRef.current = null
+        return false
       }
 
-      // Mark so the ready-effect can start playback once YT is up
+      // Desktop: YouTube first
+      if (ytReady) {
+        playYouTube(videoId)
+        return true
+      }
+
+      // YT not ready — stream fallback
+      const streamUrl = await fetchStreamUrl(videoId)
+      if (streamUrl) {
+        const ok = await playStreamUrl(videoId, streamUrl)
+        if (ok) return true
+      }
+
       requestedVideoIdRef.current = null
       return false
     },
@@ -650,6 +689,7 @@ export function useYouTubePlayer(
 
   const playTrack = useCallback(
     (track: Track, newQueue?: Track[]) => {
+      intendedPlayingRef.current = true
       historyRef.current = []
       if (newQueue) {
         // Recommended / external tracks may not be in the source list.
