@@ -65,6 +65,31 @@ export const DEFAULT_OUTLINE: OutlineTheme = {
   thickness: 0,
 }
 
+/** Cinematic ambient layer (particles / embers / stars). */
+export type AmbientStyle = 'off' | 'stars' | 'embers' | 'dust' | 'snow'
+
+export interface AmbientTheme {
+  enabled: boolean
+  style: AmbientStyle
+  color: string
+  /** 0.2 – 2 density multiplier */
+  density: number
+  /** 0.3 – 2 speed multiplier */
+  speed: number
+  /** 0.05 – 0.8 opacity */
+  opacity: number
+}
+
+export const DEFAULT_AMBIENT: AmbientTheme = {
+  enabled: true,
+  style: 'stars',
+  color: '#ffffff',
+  density: 1,
+  speed: 1,
+  opacity: 0.35,
+}
+
+
 /* ---------------- Auth ---------------- */
 
 export interface StoredUser {

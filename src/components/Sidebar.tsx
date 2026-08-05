@@ -12,7 +12,7 @@ import {
 import { usePlaylists } from '../playlists/PlaylistContext'
 import { useAuth } from '../auth/AuthContext'
 
-export type View = 'home' | 'search' | 'library' | 'flow' | 'settings' | 'playlist' | 'artist' | 'album'
+export type View = 'home' | 'search' | 'library' | 'flow' | 'settings' | 'playlist' | 'artist' | 'album' | 'mood'
 
 interface SidebarProps {
   view: View

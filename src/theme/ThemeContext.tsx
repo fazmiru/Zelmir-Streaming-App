@@ -3,8 +3,10 @@ import {
   DEFAULT_THEME,
   DEFAULT_BACKGROUND_THEME,
   DEFAULT_OUTLINE,
+  DEFAULT_AMBIENT,
   type ThemeState,
   type OutlineTheme,
+  type AmbientTheme,
 } from '../types'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabaseClient'
@@ -16,6 +18,8 @@ interface ThemeContextValue {
   setBackgroundTheme: (next: ThemeState) => void
   outline: OutlineTheme
   setOutline: (next: OutlineTheme) => void
+  ambient: AmbientTheme
+  setAmbient: (next: AmbientTheme) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
@@ -23,6 +27,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 const THEME_STORAGE_KEY = 'zelmir-theme'
 const BG_THEME_STORAGE_KEY = 'zelmir-bg-theme'
 const OUTLINE_STORAGE_KEY = 'zelmir-outline'
+const AMBIENT_STORAGE_KEY = 'zelmir-ambient'
 
 function normalizeColors(raw: unknown, fallbackA: string, fallbackB: string): string[] {
   if (Array.isArray(raw) && raw.length >= 2) {
@@ -192,6 +197,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     loadCachedTheme(BG_THEME_STORAGE_KEY, DEFAULT_BACKGROUND_THEME)
   )
   const [outline, setOutlineState] = useState<OutlineTheme>(() => loadCachedOutline())
+  const [ambient, setAmbientState] = useState<AmbientTheme>(() => {
+    try {
+      const raw = localStorage.getItem(AMBIENT_STORAGE_KEY)
+      if (!raw) return DEFAULT_AMBIENT
+      const parsed = JSON.parse(raw)
+      return { ...DEFAULT_AMBIENT, ...parsed }
+    } catch {
+      return DEFAULT_AMBIENT
+    }
+  })
 
   useEffect(() => {
     if (authLoading) return
@@ -319,6 +334,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     persist(theme, backgroundTheme, next)
   }
 
+  const setAmbient = (next: AmbientTheme) => {
+    setAmbientState(next)
+    try {
+      localStorage.setItem(AMBIENT_STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     const root = document.documentElement
     applyColorVars('accent', theme)
@@ -342,9 +366,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [outline])
 
   const value = useMemo(
-    () => ({ theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline }),
+    () => ({ theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline, ambient, setAmbient }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [theme, backgroundTheme, outline, user]
+    [theme, backgroundTheme, outline, ambient, user]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

@@ -9,6 +9,8 @@ import { ArtistPage } from './components/ArtistPage'
 import { AlbumPage } from './components/AlbumPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeSettings } from './components/ThemeSettings'
+import { AmbientParticles } from './components/AmbientParticles'
+import { useTheme } from './theme/ThemeContext'
 import { AuthScreen } from './components/AuthScreen'
 import { SpotifyImportModal } from './components/SpotifyImportModal'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer'
@@ -26,8 +28,52 @@ const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as string | undefined
 
 const MOOD_CHIPS = ['Relax', 'Energise', 'Party', 'Focus', 'Sleep', 'Workout', 'Sad', 'Romance'] as const
 
+const MOOD_MIX_QUERIES: Record<string, { label: string; queries: string[] }> = {
+  Relax: {
+    label: 'FOR RELAXING',
+    queries: ['chill lofi mix', 'relaxing ambient music', 'soft acoustic chill', 'peaceful piano calm'],
+  },
+  Energise: {
+    label: 'FOR ENERGY',
+    queries: ['energetic pop hits', 'upbeat electronic dance', 'high energy workout mix', 'motivational rock energy'],
+  },
+  Party: {
+    label: 'FOR THE PARTY',
+    queries: ['party anthems mix', 'dance club hits', 'hip hop party playlist', 'edm festival bangers'],
+  },
+  Focus: {
+    label: 'FOR FOCUS',
+    queries: ['focus study lofi', 'deep concentration music', 'instrumental focus beats', 'coding ambient focus'],
+  },
+  Sleep: {
+    label: 'FOR SLEEP',
+    queries: ['sleep ambient sounds', 'deep sleep music calm', 'night rain soft piano', 'dreamy atmospheric sleep'],
+  },
+  Workout: {
+    label: 'FOR WORKOUT',
+    queries: ['workout gym motivation', 'running high tempo', 'beast mode gym mix', 'cardio energy tracks'],
+  },
+  Sad: {
+    label: 'FOR WHEN IT HURTS',
+    queries: ['sad emotional songs', 'heartbreak ballads mix', 'melancholy indie sad', 'crying at night playlist'],
+  },
+  Romance: {
+    label: 'FOR ROMANCE',
+    queries: ['romantic love songs', 'r&b slow jams', 'intimate acoustic love', 'date night soft pop'],
+  },
+}
+
+type MoodMix = {
+  id: string
+  title: string
+  subtitle: string
+  tracks: Track[]
+}
+
+
 function App() {
   const { user, loading: authLoading } = useAuth()
+  const { ambient } = useTheme()
   const [view, setView] = useState<View>('home')
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -63,6 +109,11 @@ function App() {
   const [quickPicks, setQuickPicks] = useState<Track[]>([])
   const [loadingQuickPicks, setLoadingQuickPicks] = useState(false)
   const [quickPicksSalt, setQuickPicksSalt] = useState(0)
+  const [activeMood, setActiveMood] = useState<string | null>(null)
+  const [moodMixes, setMoodMixes] = useState<MoodMix[]>([])
+  const [moodTracks, setMoodTracks] = useState<Track[]>([])
+  const [moodLoading, setMoodLoading] = useState(false)
+
   const [playlistRecs, setPlaylistRecs] = useState<Track[]>([])
   const [loadingPlaylistRecs, setLoadingPlaylistRecs] = useState(false)
   const [playlistRecsSalt, setPlaylistRecsSalt] = useState(0)
@@ -235,19 +286,47 @@ function App() {
   }
 
   const runMoodSearch = async (chip: string) => {
-    setQuery(chip)
-    setLoading(true)
+    setActiveMood(chip)
+    setView('mood')
     setError(null)
-    setView('search')
+    setMoodLoading(true)
+    setMoodMixes([])
+    setMoodTracks([])
     try {
-      const tracks = await searchPipedTracksSimple(chip)
-      setResults(tracks)
-      setSearchBackend('piped')
-      setNextPageToken(null)
+      const cfg = MOOD_MIX_QUERIES[chip] || {
+        label: `FOR ${chip.toUpperCase()}`,
+        queries: [chip, `${chip} mix`, `${chip} playlist`, `${chip} songs`],
+      }
+      const results = await Promise.all(
+        cfg.queries.map((q) => searchPipedTracksSimple(q).catch(() => [] as Track[]))
+      )
+      const mixes: MoodMix[] = results.map((tracks, i) => {
+        const list = tracks.slice(0, 12)
+        const artists = [...new Set(list.map((t) => t.artist).filter(Boolean))].slice(0, 4)
+        return {
+          id: `${chip}-${i}`,
+          title: i === results.length - 1 ? `${chip} Supermix` : `${chip} Mix ${String(i + 1).padStart(2, '0')}`,
+          subtitle: artists.join(', ') || cfg.queries[i],
+          tracks: list,
+        }
+      }).filter((m) => m.tracks.length > 0)
+
+      setMoodMixes(mixes)
+      // Flatten unique tracks for the "songs" row under mixes
+      const seen = new Set<string>()
+      const flat: Track[] = []
+      for (const m of mixes) {
+        for (const t of m.tracks) {
+          if (seen.has(t.videoId)) continue
+          seen.add(t.videoId)
+          flat.push(t)
+        }
+      }
+      setMoodTracks(flat)
     } catch {
       setError('Could not load that mood right now.')
     } finally {
-      setLoading(false)
+      setMoodLoading(false)
     }
   }
 
@@ -525,6 +604,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <AmbientParticles ambient={ambient} />
       <Sidebar
         view={view}
         activePlaylistId={activePlaylistId}
@@ -540,16 +620,16 @@ function App() {
               className={`topbar-wrap ${
                 view === 'playlist'
                   ? 'topbar-hide'
-                  : view === 'home' || view === 'library' || view === 'flow' || view === 'settings'
+                  : view === 'home' || view === 'mood' || view === 'library' || view === 'flow' || view === 'settings'
                     ? 'topbar-hide-mobile'
                     : ''
-              } ${view === 'home' || view === 'artist' ? 'topbar-home' : ''} ${topbarScrolled ? 'topbar-scrolled' : ''}`}
+              } ${view === 'home' || view === 'mood' || view === 'artist' ? 'topbar-home' : ''} ${topbarScrolled ? 'topbar-scrolled' : ''}`}
             >
               <TopBar query={query} onQueryChange={setQuery} onSearch={search} loading={loading} />
             </div>
 
         <main
-          className={`content ${view === 'artist' ? 'content-artist' : ''} ${view === 'home' ? 'content-home' : ''}`}
+          className={`content ${view === 'artist' ? 'content-artist' : ''} ${view === 'home' || view === 'mood' ? 'content-home' : ''}`}
           onScroll={handleContentScroll}
         >
           {error && <p className="error-banner">{error}</p>}
@@ -562,12 +642,30 @@ function App() {
                 <div className="home-theme-orb home-theme-orb-b" />
                 <div className="home-theme-orb home-theme-orb-c" />
                 <div className="home-theme-orb home-theme-orb-d" />
+                {player.current?.thumbnail && (
+                  <div
+                    className="home-now-art"
+                    style={{ backgroundImage: `url(${player.current.thumbnail})` }}
+                  />
+                )}
                 <div className="home-theme-shade" />
               </div>
               <header className="home-header">
-                <h1 className="home-app-name">
-                  <span className="accent-text">Zelmir</span>
-                </h1>
+                <div className="home-header-text">
+                  <p className="home-greeting">
+                    {(() => {
+                      const h = new Date().getHours()
+                      if (h < 12) return 'Good morning'
+                      if (h < 18) return 'Good afternoon'
+                      return 'Good evening'
+                    })()}
+                    {user.username ? `, ${user.username}` : ''}
+                  </p>
+                  <h1 className="home-app-name">
+                    <span className="accent-text">Zelmir</span>
+                  </h1>
+                  <p className="home-tagline">Pick a mood or jump back in</p>
+                </div>
                 <div className="home-profile" title={user.username}>
                   <div className="home-profile-avatar accent-fill">
                     {user.username.charAt(0).toUpperCase()}
@@ -581,9 +679,11 @@ function App() {
                   <button
                     key={chip}
                     type="button"
-                    className="home-chip"
+                    className={`home-chip home-chip-${chip.toLowerCase()} ${activeMood === chip ? 'home-chip-active' : ''}`}
+                    data-mood={chip.toLowerCase()}
                     onClick={() => runMoodSearch(chip)}
                   >
+                    <span className="home-chip-dot" aria-hidden />
                     {chip}
                   </button>
                 ))}
@@ -592,7 +692,10 @@ function App() {
               {/* Listen again / Jump back in — playlists */}
               <section className="home-section">
                 <div className="home-section-header">
-                  <h2 className="section-heading">Listen again</h2>
+                  <div>
+                    <h2 className="section-heading">Jump back in</h2>
+                    <p className="home-section-sub">Playlists & recent listens</p>
+                  </div>
                 </div>
                 {playlists.length === 0 ? (
                   <p className="empty-state">Create a playlist to see it here.</p>
@@ -611,7 +714,9 @@ function App() {
                             {art ? (
                               <img src={art} alt="" />
                             ) : (
-                              <div className="home-playlist-tile-empty" />
+                              <div className="home-playlist-tile-empty">
+                                <span>{pl.name.charAt(0).toUpperCase()}</span>
+                              </div>
                             )}
                             {pl.tracks.length > 0 && (
                               <span className="home-playlist-tile-play" aria-hidden>
@@ -630,7 +735,10 @@ function App() {
               {/* Quick picks */}
               <section className="home-section">
                 <div className="home-section-header">
-                  <h2 className="section-heading">Quick picks</h2>
+                  <div>
+                    <h2 className="section-heading">Quick picks</h2>
+                    <p className="home-section-sub">Made for you right now</p>
+                  </div>
                   <div className="home-section-actions">
                     <button
                       type="button"
@@ -670,9 +778,127 @@ function App() {
 
               {player.queue.length > 0 && (
                 <section className="home-section">
-                  <h2 className="section-heading">Recently played</h2>
+                  <div className="home-section-header">
+                    <div>
+                      <h2 className="section-heading">Recently played</h2>
+                      <p className="home-section-sub">Pick up where you left off</p>
+                    </div>
+                  </div>
+                  <div className="home-playlist-grid home-recent-grid">
+                    {player.queue.slice(0, 12).map((t) => (
+                      <button
+                        key={t.videoId}
+                        type="button"
+                        className="home-playlist-tile"
+                        onClick={() => handlePlay(t, player.queue)}
+                      >
+                        <div className="home-playlist-tile-art">
+                          {t.thumbnail ? (
+                            <img src={t.thumbnail} alt="" />
+                          ) : (
+                            <div className="home-playlist-tile-empty">
+                              <span>{t.title.charAt(0)}</span>
+                            </div>
+                          )}
+                          <span className="home-playlist-tile-play" aria-hidden>▶</span>
+                        </div>
+                        <span className="home-playlist-tile-name">{t.title}</span>
+                        <span className="home-playlist-tile-sub">{t.artist}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+
+          
+          {view === 'mood' && activeMood && (
+            <div className="mood-view">
+              <div className="home-theme-backdrop mood-backdrop" aria-hidden>
+                <div className="home-theme-orb home-theme-orb-a" />
+                <div className="home-theme-orb home-theme-orb-b" />
+                <div className="home-theme-shade" />
+              </div>
+
+              <div className="home-chips mood-chips-bar">
+                {MOOD_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    className={`home-chip home-chip-${chip.toLowerCase()} ${activeMood === chip ? 'home-chip-active' : ''}`}
+                    data-mood={chip.toLowerCase()}
+                    onClick={() => runMoodSearch(chip)}
+                  >
+                    <span className="home-chip-dot" aria-hidden />
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              <p className="mood-kicker">
+                {(MOOD_MIX_QUERIES[activeMood]?.label) || `FOR ${activeMood.toUpperCase()}`}
+              </p>
+              <div className="mood-title-row">
+                <h1 className="mood-title">Mixed for you</h1>
+                {!moodLoading && moodTracks.length > 0 && (
+                  <button
+                    type="button"
+                    className="home-play-all"
+                    onClick={() => handlePlay(moodTracks[0], moodTracks)}
+                  >
+                    Play all
+                  </button>
+                )}
+              </div>
+
+              {moodLoading && <p className="empty-state">Building your {activeMood.toLowerCase()} mixes…</p>}
+
+              {!moodLoading && moodMixes.length > 0 && (
+                <div className="mood-mix-row">
+                  {moodMixes.map((mix) => {
+                    const cover = mix.tracks[0]?.thumbnail
+                    const cover2 = mix.tracks[1]?.thumbnail
+                    const cover3 = mix.tracks[2]?.thumbnail
+                    const cover4 = mix.tracks[3]?.thumbnail
+                    return (
+                      <button
+                        key={mix.id}
+                        type="button"
+                        className="mood-mix-card"
+                        onClick={() => {
+                          if (mix.tracks[0]) handlePlay(mix.tracks[0], mix.tracks)
+                        }}
+                      >
+                        <div className="mood-mix-art">
+                          {cover ? (
+                            <div className="mood-mix-collage">
+                              <img src={cover} alt="" />
+                              {cover2 && <img src={cover2} alt="" />}
+                              {cover3 && <img src={cover3} alt="" />}
+                              {cover4 && <img src={cover4} alt="" />}
+                            </div>
+                          ) : (
+                            <div className="mood-mix-art-empty" />
+                          )}
+                          <span className="mood-mix-label">{mix.title}</span>
+                          <span className="mood-mix-play" aria-hidden>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          </span>
+                        </div>
+                        <span className="mood-mix-name">{mix.title}</span>
+                        <span className="mood-mix-sub">{mix.subtitle}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {!moodLoading && moodTracks.length > 0 && (
+                <section className="home-section" style={{ marginTop: 28 }}>
+                  <h2 className="section-heading">Songs</h2>
                   <VideoGrid
-                    tracks={player.queue}
+                    tracks={moodTracks}
                     onPlay={handlePlay}
                     currentVideoId={player.current?.videoId}
                     emptyLabel=""
@@ -680,6 +906,10 @@ function App() {
                     {...gridQueueHandlers}
                   />
                 </section>
+              )}
+
+              {!moodLoading && moodMixes.length === 0 && !error && (
+                <p className="empty-state">No mixes found — try another mood.</p>
               )}
             </div>
           )}

@@ -3,8 +3,11 @@ import {
   DEFAULT_THEME,
   DEFAULT_BACKGROUND_THEME,
   DEFAULT_OUTLINE,
+  DEFAULT_AMBIENT,
   type ThemeState,
   type OutlineTheme,
+  type AmbientTheme,
+  type AmbientStyle,
 } from '../types'
 
 const PRESETS = [
@@ -272,7 +275,7 @@ function OutlineSection({
 }
 
 export function ThemeSettings() {
-  const { theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline } = useTheme()
+  const { theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline, ambient, setAmbient } = useTheme()
 
   return (
     <div className="settings-page">
@@ -307,6 +310,104 @@ export function ThemeSettings() {
         onChange={setOutline}
         onReset={() => setOutline(DEFAULT_OUTLINE)}
       />
+
+      <div className="settings-panel">
+        <h2>Ambient effects</h2>
+        <p className="settings-subtitle">
+          Soft cinematic particles over the app — stars, embers, dust, or snow. Fully optional.
+        </p>
+
+        <div className="settings-mode-toggle">
+          <button
+            type="button"
+            className={`mode-button ${ambient.enabled ? 'mode-button-active accent-fill' : ''}`}
+            onClick={() => setAmbient({ ...ambient, enabled: true })}
+          >
+            On
+          </button>
+          <button
+            type="button"
+            className={`mode-button ${!ambient.enabled ? 'mode-button-active accent-fill' : ''}`}
+            onClick={() => setAmbient({ ...ambient, enabled: false })}
+          >
+            Off
+          </button>
+        </div>
+
+        <p className="settings-label">Style</p>
+        <div className="preset-row">
+          {(['stars', 'embers', 'dust', 'snow'] as AmbientStyle[]).map((style) => (
+            <button
+              key={style}
+              type="button"
+              className={`preset-chip ${ambient.style === style ? 'preset-chip-active' : ''}`}
+              onClick={() => setAmbient({ ...ambient, style, enabled: true })}
+            >
+              {style.charAt(0).toUpperCase() + style.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <label className="settings-label" htmlFor="ambient-color">
+          Color
+        </label>
+        <div className="color-row">
+          <input
+            id="ambient-color"
+            type="color"
+            value={ambient.color}
+            onChange={(e) => setAmbient({ ...ambient, color: e.target.value })}
+          />
+          <span>{ambient.color}</span>
+        </div>
+
+        <label className="settings-label" htmlFor="ambient-density">
+          Density — {ambient.density.toFixed(1)}×
+        </label>
+        <input
+          id="ambient-density"
+          type="range"
+          min={0.3}
+          max={2}
+          step={0.1}
+          value={ambient.density}
+          onChange={(e) => setAmbient({ ...ambient, density: Number(e.target.value) })}
+          className="accent-range"
+        />
+
+        <label className="settings-label" htmlFor="ambient-speed">
+          Speed — {ambient.speed.toFixed(1)}×
+        </label>
+        <input
+          id="ambient-speed"
+          type="range"
+          min={0.3}
+          max={2}
+          step={0.1}
+          value={ambient.speed}
+          onChange={(e) => setAmbient({ ...ambient, speed: Number(e.target.value) })}
+          className="accent-range"
+        />
+
+        <label className="settings-label" htmlFor="ambient-opacity">
+          Opacity — {Math.round(ambient.opacity * 100)}%
+        </label>
+        <input
+          id="ambient-opacity"
+          type="range"
+          min={0.05}
+          max={0.8}
+          step={0.05}
+          value={ambient.opacity}
+          onChange={(e) => setAmbient({ ...ambient, opacity: Number(e.target.value) })}
+          className="accent-range"
+        />
+
+        <button className="reset-button" type="button" onClick={() => setAmbient(DEFAULT_AMBIENT)}>
+          Reset ambient
+        </button>
+      </div>
+
     </div>
   )
 }
