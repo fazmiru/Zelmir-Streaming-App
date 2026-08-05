@@ -283,10 +283,12 @@ export function useYouTubePlayer(
           height: '0',
           width: '0',
           playerVars: {
+            autoplay: 1,
             playsinline: 1,
             controls: 0,
             rel: 0,
             modestbranding: 1,
+            origin: window.location.origin,
           },
           events: {
             onReady: () => {
@@ -294,16 +296,25 @@ export function useYouTubePlayer(
             },
             onStateChange: (e: any) => {
               if (sourceRef.current !== 'youtube') return
-              if (e.data === window.YT.PlayerState.PLAYING) {
+              const YT = window.YT
+              if (e.data === YT.PlayerState.PLAYING) {
                 setIsPlaying(true)
                 intendedPlayingRef.current = true
-              }
-              if (e.data === window.YT.PlayerState.PAUSED) {
-                setIsPlaying(false)
-                intendedPlayingRef.current = false
-              }
-              if (e.data === window.YT.PlayerState.ENDED) {
+              } else if (e.data === YT.PlayerState.ENDED) {
                 handleTrackEnded()
+              } else if (
+                (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.CUED) &&
+                intendedPlayingRef.current
+              ) {
+                // Mobile often loads paused after loadVideoById — keep retrying while user asked to play
+                try {
+                  playerRef.current?.playVideo?.()
+                } catch {
+                  /* ignore */
+                }
+                // Don't clear intendedPlaying; UI stays "wanting to play"
+              } else if (e.data === YT.PlayerState.PAUSED) {
+                setIsPlaying(false)
               }
             },
           },
@@ -419,8 +430,34 @@ export function useYouTubePlayer(
       if (!p?.loadVideoById) return
       requestedVideoIdRef.current = videoId
       intendedPlayingRef.current = true
-      p.loadVideoById(videoId)
-      p.playVideo()
+      try {
+        // Prefer cue + play for mobile reliability; loadVideoById alone often stays paused
+        if (typeof p.loadVideoById === 'function') {
+          p.loadVideoById({ videoId, startSeconds: 0 })
+        }
+        p.playVideo?.()
+        // Extra kicks — iOS/Android sometimes ignore the first playVideo
+        setTimeout(() => {
+          if (intendedPlayingRef.current && requestedVideoIdRef.current === videoId) {
+            try {
+              playerRef.current?.playVideo?.()
+            } catch {
+              /* ignore */
+            }
+          }
+        }, 150)
+        setTimeout(() => {
+          if (intendedPlayingRef.current && requestedVideoIdRef.current === videoId) {
+            try {
+              playerRef.current?.playVideo?.()
+            } catch {
+              /* ignore */
+            }
+          }
+        }, 500)
+      } catch (err) {
+        console.error('playYouTube failed', err)
+      }
     },
     [stopHtmlAudio]
   )
@@ -434,7 +471,17 @@ export function useYouTubePlayer(
    */
   const loadAndPlay = useCallback(
     async (videoId: string) => {
-      // 1) Offline download
+      intendedPlayingRef.current = true
+
+      // CRITICAL (mobile): start YouTube *before* any await so we stay inside the
+      // user-gesture window. Awaiting offline/IndexedDB first causes playVideo to
+      // be ignored and the track sits paused in the bar.
+      const ytReady = ready && !!playerRef.current?.loadVideoById
+      if (ytReady && navigator.onLine) {
+        playYouTube(videoId)
+      }
+
+      // Offline upgrade (async is fine — YT already started if available)
       try {
         const blob = await getOfflineAudioBlob(videoId)
         if (blob) {
@@ -446,22 +493,19 @@ export function useYouTubePlayer(
       }
 
       if (!navigator.onLine) {
-        console.warn('No offline audio and device offline:', videoId)
-        setIsPlaying(false)
-        intendedPlayingRef.current = false
-        return false
-      }
-
-      // 2) Primary: YouTube iframe — most reliable while the app is open
-      if (ready && playerRef.current?.loadVideoById) {
-        playYouTube(videoId)
-        // 3) Best-effort: also try preparing a stream URL for future background
-        //    (does not interrupt YT). Real background still needs a successful
-        //    stream or offline blob; we attempt upgrade only if YT fails later.
+        if (!ytReady) {
+          console.warn('No offline audio and device offline:', videoId)
+          setIsPlaying(false)
+          intendedPlayingRef.current = false
+          return false
+        }
         return true
       }
 
-      // Player not ready yet — try stream so something plays, else wait for YT
+      // YT already kicked off above
+      if (ytReady) return true
+
+      // Player not ready yet — try stream so something plays, else effect retries when ready
       if (prefersHtmlAudio()) {
         const streamUrl = await fetchStreamUrl(videoId)
         if (streamUrl) {
@@ -470,6 +514,7 @@ export function useYouTubePlayer(
         }
       }
 
+      // Mark so the ready-effect can start playback once YT is up
       requestedVideoIdRef.current = null
       return false
     },
