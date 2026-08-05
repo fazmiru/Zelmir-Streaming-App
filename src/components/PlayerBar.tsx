@@ -1,6 +1,19 @@
 import React from 'react'
 import type { RepeatMode, Track } from '../types'
-import { PlayIcon, PauseIcon, NextIcon, PrevIcon, VolumeIcon, ShuffleIcon, RepeatIcon } from './Icons'
+import {
+  PlayIcon,
+  PauseIcon,
+  NextIcon,
+  PrevIcon,
+  VolumeIcon,
+  ShuffleIcon,
+  RepeatIcon,
+  ThumbsUpIcon,
+} from './Icons'
+import { AddToPlaylistMenu } from './AddToPlaylistMenu'
+import { usePlaylists } from '../playlists/PlaylistContext'
+
+const LIKED_SONGS_PLAYLIST_NAME = 'Liked Songs'
 
 interface PlayerBarProps {
   current: Track | null
@@ -44,11 +57,28 @@ export function PlayerBar({
   onCycleRepeat,
   onOpenNowPlaying,
 }: PlayerBarProps) {
+  const { playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist } = usePlaylists()
+  const likedPlaylist = playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME)
   const seekProgress = duration > 0 ? (currentTime / duration) * 100 : 0
+
+  const isLiked = current
+    ? !!likedPlaylist?.tracks.some((t) => t.videoId === current.videoId)
+    : false
+
+  const toggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!current) return
+    if (likedPlaylist) {
+      if (isLiked) removeTrackFromPlaylist(likedPlaylist.id, current.videoId)
+      else addTrackToPlaylist(likedPlaylist.id, current)
+    } else {
+      createPlaylist(LIKED_SONGS_PLAYLIST_NAME, [current])
+    }
+  }
 
   return (
     <div className="player-bar">
-      {/* ---------------- Left: Track Details ---------------- */}
+      {/* ---------------- Left: Track Details + like / add ---------------- */}
       <div
         className={`player-now-playing ${current ? 'player-now-playing-clickable' : ''}`}
         onClick={() => current && onOpenNowPlaying()}
@@ -59,6 +89,18 @@ export function PlayerBar({
             <div className="player-meta">
               <p className="player-title">{current.title}</p>
               <p className="player-artist">{current.artist}</p>
+            </div>
+            <div className="player-track-actions" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className={`player-action-btn ${isLiked ? 'player-action-btn-active' : ''}`}
+                onClick={toggleLike}
+                aria-label={isLiked ? 'Unlike' : 'Like'}
+                title={isLiked ? 'Unlike' : 'Like'}
+              >
+                <ThumbsUpIcon size={18} />
+              </button>
+              <AddToPlaylistMenu track={current} />
             </div>
           </>
         ) : (
@@ -79,24 +121,24 @@ export function PlayerBar({
           >
             <ShuffleIcon />
           </button>
-          
+
           <button type="button" className="transport-button" onClick={onPrev} aria-label="Previous">
             <PrevIcon />
           </button>
-          
-          <button 
-            type="button" 
-            className="transport-button transport-button-main accent-fill" 
-            onClick={onToggle} 
+
+          <button
+            type="button"
+            className="transport-button transport-button-main accent-fill"
+            onClick={onToggle}
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? <PauseIcon /> : <PlayIcon />}
           </button>
-          
+
           <button type="button" className="transport-button" onClick={onNext} aria-label="Next">
             <NextIcon />
           </button>
-          
+
           <button
             type="button"
             className={`transport-button transport-button-toggle ${repeatMode !== 'off' ? 'transport-button-on' : ''}`}
