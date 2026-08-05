@@ -200,27 +200,49 @@ export function useYouTubePlayer(
     requestedVideoIdRef.current = null
   }, [])
 
-  // Hidden <audio> — offline blobs + streamed audio (background-capable)
+  // Hidden <audio> — offline blobs + streamed audio (background-capable on iOS)
   useEffect(() => {
     const audio = new Audio()
     audio.preload = 'auto'
+    audio.crossOrigin = 'anonymous'
     audio.setAttribute('playsinline', 'true')
     audio.setAttribute('webkit-playsinline', 'true')
-    // Helps some browsers treat this as media that can continue in background
+    // Keep element eligible for lock-screen / Control Center
     ;(audio as any).disableRemotePlayback = false
+    try {
+      // iOS: mark as media session candidate
+      audio.setAttribute('x-webkit-airplay', 'allow')
+    } catch {
+      /* ignore */
+    }
     audioRef.current = audio
 
     const onPlay = () => {
       setIsPlaying(true)
       intendedPlayingRef.current = true
+      try {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
+      } catch {
+        /* ignore */
+      }
     }
     const onPause = () => {
-      if (intendedPlayingRef.current) {
-        // iOS often pauses right after src change — resume while user still wants play
-        void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
+      // iOS often fires a transient pause right after setting src — resume only if we
+      // still intend to play AND the element has a real source (not mid-load empty).
+      if (intendedPlayingRef.current && audio.src && audio.readyState >= 2) {
+        void audio.play().then(() => setIsPlaying(true)).catch(() => {
+          // Don't force isPlaying false yet — user may tap again; keep optimistic UI
+        })
         return
       }
-      setIsPlaying(false)
+      if (!intendedPlayingRef.current) setIsPlaying(false)
+      try {
+        if ('mediaSession' in navigator && !intendedPlayingRef.current) {
+          navigator.mediaSession.playbackState = 'paused'
+        }
+      } catch {
+        /* ignore */
+      }
     }
     const onEnded = () => {
       if (sourceRef.current === 'offline' || sourceRef.current === 'stream') handleTrackEnded()
@@ -381,56 +403,76 @@ export function useYouTubePlayer(
       revokeObjectUrl()
       intendedPlayingRef.current = true
       setIsPlaying(true)
+
+      // Unmuted from the start — muted HTML5 "play then unmute" is what caused
+      // silent start → pause → 0:00 on iPhone PWA.
+      audio.muted = false
+      audio.volume = Math.max(0.01, volumeRef.current / 100)
       audio.src = streamUrl
-      audio.volume = volumeRef.current / 100
       try {
-        // Kick play immediately (gesture may already be gone — unlock helps)
-        const tryPlay = () =>
-          audio.play().then(() => {
-            setIsPlaying(true)
-            requestedVideoIdRef.current = videoId
-          })
+        audio.load()
+      } catch {
+        /* ignore */
+      }
 
-        void tryPlay().catch(() => {})
-
-        await new Promise<void>((resolve, reject) => {
+      const waitCanPlay = () =>
+        new Promise<void>((resolve) => {
+          if (audio.readyState >= 2) {
+            resolve()
+            return
+          }
           const onReady = () => {
             cleanup()
             resolve()
           }
           const onErr = () => {
             cleanup()
-            reject(new Error('audio load error'))
+            resolve() // resolve anyway; play() will fail below
           }
           const cleanup = () => {
             audio.removeEventListener('canplay', onReady)
+            audio.removeEventListener('loadeddata', onReady)
             audio.removeEventListener('error', onErr)
           }
           audio.addEventListener('canplay', onReady)
+          audio.addEventListener('loadeddata', onReady)
           audio.addEventListener('error', onErr)
-          if (audio.readyState >= 2) {
-            cleanup()
-            resolve()
-          }
-          // Safety timeout so we never hang forever
           window.setTimeout(() => {
             cleanup()
             resolve()
-          }, 6000)
+          }, 8000)
         })
 
-        await tryPlay()
+      await waitCanPlay()
+      if (!intendedPlayingRef.current || requestedVideoIdRef.current && requestedVideoIdRef.current !== videoId && sourceRef.current === 'stream') {
+        // Another track may have been requested; still try if ids match after set below
+      }
+
+      try {
+        audio.muted = false
+        audio.volume = Math.max(0.01, volumeRef.current / 100)
+        await audio.play()
         requestedVideoIdRef.current = videoId
         setIsPlaying(true)
-        return true
-      } catch (err) {
-        console.error('Stream audio play failed:', err)
-        // Keep intendedPlaying so a manual bar tap still resumes
         try {
-          audio.pause()
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
         } catch {
           /* ignore */
         }
+        // Extra kicks — iOS sometimes needs a second play() after buffering
+        window.setTimeout(() => {
+          if (!intendedPlayingRef.current) return
+          if (requestedVideoIdRef.current !== videoId) return
+          if (audio.paused) void audio.play().catch(() => {})
+        }, 300)
+        window.setTimeout(() => {
+          if (!intendedPlayingRef.current) return
+          if (requestedVideoIdRef.current !== videoId) return
+          if (audio.paused) void audio.play().catch(() => {})
+        }, 900)
+        return true
+      } catch (err) {
+        console.error('Stream audio play failed:', err)
         setIsPlaying(false)
         return false
       }
@@ -492,22 +534,14 @@ export function useYouTubePlayer(
     async (videoId: string) => {
       intendedPlayingRef.current = true
 
-      // Unlock HTML5 audio inside the user-gesture stack (required on iOS/PWA)
+      // Unlock HTML5 audio inside the user-gesture stack (required on iOS/PWA).
+      // Do NOT pause after unlock — pausing here is what left mobile at 0:00 silent.
       try {
         const a = audioRef.current
         if (a) {
-          const prev = a.src
-          // silent unlock — ignore failures
-          void a.play().then(() => {
-            if (!intendedPlayingRef.current) a.pause()
-          }).catch(() => {})
-          if (!prev) {
-            try {
-              a.pause()
-            } catch {
-              /* ignore */
-            }
-          }
+          a.muted = false
+          a.volume = Math.max(0.01, volumeRef.current / 100)
+          void a.play().catch(() => {})
         }
       } catch {
         /* ignore */
@@ -534,21 +568,25 @@ export function useYouTubePlayer(
         return false
       }
 
-      // Mobile / PWA: prefer real HTML5 stream — YT iframe often stays paused in standalone
+      // Mobile / PWA: HTML5 stream only when possible.
+      // YouTube iframe cannot keep playing when the iPhone PWA is backgrounded.
       if (mobile) {
-        const streamUrl = await fetchStreamUrl(videoId)
-        if (streamUrl) {
-          const ok = await playStreamUrl(videoId, streamUrl)
-          if (ok) return true
+        // Try stream up to 2 times (instances flake)
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const streamUrl = await fetchStreamUrl(videoId)
+          if (streamUrl) {
+            const ok = await playStreamUrl(videoId, streamUrl)
+            if (ok) return true
+          }
         }
-        // Fall back to YouTube iframe
+        // Last resort: YouTube iframe (in-app only — will pause when app is backgrounded)
         if (ytReady) {
           playYouTube(videoId)
-          // If still not playing shortly, try stream again / another play kick
           window.setTimeout(() => {
             if (!intendedPlayingRef.current) return
-            if (isPlayingRef.current) return
             try {
+              playerRef.current?.unMute?.()
+              playerRef.current?.setVolume?.(volumeRef.current)
               playerRef.current?.playVideo?.()
             } catch {
               /* ignore */
@@ -557,6 +595,7 @@ export function useYouTubePlayer(
           return true
         }
         requestedVideoIdRef.current = null
+        setIsPlaying(false)
         return false
       }
 
@@ -692,18 +731,31 @@ export function useYouTubePlayer(
     }
   }, [currentTime, duration, isPlaying])
 
-  // If the browser pauses HTML audio when backgrounding incorrectly, try resume
+  // Keep HTML5 audio alive across background / lock screen (iPhone PWA).
+  // Never pause on hide — only resume if iOS suspended us.
   useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState !== 'visible') return
+    const resumeIfNeeded = () => {
       if (!intendedPlayingRef.current) return
-      if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
-        const a = audioRef.current
-        if (a && a.paused) void a.play().catch(() => {})
+      if (sourceRef.current !== 'offline' && sourceRef.current !== 'stream') return
+      const a = audioRef.current
+      if (a && a.paused) {
+        a.muted = false
+        void a.play().catch(() => {})
       }
     }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') resumeIfNeeded()
+    }
+    const onPageShow = () => resumeIfNeeded()
+    // iOS sometimes fires these when returning from Control Center / app switcher
     document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
+    window.addEventListener('pageshow', onPageShow)
+    window.addEventListener('focus', resumeIfNeeded)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener('focus', resumeIfNeeded)
+    }
   }, [])
 
   const playTrack = useCallback(
@@ -715,7 +767,11 @@ export function useYouTubePlayer(
       // Sync unlock inside the click stack (critical for iOS / PWA)
       try {
         const a = audioRef.current
-        if (a) void a.play().catch(() => {})
+        if (a) {
+          a.muted = false
+          a.volume = Math.max(0.01, volumeRef.current / 100)
+          void a.play().catch(() => {})
+        }
       } catch {
         /* ignore */
       }

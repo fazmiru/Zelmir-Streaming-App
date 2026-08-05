@@ -1,16 +1,28 @@
 /** Full layout height for iOS PWA (includes home-indicator region). */
 function syncAppHeight() {
-  // Prefer the largest reliable measure so the shell never ends above the home indicator
   const vv = window.visualViewport?.height ?? 0
   const ih = window.innerHeight || 0
   const dh = document.documentElement?.clientHeight ?? 0
   const h = Math.max(vv, ih, dh)
   document.documentElement.style.setProperty('--app-height', `${h}px`)
-  // Also set a "safe" bottom inset the CSS can read if env() is 0 in some webviews
-  const inset = Math.max(
-    0,
-    (window.innerHeight || 0) - (window.visualViewport?.height ?? window.innerHeight ?? 0)
-  )
+
+  // Gap between layout viewport and visual viewport (keyboard / browser chrome)
+  let inset = Math.max(0, ih - (vv || ih))
+
+  // iPhone PWA: env(safe-area-inset-bottom) is sometimes 0 even with viewport-fit=cover.
+  // When running standalone on a notched/home-indicator phone, floor the bottom inset.
+  try {
+    const standalone =
+      window.matchMedia?.('(display-mode: standalone)').matches ||
+      (navigator as any).standalone === true
+    const isPhone = /iPhone|iPod/.test(navigator.userAgent || '')
+    if (standalone && isPhone && inset < 20) {
+      inset = 34 // typical home-indicator safe area
+    }
+  } catch {
+    /* ignore */
+  }
+
   document.documentElement.style.setProperty('--vv-bottom-gap', `${inset}px`)
 }
 syncAppHeight()
