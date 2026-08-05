@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sidebar, type View } from './components/Sidebar'
 import { TopBar } from './components/TopBar'
 import { VideoGrid } from './components/VideoGrid'
+import { HomeSongGrid } from './components/HomeSongGrid'
 import { Flow } from './components/Flow'
 import { PlayerBar } from './components/PlayerBar'
 import { NowPlaying } from './components/NowPlaying'
@@ -71,6 +72,32 @@ type MoodMix = {
 }
 
 
+function isRemixOrCover(title: string): boolean {
+  const t = title.toLowerCase()
+  return /\b(remix|cover|slowed|reverb|nightcore|bootleg|mashup|sped up|slowed \+ reverb|karaoke|instrumental)\b|\[cover\]|\(cover\)|cover by/i.test(t)
+}
+
+function topArtistsFromLibrary(playlists: { tracks: Track[] }[], limit = 8): string[] {
+  const counts = new Map<string, number>()
+  for (const pl of playlists) {
+    for (const t of pl.tracks) {
+      const a = (t.artist || '').trim()
+      if (!a || a.length < 2) continue
+      counts.set(a, (counts.get(a) || 0) + 1)
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name]) => name)
+}
+
+function looksJapaneseTaste(artists: string[], tracks: Track[]): boolean {
+  const sample = [...artists, ...tracks.map((t) => `${t.title} ${t.artist}`)].join(' ')
+  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]|ado|yoasobi|yonezu|tuyu|zutomayo|yorushika|eve|kanaria|hoshimachi|liella|hololive|j-pop|jpop|vocaloid|初音|米津|ヨルシカ/i.test(sample)
+}
+
+
 function App() {
   const { user, loading: authLoading } = useAuth()
   const { ambient } = useTheme()
@@ -113,6 +140,13 @@ function App() {
   const [moodMixes, setMoodMixes] = useState<MoodMix[]>([])
   const [moodTracks, setMoodTracks] = useState<Track[]>([])
   const [moodLoading, setMoodLoading] = useState(false)
+  const [homeAlbums, setHomeAlbums] = useState<ArtistAlbum[]>([])
+  const [loadingHomeAlbums, setLoadingHomeAlbums] = useState(false)
+  const [newReleases, setNewReleases] = useState<Track[]>([])
+  const [loadingNewReleases, setLoadingNewReleases] = useState(false)
+  const [trendingTracks, setTrendingTracks] = useState<Track[]>([])
+  const [loadingTrending, setLoadingTrending] = useState(false)
+  const [homeFeedSalt, setHomeFeedSalt] = useState(0)
 
   const [playlistRecs, setPlaylistRecs] = useState<Track[]>([])
   const [loadingPlaylistRecs, setLoadingPlaylistRecs] = useState(false)
@@ -187,9 +221,9 @@ function App() {
     setLoadingQuickPicks(true)
 
     const exclude = new Set(seeds.map((s) => s.videoId))
-    fetchSimilarTracks(seeds, exclude, 12, quickPicksSalt)
+    fetchSimilarTracks(seeds, exclude, 30, quickPicksSalt)
       .then((tracks) => {
-        if (!cancelled) setQuickPicks(tracks)
+        if (!cancelled) setQuickPicks(tracks.filter((t) => !isRemixOrCover(t.title)))
       })
       .catch(() => {
         if (!cancelled) setQuickPicks([])
@@ -202,6 +236,138 @@ function App() {
       cancelled = true
     }
   }, [view, player.current?.videoId, playlists.length, quickPicksSalt])
+
+  // Home shelves: albums for you, new releases, trending (taste-based)
+  useEffect(() => {
+    if (view !== 'home') return
+    let cancelled = false
+
+    const artists = topArtistsFromLibrary(playlists, 8)
+    const seedTracks: Track[] = []
+    for (const pl of playlists) {
+      for (const t of pl.tracks.slice(0, 4)) {
+        if (seedTracks.length >= 12) break
+        if (!seedTracks.some((s) => s.videoId === t.videoId)) seedTracks.push(t)
+      }
+    }
+    const jp = looksJapaneseTaste(artists, seedTracks)
+
+    // Albums for you — top artists' albums
+    setLoadingHomeAlbums(true)
+    ;(async () => {
+      try {
+        const picks = [...artists.slice(0, 5)]
+        if (!picks.length && jp) picks.push('Ado', 'YOASOBI', 'Kenshi Yonezu')
+        if (!picks.length) picks.push('Ado', 'popular hits')
+        const lists = await Promise.all(
+          picks.map((a) => searchArtistAlbums(a).catch(() => [] as ArtistAlbum[]))
+        )
+        const seen = new Set<string>()
+        const merged: ArtistAlbum[] = []
+        for (const list of lists) {
+          for (const al of list) {
+            if (seen.has(al.id)) continue
+            if (isRemixOrCover(al.name)) continue
+            seen.add(al.id)
+            merged.push(al)
+          }
+        }
+        // Interleave so one artist doesn't dominate
+        const byArtist = new Map<string, ArtistAlbum[]>()
+        for (const al of merged) {
+          const k = al.uploaderName || 'x'
+          if (!byArtist.has(k)) byArtist.set(k, [])
+          byArtist.get(k)!.push(al)
+        }
+        const interleaved: ArtistAlbum[] = []
+        const queues = [...byArtist.values()]
+        let i = 0
+        while (interleaved.length < 16 && queues.some((q) => q.length)) {
+          const q = queues[i % queues.length]
+          if (q.length) interleaved.push(q.shift()!)
+          i++
+        }
+        if (!cancelled) setHomeAlbums(interleaved.slice(0, 14))
+      } catch {
+        if (!cancelled) setHomeAlbums([])
+      } finally {
+        if (!cancelled) setLoadingHomeAlbums(false)
+      }
+    })()
+
+    // New releases — original songs in user's taste (no remix/cover)
+    setLoadingNewReleases(true)
+    ;(async () => {
+      try {
+        const year = new Date().getFullYear()
+        const queries: string[] = []
+        if (jp) {
+          queries.push(
+            `J-Pop ${year}`,
+            '新曲 J-Pop',
+            'YOASOBI official',
+            'Ado official music video',
+            'Kenshi Yonezu official',
+          )
+        }
+        for (const a of artists.slice(0, 4)) {
+          queries.push(`${a} official music video`)
+          queries.push(`${a} ${year}`)
+        }
+        if (!queries.length) {
+          queries.push(`new music ${year}`, 'official music video pop')
+        }
+        // salt rotates which queries we hit harder
+        const rotated = [
+          ...queries.slice(homeFeedSalt % Math.max(queries.length, 1)),
+          ...queries.slice(0, homeFeedSalt % Math.max(queries.length, 1)),
+        ]
+        const results = await Promise.all(
+          rotated.slice(0, 5).map((q) => searchPipedTracksSimple(q).catch(() => [] as Track[]))
+        )
+        const seen = new Set<string>()
+        const out: Track[] = []
+        for (const list of results) {
+          for (const t of list) {
+            if (seen.has(t.videoId)) continue
+            if (isRemixOrCover(t.title)) continue
+            seen.add(t.videoId)
+            out.push(t)
+          }
+        }
+        if (!cancelled) setNewReleases(out.slice(0, 14))
+      } catch {
+        if (!cancelled) setNewReleases([])
+      } finally {
+        if (!cancelled) setLoadingNewReleases(false)
+      }
+    })()
+
+    // Trending for you
+    setLoadingTrending(true)
+    ;(async () => {
+      try {
+        const seeds = seedTracks.length ? seedTracks : []
+        if (seeds.length) {
+          const exclude = new Set(seeds.map((s) => s.videoId))
+          const tracks = await fetchSimilarTracks(seeds, exclude, 36, homeFeedSalt + 3)
+          if (!cancelled) setTrendingTracks(tracks.filter((t) => !isRemixOrCover(t.title)).slice(0, 30))
+        } else {
+          const q = jp ? 'J-Pop trending hits' : 'trending pop songs'
+          const tracks = await searchPipedTracksSimple(q)
+          if (!cancelled) setTrendingTracks(tracks.filter((t) => !isRemixOrCover(t.title)).slice(0, 30))
+        }
+      } catch {
+        if (!cancelled) setTrendingTracks([])
+      } finally {
+        if (!cancelled) setLoadingTrending(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [view, playlists.length, homeFeedSalt])
 
   // Playlist recommendations (similar tracks, refreshable)
   useEffect(() => {
@@ -732,7 +898,7 @@ function App() {
                 )}
               </section>
 
-              {/* Quick picks */}
+              {/* Quick picks — 3×5 grid with arrows */}
               <section className="home-section">
                 <div className="home-section-header">
                   <div>
@@ -744,7 +910,10 @@ function App() {
                       type="button"
                       className="home-refresh-btn"
                       disabled={loadingQuickPicks}
-                      onClick={() => setQuickPicksSalt((s) => s + 1)}
+                      onClick={() => {
+                        setQuickPicksSalt((s) => s + 1)
+                        setHomeFeedSalt((s) => s + 1)
+                      }}
                       title="Refresh recommendations"
                     >
                       Refresh
@@ -762,16 +931,134 @@ function App() {
                 </div>
                 {loadingQuickPicks ? (
                   <p className="empty-state">Finding tracks for you…</p>
-                ) : quickPicks.length === 0 ? (
-                  <p className="empty-state">Play a few songs and we’ll suggest more here.</p>
                 ) : (
-                  <VideoGrid
+                  <HomeSongGrid
                     tracks={quickPicks}
                     onPlay={handlePlay}
                     currentVideoId={player.current?.videoId}
-                    emptyLabel=""
-                    onOpenArtist={handleOpenArtist}
-                    {...gridQueueHandlers}
+                    columns={3}
+                    rows={5}
+                    emptyLabel="Play a few songs and we’ll suggest more here."
+                  />
+                )}
+              </section>
+
+              {/* Albums for you */}
+              <section className="home-section">
+                <div className="home-section-header">
+                  <div>
+                    <h2 className="section-heading">Albums for you</h2>
+                    <p className="home-section-sub">Based on artists you play</p>
+                  </div>
+                </div>
+                {loadingHomeAlbums ? (
+                  <p className="empty-state">Finding albums…</p>
+                ) : homeAlbums.length === 0 ? (
+                  <p className="empty-state">Save songs to playlists so we can suggest albums.</p>
+                ) : (
+                  <div className="home-album-row">
+                    {homeAlbums.map((al) => (
+                      <button
+                        key={al.id}
+                        type="button"
+                        className="home-album-card"
+                        onClick={() => void handleOpenAlbum(al, al.uploaderName)}
+                      >
+                        <div className="home-album-art">
+                          {al.thumbnail ? (
+                            <img src={al.thumbnail} alt="" />
+                          ) : (
+                            <div className="home-playlist-tile-empty">
+                              <span>{al.name.charAt(0)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="home-album-name">{al.name}</span>
+                        <span className="home-album-meta">
+                          Album · {al.uploaderName || 'Various'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* New releases */}
+              <section className="home-section">
+                <div className="home-section-header">
+                  <div>
+                    <h2 className="section-heading">New releases</h2>
+                    <p className="home-section-sub">Fresh tracks in your taste · no remixes</p>
+                  </div>
+                  {newReleases.length > 0 && (
+                    <button
+                      type="button"
+                      className="home-play-all"
+                      onClick={() => handlePlay(newReleases[0], newReleases)}
+                    >
+                      Play all
+                    </button>
+                  )}
+                </div>
+                {loadingNewReleases ? (
+                  <p className="empty-state">Scanning new music…</p>
+                ) : (
+                  <div className="home-album-row">
+                    {newReleases.map((t) => (
+                      <button
+                        key={t.videoId}
+                        type="button"
+                        className="home-album-card"
+                        onClick={() => handlePlay(t, newReleases)}
+                      >
+                        <div className="home-album-art">
+                          {t.thumbnail ? (
+                            <img src={t.thumbnail} alt="" />
+                          ) : (
+                            <div className="home-playlist-tile-empty">
+                              <span>{t.title.charAt(0)}</span>
+                            </div>
+                          )}
+                          <span className="home-playlist-tile-play" aria-hidden>▶</span>
+                        </div>
+                        <span className="home-album-name">{t.title}</span>
+                        <span className="home-album-meta">{t.artist}</span>
+                      </button>
+                    ))}
+                    {!newReleases.length && (
+                      <p className="empty-state">No new releases found yet.</p>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Trending songs for you */}
+              <section className="home-section">
+                <div className="home-section-header">
+                  <div>
+                    <h2 className="section-heading">Trending songs for you</h2>
+                    <p className="home-section-sub">What listeners with your taste are into</p>
+                  </div>
+                  {trendingTracks.length > 0 && (
+                    <button
+                      type="button"
+                      className="home-play-all"
+                      onClick={() => handlePlay(trendingTracks[0], trendingTracks)}
+                    >
+                      Play all
+                    </button>
+                  )}
+                </div>
+                {loadingTrending ? (
+                  <p className="empty-state">Loading trending…</p>
+                ) : (
+                  <HomeSongGrid
+                    tracks={trendingTracks}
+                    onPlay={handlePlay}
+                    currentVideoId={player.current?.videoId}
+                    columns={3}
+                    rows={4}
+                    emptyLabel="Play more music so we can trend with your taste."
                   />
                 )}
               </section>

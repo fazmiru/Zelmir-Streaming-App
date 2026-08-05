@@ -6619,3 +6619,214 @@ main.content.content-artist {
     background: rgba(10, 10, 14, 0.92) !important;
   }
 }
+
+
+/* ============================================================
+   Home song grid (3×5) + album shelves
+   ============================================================ */
+
+.home-song-grid-wrap {
+  position: relative;
+}
+
+.home-song-grid-arrows {
+  position: absolute;
+  right: 0;
+  top: -48px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+
+.home-section-header .home-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 72px; /* room for arrows */
+}
+
+.home-arrow-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.home-arrow-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.home-arrow-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.home-song-grid {
+  display: grid;
+  gap: 6px 18px;
+  grid-auto-rows: minmax(56px, auto);
+}
+
+.home-song-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.home-song-cell:hover,
+.home-song-cell-active {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.home-song-cell-art {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #222;
+}
+
+.home-song-cell-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-song-cell-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.home-song-cell-artist {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-album-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.home-album-row::-webkit-scrollbar {
+  display: none;
+}
+
+.home-album-card {
+  flex: 0 0 auto;
+  width: 160px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.18s ease;
+}
+
+.home-album-card:hover {
+  transform: translateY(-4px);
+}
+
+.home-album-art {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1a1a22;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-album-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.home-album-card:hover .home-album-art img {
+  transform: scale(1.05);
+}
+
+.home-album-name {
+  display: block;
+  margin-top: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.home-album-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1100px) {
+  .home-song-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .home-song-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .home-section-header .home-section-actions {
+    margin-right: 0;
+  }
+  .home-song-grid-arrows {
+    position: static;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+  }
+  .home-album-card,
+  .home-album-art {
+    width: 132px;
+  }
+  .home-album-art {
+    height: 132px;
+  }
+}
