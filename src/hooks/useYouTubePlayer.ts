@@ -215,9 +215,12 @@ export function useYouTubePlayer(
       intendedPlayingRef.current = true
     }
     const onPause = () => {
-      // Only clear playing if we meant to pause (not a transient browser pause)
-      if (!intendedPlayingRef.current) setIsPlaying(false)
-      else setIsPlaying(false)
+      if (intendedPlayingRef.current) {
+        // iOS often pauses right after src change — resume while user still wants play
+        void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
+        return
+      }
+      setIsPlaying(false)
     }
     const onEnded = () => {
       if (sourceRef.current === 'offline' || sourceRef.current === 'stream') handleTrackEnded()
@@ -369,18 +372,27 @@ export function useYouTubePlayer(
   )
 
   const playStreamUrl = useCallback(
-    async (videoId: string, streamUrl: string) => {
+    async (videoId: string, streamUrl: string): Promise<boolean> => {
       stopYouTube()
       sourceRef.current = 'stream'
       const audio = audioRef.current
       if (!audio) return false
 
       revokeObjectUrl()
+      intendedPlayingRef.current = true
+      setIsPlaying(true)
       audio.src = streamUrl
       audio.volume = volumeRef.current / 100
       try {
-        intendedPlayingRef.current = true
-        // Wait for enough data so iOS doesn't reject play()
+        // Kick play immediately (gesture may already be gone — unlock helps)
+        const tryPlay = () =>
+          audio.play().then(() => {
+            setIsPlaying(true)
+            requestedVideoIdRef.current = videoId
+          })
+
+        void tryPlay().catch(() => {})
+
         await new Promise<void>((resolve, reject) => {
           const onReady = () => {
             cleanup()
@@ -396,31 +408,36 @@ export function useYouTubePlayer(
           }
           audio.addEventListener('canplay', onReady)
           audio.addEventListener('error', onErr)
-          // If already ready
           if (audio.readyState >= 2) {
             cleanup()
             resolve()
           }
+          // Safety timeout so we never hang forever
+          window.setTimeout(() => {
+            cleanup()
+            resolve()
+          }, 6000)
         })
-        await audio.play()
-        setIsPlaying(true)
+
+        await tryPlay()
         requestedVideoIdRef.current = videoId
+        setIsPlaying(true)
         return true
       } catch (err) {
         console.error('Stream audio play failed:', err)
-        intendedPlayingRef.current = false
+        // Keep intendedPlaying so a manual bar tap still resumes
         try {
           audio.pause()
-          audio.removeAttribute('src')
-          audio.load()
         } catch {
           /* ignore */
         }
+        setIsPlaying(false)
         return false
       }
     },
     [stopYouTube]
   )
+
 
   const playYouTube = useCallback(
     (videoId: string) => {
@@ -430,37 +447,39 @@ export function useYouTubePlayer(
       if (!p?.loadVideoById) return
       requestedVideoIdRef.current = videoId
       intendedPlayingRef.current = true
+      setIsPlaying(true) // optimistic — player bar shows pause immediately
       try {
-        // Prefer cue + play for mobile reliability; loadVideoById alone often stays paused
-        if (typeof p.loadVideoById === 'function') {
-          p.loadVideoById({ videoId, startSeconds: 0 })
+        // Mute → play → unmute: required for autoplay in iOS Safari / standalone PWA
+        try {
+          p.mute?.()
+        } catch {
+          /* ignore */
         }
+        p.loadVideoById({ videoId, startSeconds: 0 })
         p.playVideo?.()
-        // Extra kicks — iOS/Android sometimes ignore the first playVideo
-        setTimeout(() => {
-          if (intendedPlayingRef.current && requestedVideoIdRef.current === videoId) {
+        const kick = (delay: number, unmute: boolean) => {
+          window.setTimeout(() => {
+            if (!intendedPlayingRef.current) return
+            if (requestedVideoIdRef.current !== videoId) return
             try {
-              playerRef.current?.playVideo?.()
+              if (unmute) p.unMute?.()
+              p.playVideo?.()
             } catch {
               /* ignore */
             }
-          }
-        }, 150)
-        setTimeout(() => {
-          if (intendedPlayingRef.current && requestedVideoIdRef.current === videoId) {
-            try {
-              playerRef.current?.playVideo?.()
-            } catch {
-              /* ignore */
-            }
-          }
-        }, 500)
+          }, delay)
+        }
+        kick(100, false)
+        kick(250, true)
+        kick(600, true)
+        kick(1200, true)
       } catch (err) {
         console.error('playYouTube failed', err)
       }
     },
     [stopHtmlAudio]
   )
+
 
   /**
    * Playback priority:
@@ -690,7 +709,26 @@ export function useYouTubePlayer(
   const playTrack = useCallback(
     (track: Track, newQueue?: Track[]) => {
       intendedPlayingRef.current = true
+      setIsPlaying(true) // optimistic UI so bar doesn't look "stuck paused"
       historyRef.current = []
+
+      // Sync unlock inside the click stack (critical for iOS / PWA)
+      try {
+        const a = audioRef.current
+        if (a) void a.play().catch(() => {})
+      } catch {
+        /* ignore */
+      }
+      try {
+        const p = playerRef.current
+        if (p?.mute && p?.playVideo) {
+          p.mute()
+          p.playVideo()
+        }
+      } catch {
+        /* ignore */
+      }
+
       if (newQueue) {
         // Recommended / external tracks may not be in the source list.
         // Always ensure the playing track is in the queue so the player bar updates.
@@ -718,6 +756,7 @@ export function useYouTubePlayer(
     },
     [loadAndPlay]
   )
+
 
   const playNext = useCallback((track: Track) => {
     setQueue((q) => {
