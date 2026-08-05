@@ -163,6 +163,10 @@ function App() {
     setLoadingPlaylistRecs(true)
 
     const exclude = new Set(activePlaylist.tracks.map((t) => t.videoId))
+    // On refresh, also exclude what was just shown so the list actually changes
+    if (playlistRecsSalt > 0) {
+      for (const t of playlistRecsRef.current) exclude.add(t.videoId)
+    }
     fetchSimilarTracks(activePlaylist.tracks, exclude, 12, playlistRecsSalt)
       .then((tracks) => {
         if (!cancelled) setPlaylistRecs(tracks)

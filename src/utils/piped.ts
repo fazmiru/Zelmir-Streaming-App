@@ -112,10 +112,10 @@ export async function searchPipedTracksSimple(query: string): Promise<Track[]> {
 
 
 /**
- * Build a list of recommended tracks similar to the given seeds.
- * Uses Piped music search seeded by artists / titles from the playlist.
- * `excludeIds` skips tracks already in the playlist (or current queue).
- * `salt` changes which seeds are picked so Refresh returns a different set.
+ * Fetch tracks similar to a playlist's overall mix.
+ * - Seeds are spread across distinct artists (not dominated by one name).
+ * - Results are interleaved so no single artist fills the whole list.
+ * - `salt` + prior-exclude make Refresh return different tracks.
  */
 export async function fetchSimilarTracks(
   seeds: Track[],
@@ -125,51 +125,134 @@ export async function fetchSimilarTracks(
 ): Promise<Track[]> {
   if (!seeds.length) return []
 
-  // Rotate / shuffle seed selection based on salt for variety on refresh
-  const rotated = [...seeds]
-  const offset = salt % rotated.length
-  const ordered = rotated.slice(offset).concat(rotated.slice(0, offset))
-
-  // Prefer distinct artists for broader recommendations
-  const seenArtists = new Set<string>()
-  const picks: Track[] = []
-  for (const t of ordered) {
-    const key = (t.artist || '').toLowerCase()
-    if (key && seenArtists.has(key)) continue
-    if (key) seenArtists.add(key)
-    picks.push(t)
-    if (picks.length >= 4) break
+  // Artist frequency in the playlist (majority signal)
+  const freq = new Map<string, number>()
+  for (const t of seeds) {
+    const a = (t.artist || '').trim()
+    if (!a) continue
+    const key = a.toLowerCase()
+    freq.set(key, (freq.get(key) || 0) + 1)
   }
-  if (!picks.length) picks.push(ordered[0])
 
+  // One representative track per artist, ordered by frequency then salt-rotated
+  const byArtist = new Map<string, Track>()
+  for (const t of seeds) {
+    const key = (t.artist || '').trim().toLowerCase()
+    if (!key) continue
+    if (!byArtist.has(key)) byArtist.set(key, t)
+  }
+  let artistTracks = [...byArtist.values()].sort((a, b) => {
+    const fa = freq.get((a.artist || '').toLowerCase()) || 0
+    const fb = freq.get((b.artist || '').toLowerCase()) || 0
+    return fb - fa
+  })
+  if (artistTracks.length > 1) {
+    const off = salt % artistTracks.length
+    artistTracks = artistTracks.slice(off).concat(artistTracks.slice(0, off))
+  }
+
+  // Take up to 6 distinct artists so the mix matches a multi-artist playlist
+  const picks = artistTracks.slice(0, Math.min(6, Math.max(3, artistTracks.length)))
+
+  // Query templates — salt rotates which style we use so refresh varies
+  const templates = salt % 3
   const queries: string[] = []
-  for (const t of picks) {
-    if (t.artist) queries.push(t.artist)
-    // Mix in title-based searches for variety on refresh
-    if (salt % 2 === 1 && t.title) {
-      queries.push(`${t.artist} ${t.title.split(/[-(|]/)[0].trim()}`.trim())
+  for (let i = 0; i < picks.length; i++) {
+    const t = picks[i]
+    const artist = (t.artist || '').trim()
+    const titleCore = (t.title || '')
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\[[^\]]*\]/g, '')
+      .split(/[-–—|/]/)[0]
+      .trim()
+      .slice(0, 48)
+
+    if (templates === 0) {
+      // artist-focused
+      if (artist) queries.push(artist)
+      if (artist && titleCore) queries.push(`${artist} ${titleCore}`)
+    } else if (templates === 1) {
+      // song-focused + related mix
+      if (artist && titleCore) queries.push(`${titleCore} ${artist}`)
+      if (artist) queries.push(`${artist} mix`)
+      if (artist) queries.push(`${artist} similar`)
+    } else {
+      // broader: official / live / playlist vibes
+      if (artist) queries.push(`${artist} official`)
+      if (titleCore) queries.push(titleCore)
+      if (artist && titleCore) queries.push(`${artist} ${titleCore}`)
     }
   }
-  // Deduplicate queries
-  const uniqueQueries = [...new Set(queries.filter(Boolean))].slice(0, 4)
+
+  // Dedupe while preserving order; cap queries
+  const seenQ = new Set<string>()
+  const uniqueQueries: string[] = []
+  for (const q of queries) {
+    const k = q.toLowerCase()
+    if (!q || seenQ.has(k)) continue
+    seenQ.add(k)
+    uniqueQueries.push(q)
+    if (uniqueQueries.length >= 8) break
+  }
+  if (!uniqueQueries.length && picks[0]?.artist) {
+    uniqueQueries.push(picks[0].artist)
+  }
 
   const results = await Promise.all(
     uniqueQueries.map((q) => searchPipedTracksSimple(q).catch(() => [] as Track[]))
   )
 
-  const out: Track[] = []
+  // Interleave batches so one artist (e.g. Ado) can't fill all 12 slots
   const seen = new Set(excludeIds)
-  for (const batch of results) {
-    for (const t of batch) {
-      if (seen.has(t.videoId)) continue
-      seen.add(t.videoId)
-      out.push(t)
-      if (out.length >= limit) return out
+  const out: Track[] = []
+  const artistCount = new Map<string, number>()
+  const maxPerArtist = Math.max(2, Math.ceil(limit / Math.max(3, picks.length)))
+
+  // Soft-skip first few hits on later refreshes so Piped's ranking doesn't repeat
+  const skipFront = Math.min(6, (salt % 5) * 2)
+
+  let progressed = true
+  let round = 0
+  while (out.length < limit && progressed && round < 30) {
+    progressed = false
+    for (const batch of results) {
+      if (out.length >= limit) break
+      const startIdx = Math.min(skipFront, Math.max(0, batch.length - 1))
+      // Prefer items from startIdx onward first; then wrap
+      const order = [
+        ...batch.slice(startIdx),
+        ...batch.slice(0, startIdx),
+      ]
+      for (const track of order) {
+        if (seen.has(track.videoId)) continue
+        const aKey = (track.artist || '').toLowerCase()
+        const n = artistCount.get(aKey) || 0
+        if (aKey && n >= maxPerArtist) continue
+        seen.add(track.videoId)
+        if (aKey) artistCount.set(aKey, n + 1)
+        out.push(track)
+        progressed = true
+        break // one per batch per round → interleave
+      }
+    }
+    round++
+  }
+
+  // If still short (strict caps), fill without per-artist limit
+  if (out.length < limit) {
+    for (const batch of results) {
+      for (const track of batch) {
+        if (seen.has(track.videoId)) continue
+        seen.add(track.videoId)
+        out.push(track)
+        if (out.length >= limit) break
+      }
+      if (out.length >= limit) break
     }
   }
+
   return out
 }
-
 
 export interface ArtistChannelInfo {
   id: string
