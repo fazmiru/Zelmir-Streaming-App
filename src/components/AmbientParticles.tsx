@@ -33,7 +33,8 @@ export function AmbientParticles({ ambient }: Props) {
     if (!ctx) return
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const mobile = window.innerWidth <= 900 || /iPhone|iPod|Android/i.test(navigator.userAgent || '')
+      const dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1 : 2)
       canvas.width = Math.floor(window.innerWidth * dpr)
       canvas.height = Math.floor(window.innerHeight * dpr)
       canvas.style.width = '100%'
@@ -42,8 +43,11 @@ export function AmbientParticles({ ambient }: Props) {
       spawn()
     }
 
+    const isMobile = window.innerWidth <= 900 || /iPhone|iPod|Android/i.test(navigator.userAgent || '')
     const baseCount = ambient.style === 'dust' ? 55 : ambient.style === 'snow' ? 50 : 70
-    const count = Math.max(12, Math.round(baseCount * ambient.density))
+    // Phone browser lags hard with full particle load — keep it light
+    const scale = isMobile ? 0.35 : 1
+    const count = Math.max(isMobile ? 8 : 12, Math.round(baseCount * ambient.density * scale))
 
     const spawn = () => {
       const w = window.innerWidth
@@ -96,6 +100,11 @@ export function AmbientParticles({ ambient }: Props) {
     const opacity = Math.max(0.05, Math.min(0.9, ambient.opacity))
 
     const tick = () => {
+      if (document.hidden) {
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+
       const w = window.innerWidth
       const h = window.innerHeight
       ctx.clearRect(0, 0, w, h)

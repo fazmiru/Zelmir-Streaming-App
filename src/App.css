@@ -7076,3 +7076,21 @@ main.content.content-artist {
     -webkit-transform: none !important;
   }
 }
+
+/* ============================================================
+   MOBILE PERF — cut expensive paints on phone browser
+   ============================================================ */
+@media (max-width: 900px) {
+  .topbar-wrap.topbar-scrolled {
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+  }
+  .ambient-canvas {
+    opacity: 0.7;
+    pointer-events: none !important;
+  }
+  /* Avoid continuous will-change layers */
+  .topbar-wrap {
+    will-change: auto !important;
+  }
+}

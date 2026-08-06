@@ -59,7 +59,7 @@ type PlaybackSource = 'youtube' | 'offline' | 'stream'
 async function fetchStreamUrl(videoId: string): Promise<string | null> {
   try {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 8000)
+    const timer = setTimeout(() => controller.abort(), 5000)
     const res = await fetch(`/api/piped-streams?v=${encodeURIComponent(videoId)}`, {
       signal: controller.signal,
     })
@@ -489,32 +489,35 @@ export function useYouTubePlayer(
       if (!p?.loadVideoById) return
       requestedVideoIdRef.current = videoId
       intendedPlayingRef.current = true
-      setIsPlaying(true) // optimistic — player bar shows pause immediately
+      setIsPlaying(true)
       try {
-        // Mute → play → unmute: required for autoplay in iOS Safari / standalone PWA
+        // User gesture is still active on first call — play UNMUTED.
+        // Mute-first was leaving mobile silent then resetting to 0:00.
         try {
-          p.mute?.()
+          p.unMute?.()
+          p.setVolume?.(volumeRef.current)
         } catch {
           /* ignore */
         }
         p.loadVideoById({ videoId, startSeconds: 0 })
         p.playVideo?.()
-        const kick = (delay: number, unmute: boolean) => {
+        const kick = (delay: number) => {
           window.setTimeout(() => {
             if (!intendedPlayingRef.current) return
             if (requestedVideoIdRef.current !== videoId) return
+            if (sourceRef.current !== 'youtube') return
             try {
-              if (unmute) p.unMute?.()
+              p.unMute?.()
+              p.setVolume?.(volumeRef.current)
               p.playVideo?.()
             } catch {
               /* ignore */
             }
           }, delay)
         }
-        kick(100, false)
-        kick(250, true)
-        kick(600, true)
-        kick(1200, true)
+        kick(150)
+        kick(400)
+        kick(1000)
       } catch (err) {
         console.error('playYouTube failed', err)
       }
@@ -568,31 +571,43 @@ export function useYouTubePlayer(
         return false
       }
 
-      // Mobile / PWA: HTML5 stream only when possible.
-      // YouTube iframe cannot keep playing when the iPhone PWA is backgrounded.
+      // Mobile / PWA:
+      // 1) Start YouTube IMMEDIATELY while the user gesture is still valid (sound works).
+      // 2) In parallel, try HTML5 stream — if it works, switch over for background play.
+      // Waiting on the stream API first was blocking play for 8–16s and breaking mobile.
       if (mobile) {
-        // Try stream up to 2 times (instances flake)
-        for (let attempt = 0; attempt < 2; attempt++) {
-          const streamUrl = await fetchStreamUrl(videoId)
-          if (streamUrl) {
-            const ok = await playStreamUrl(videoId, streamUrl)
-            if (ok) return true
-          }
-        }
-        // Last resort: YouTube iframe (in-app only — will pause when app is backgrounded)
         if (ytReady) {
           playYouTube(videoId)
-          window.setTimeout(() => {
+        }
+
+        // Upgrade to HTML5 stream when available (background / lock screen)
+        void (async () => {
+          try {
+            const streamUrl = await fetchStreamUrl(videoId)
+            if (!streamUrl) return
             if (!intendedPlayingRef.current) return
-            try {
-              playerRef.current?.unMute?.()
-              playerRef.current?.setVolume?.(volumeRef.current)
-              playerRef.current?.playVideo?.()
-            } catch {
-              /* ignore */
+            if (requestedVideoIdRef.current !== videoId && requestedVideoIdRef.current !== null) {
+              // another track may have been chosen; still OK if ids match after race
             }
-          }, 400)
-          return true
+            // Only switch if user still wants this track
+            if (queueRef.current[queueIndexRef.current]?.videoId !== videoId) return
+            const ok = await playStreamUrl(videoId, streamUrl)
+            if (!ok && intendedPlayingRef.current && ytReady) {
+              // Stream failed — keep / restart YouTube
+              playYouTube(videoId)
+            }
+          } catch (err) {
+            console.warn('stream upgrade failed', err)
+          }
+        })()
+
+        if (ytReady) return true
+
+        // YT not ready yet — try stream only
+        const streamUrl = await fetchStreamUrl(videoId)
+        if (streamUrl) {
+          const ok = await playStreamUrl(videoId, streamUrl)
+          if (ok) return true
         }
         requestedVideoIdRef.current = null
         setIsPlaying(false)

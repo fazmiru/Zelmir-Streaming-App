@@ -25,11 +25,19 @@ function syncAppHeight() {
 
   document.documentElement.style.setProperty('--vv-bottom-gap', `${inset}px`)
 }
+let _syncScheduled = 0
+function scheduleSyncAppHeight() {
+  if (_syncScheduled) return
+  _syncScheduled = window.setTimeout(() => {
+    _syncScheduled = 0
+    syncAppHeight()
+  }, 100)
+}
 syncAppHeight()
-window.addEventListener('resize', syncAppHeight)
-window.addEventListener('orientationchange', () => setTimeout(syncAppHeight, 100))
-window.visualViewport?.addEventListener('resize', syncAppHeight)
-window.visualViewport?.addEventListener('scroll', syncAppHeight)
+window.addEventListener('resize', scheduleSyncAppHeight, { passive: true })
+window.addEventListener('orientationchange', () => setTimeout(syncAppHeight, 150))
+window.visualViewport?.addEventListener('resize', scheduleSyncAppHeight, { passive: true })
+window.visualViewport?.addEventListener('scroll', scheduleSyncAppHeight, { passive: true })
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
