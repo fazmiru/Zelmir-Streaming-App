@@ -403,14 +403,18 @@ export function useYouTubePlayer(
 
   const playStreamUrl = useCallback(
     async (videoId: string, streamUrl: string): Promise<boolean> => {
-      stopYouTube()
-      sourceRef.current = 'stream'
+      // IMPORTANT: do NOT stop YouTube (or touch sourceRef) yet. Fetching the
+      // stream URL and waiting for canplay involves real network awaits, so by
+      // the time we get here we're often outside the tap's trusted gesture
+      // window — audio.play() below can be silently blocked by the browser's
+      // autoplay policy. If we'd already stopped YouTube, that leaves nothing
+      // playing at all until the user manually pauses/plays again. Instead we
+      // only hand off from YouTube to the stream once audio.play() has
+      // actually resolved successfully — see below.
       const audio = audioRef.current
       if (!audio) return false
 
       revokeObjectUrl()
-      intendedPlayingRef.current = true
-      setIsPlaying(true)
 
       // Unmuted from the start — muted HTML5 "play then unmute" is what caused
       // silent start → pause → 0:00 on iPhone PWA.
@@ -452,14 +456,18 @@ export function useYouTubePlayer(
         })
 
       await waitCanPlay()
-      if (!intendedPlayingRef.current || requestedVideoIdRef.current && requestedVideoIdRef.current !== videoId && sourceRef.current === 'stream') {
-        // Another track may have been requested; still try if ids match after set below
-      }
 
       try {
         audio.muted = false
         audio.volume = Math.max(0.01, volumeRef.current / 100)
         await audio.play()
+
+        // Stream is confirmed actually playing — NOW it's safe to hand off
+        // from YouTube. Doing this before the await was the bug: it killed
+        // working playback in exchange for a play() call that could fail.
+        stopYouTube()
+        sourceRef.current = 'stream'
+        intendedPlayingRef.current = true
         requestedVideoIdRef.current = videoId
         setIsPlaying(true)
         try {
@@ -480,8 +488,17 @@ export function useYouTubePlayer(
         }, 900)
         return true
       } catch (err) {
-        console.error('Stream audio play failed:', err)
-        setIsPlaying(false)
+        console.error('Stream audio play failed, leaving current source untouched:', err)
+        // Reset the audio element so it's not left holding a dead src, but
+        // don't touch sourceRef/YouTube — whatever was already playing (or
+        // about to play) keeps going uninterrupted.
+        try {
+          audio.pause()
+          audio.removeAttribute('src')
+          audio.load()
+        } catch {
+          /* ignore */
+        }
         return false
       }
     },
@@ -611,9 +628,11 @@ export function useYouTubePlayer(
             if (!currentId || currentId === videoId) {
               const ok = await playStreamUrl(videoId, streamUrl)
               if (ok) return true
-              // Stream failed after starting YT — ensure YT is still going
+              // Stream failed — playStreamUrl left YouTube untouched, and it
+              // was already started synchronously above, so it's still
+              // playing. Reloading it here would restart from 0:00 and could
+              // hit the same autoplay block, so just leave it be.
               if (ytReady && intendedPlayingRef.current) {
-                playYouTube(videoId)
                 return true
               }
             }
