@@ -121,6 +121,9 @@ export function useYouTubePlayer(
   const volumeRef = useRef(volume)
   const historyRef = useRef<number[]>([])
   const requestedVideoIdRef = useRef<string | null>(null)
+  // True while a freshly loadVideoById()'d video is muted and waiting for
+  // onStateChange to confirm it's actually PLAYING, at which point we unmute.
+  const pendingUnmuteRef = useRef(false)
 
   useEffect(() => {
     queueRef.current = queue
@@ -333,6 +336,21 @@ export function useYouTubePlayer(
               if (e.data === YT.PlayerState.PLAYING) {
                 setIsPlaying(true)
                 intendedPlayingRef.current = true
+                // Unmuting an already-playing video is broadly permitted by
+                // autoplay policies, unlike starting unmuted straight out of
+                // loadVideoById() (which mobile browsers often silently
+                // block since the postMessage-driven playVideo() call isn't
+                // treated as a strong enough gesture). So we start muted and
+                // unmute right here, the instant playback is confirmed.
+                if (pendingUnmuteRef.current) {
+                  pendingUnmuteRef.current = false
+                  try {
+                    playerRef.current?.unMute?.()
+                    playerRef.current?.setVolume?.(volumeRef.current)
+                  } catch {
+                    /* ignore */
+                  }
+                }
               } else if (e.data === YT.PlayerState.ENDED) {
                 handleTrackEnded()
               } else if (
@@ -514,13 +532,20 @@ export function useYouTubePlayer(
       if (!p?.loadVideoById) return
       requestedVideoIdRef.current = videoId
       intendedPlayingRef.current = true
+      pendingUnmuteRef.current = true
       setIsPlaying(true)
       try {
-        // User gesture is still active on first call — play UNMUTED.
-        // Mute-first was leaving mobile silent then resetting to 0:00.
+        // Start MUTED. Muted autoplay right after loadVideoById() is allowed
+        // almost everywhere; starting UNMUTED from a fresh load frequently
+        // gets silently blocked on mobile because the postMessage-driven
+        // loadVideoById()/playVideo() calls aren't treated as a strong
+        // enough gesture by the iframe's own browsing context — audio just
+        // never starts, even though our UI optimistically shows "playing."
+        // We unmute in onStateChange the instant PLAYING is confirmed,
+        // which browsers treat far more leniently (resuming/adjusting an
+        // already-playing video, not starting a new autoplay).
         try {
-          p.unMute?.()
-          p.setVolume?.(volumeRef.current)
+          p.mute?.()
         } catch {
           /* ignore */
         }
@@ -532,8 +557,6 @@ export function useYouTubePlayer(
             if (requestedVideoIdRef.current !== videoId) return
             if (sourceRef.current !== 'youtube') return
             try {
-              p.unMute?.()
-              p.setVolume?.(volumeRef.current)
               p.playVideo?.()
             } catch {
               /* ignore */
