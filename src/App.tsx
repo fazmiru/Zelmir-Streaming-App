@@ -1528,7 +1528,6 @@ function App() {
             isPlaying={player.isPlaying}
             currentTime={player.currentTime}
             duration={player.duration}
-            apiKey={API_KEY}
             shuffle={player.shuffle}
             repeatMode={player.repeatMode}
             onClose={() => setNowPlayingOpen(false)}
