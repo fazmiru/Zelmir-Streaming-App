@@ -140,6 +140,24 @@ function App() {
   const { user, loading: authLoading } = useAuth()
   const { ambient } = useTheme()
   const [view, setView] = useState<View>('home')
+  const [sidebarRailCollapsed, setSidebarRailCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('zelmir-sidebar-rail') === '1'
+    } catch {
+      return false
+    }
+  })
+  const toggleSidebarRail = () => {
+    setSidebarRailCollapsed((c) => {
+      const next = !c
+      try {
+        localStorage.setItem('zelmir-sidebar-rail', next ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+      return next
+    })
+  }
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Track[]>([])
@@ -819,7 +837,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarRailCollapsed ? 'sidebar-rail-collapsed' : ''}`}>
       <AmbientParticles ambient={ambient} />
       <Sidebar
         view={view}
@@ -827,6 +845,8 @@ function App() {
         onNavigate={setView}
         onOpenPlaylist={handleOpenPlaylist}
         onOpenSpotifyImport={() => setSpotifyModalOpen(true)}
+        railCollapsed={sidebarRailCollapsed}
+        onToggleRail={toggleSidebarRail}
       />
 
     <div className="app-main" style={{ position: 'relative', zIndex: 1 }}>
