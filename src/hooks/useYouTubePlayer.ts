@@ -561,12 +561,31 @@ export function useYouTubePlayer(
       const mobile = prefersHtmlAudio()
       const ytReady = ready && !!playerRef.current?.loadVideoById
 
+      // CRITICAL for iOS/mobile Safari: loadVideoById()+playVideo() must fire
+      // synchronously within the click that triggered this, or WebKit no longer
+      // treats it as user-initiated and silently blocks it. `await`-ing the
+      // offline-blob IndexedDB lookup below is a real task-queue hop, not a
+      // same-tick microtask — doing that BEFORE this call is what broke mobile
+      // playback. So on mobile, kick YouTube first, before any await, and only
+      // then check whether something better (offline/stream) should replace it.
+      if (mobile && ytReady) {
+        playYouTube(videoId)
+      }
+
       // Offline first when available
       try {
         const blob = await getOfflineAudioBlob(videoId)
-        if (blob) {
-          const ok = await playOfflineBlob(videoId, blob)
-          if (ok) return true
+        if (blob && intendedPlayingRef.current) {
+          const currentId = queueRef.current[queueIndexRef.current]?.videoId
+          if (!currentId || currentId === videoId) {
+            const ok = await playOfflineBlob(videoId, blob)
+            if (ok) return true
+            // Offline playback failed after we may have started YT above — keep YT going.
+            if (mobile && ytReady && intendedPlayingRef.current) {
+              playYouTube(videoId)
+              return true
+            }
+          }
         }
       } catch (err) {
         console.warn('offline lookup error', err)
@@ -582,11 +601,6 @@ export function useYouTubePlayer(
       // Mobile / PWA — pick ONE source and stick with it for the whole track.
       // Switching YouTube ↔ stream mid-play is what made playback stop after a few seconds.
       if (mobile) {
-        // Gesture is still active: kick YouTube first so something audible starts now.
-        if (ytReady) {
-          playYouTube(videoId)
-        }
-
         // Try stream once (for background capability). Only switch if it actually starts.
         // If stream fails, leave YouTube running — do NOT tear it down.
         try {
