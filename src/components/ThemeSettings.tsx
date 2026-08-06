@@ -10,7 +10,6 @@ import {
   type OutlineTheme,
   type AmbientStyle,
   type BackgroundStyle,
-  type SubtitleTheme,
   type SubtitleMode,
   type SubtitleGlitch,
 } from '../types'
