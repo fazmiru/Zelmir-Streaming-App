@@ -89,6 +89,11 @@ export const DEFAULT_AMBIENT: AmbientTheme = {
   opacity: 0.35,
 }
 
+/** Visual treatment for the background layer (Appearance → Background). */
+export type BackgroundStyle = 'glow' | 'halftone'
+
+export const DEFAULT_BACKGROUND_STYLE: BackgroundStyle = 'glow'
+
 
 /* ---------------- Auth ---------------- */
 

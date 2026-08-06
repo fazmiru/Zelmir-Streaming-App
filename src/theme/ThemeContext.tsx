@@ -4,9 +4,11 @@ import {
   DEFAULT_BACKGROUND_THEME,
   DEFAULT_OUTLINE,
   DEFAULT_AMBIENT,
+  DEFAULT_BACKGROUND_STYLE,
   type ThemeState,
   type OutlineTheme,
   type AmbientTheme,
+  type BackgroundStyle,
 } from '../types'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabaseClient'
@@ -20,6 +22,8 @@ interface ThemeContextValue {
   setOutline: (next: OutlineTheme) => void
   ambient: AmbientTheme
   setAmbient: (next: AmbientTheme) => void
+  backgroundStyle: BackgroundStyle
+  setBackgroundStyle: (next: BackgroundStyle) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
@@ -28,6 +32,7 @@ const THEME_STORAGE_KEY = 'zelmir-theme'
 const BG_THEME_STORAGE_KEY = 'zelmir-bg-theme'
 const OUTLINE_STORAGE_KEY = 'zelmir-outline'
 const AMBIENT_STORAGE_KEY = 'zelmir-ambient'
+const BG_STYLE_STORAGE_KEY = 'zelmir-bg-style'
 
 function normalizeColors(raw: unknown, fallbackA: string, fallbackB: string): string[] {
   if (Array.isArray(raw) && raw.length >= 2) {
@@ -207,6 +212,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return DEFAULT_AMBIENT
     }
   })
+  const [backgroundStyle, setBackgroundStyleState] = useState<BackgroundStyle>(() => {
+    try {
+      const raw = localStorage.getItem(BG_STYLE_STORAGE_KEY)
+      if (raw === 'halftone' || raw === 'glow') return raw
+      return DEFAULT_BACKGROUND_STYLE
+    } catch {
+      return DEFAULT_BACKGROUND_STYLE
+    }
+  })
 
   useEffect(() => {
     if (authLoading) return
@@ -343,6 +357,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const setBackgroundStyle = (next: BackgroundStyle) => {
+    setBackgroundStyleState(next)
+    try {
+      localStorage.setItem(BG_STYLE_STORAGE_KEY, next)
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     const root = document.documentElement
     applyColorVars('accent', theme)
@@ -361,14 +384,31 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement
+    root.classList.toggle('bg-style-halftone', backgroundStyle === 'halftone')
+    root.classList.toggle('bg-style-glow', backgroundStyle === 'glow')
+  }, [backgroundStyle])
+
+  useEffect(() => {
+    const root = document.documentElement
     root.style.setProperty('--btn-outline-color', outline.color)
     root.style.setProperty('--btn-outline-width', `${Math.max(0, outline.thickness)}px`)
   }, [outline])
 
   const value = useMemo(
-    () => ({ theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline, ambient, setAmbient }),
+    () => ({
+      theme,
+      setTheme,
+      backgroundTheme,
+      setBackgroundTheme,
+      outline,
+      setOutline,
+      ambient,
+      setAmbient,
+      backgroundStyle,
+      setBackgroundStyle,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [theme, backgroundTheme, outline, ambient, user]
+    [theme, backgroundTheme, outline, ambient, backgroundStyle, user]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

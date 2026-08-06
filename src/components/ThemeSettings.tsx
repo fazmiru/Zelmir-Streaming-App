@@ -4,9 +4,11 @@ import {
   DEFAULT_BACKGROUND_THEME,
   DEFAULT_OUTLINE,
   DEFAULT_AMBIENT,
+  DEFAULT_BACKGROUND_STYLE,
   type ThemeState,
   type OutlineTheme,
   type AmbientStyle,
+  type BackgroundStyle,
 } from '../types'
 
 const PRESETS = [
@@ -274,7 +276,18 @@ function OutlineSection({
 }
 
 export function ThemeSettings() {
-  const { theme, setTheme, backgroundTheme, setBackgroundTheme, outline, setOutline, ambient, setAmbient } = useTheme()
+  const {
+    theme,
+    setTheme,
+    backgroundTheme,
+    setBackgroundTheme,
+    outline,
+    setOutline,
+    ambient,
+    setAmbient,
+    backgroundStyle,
+    setBackgroundStyle,
+  } = useTheme()
 
   return (
     <div className="settings-page">
@@ -290,6 +303,37 @@ export function ThemeSettings() {
         speedMin={3}
         speedMax={30}
       />
+
+      <div className="settings-panel">
+        <h2>Background effect</h2>
+        <p className="settings-subtitle">
+          Visual treatment for the backdrop — soft glow orbs, or a halftone mesh glow.
+        </p>
+        <div className="preset-row bg-style-row">
+          {(
+            [
+              { id: 'glow', label: 'Glow orbs' },
+              { id: 'halftone', label: 'Halftone mesh' },
+            ] as { id: BackgroundStyle; label: string }[]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`preset-chip ${backgroundStyle === opt.id ? 'preset-chip-active' : ''}`}
+              onClick={() => setBackgroundStyle(opt.id)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="settings-reset"
+          onClick={() => setBackgroundStyle(DEFAULT_BACKGROUND_STYLE)}
+        >
+          Reset effect
+        </button>
+      </div>
 
       <ColorSection
         title="Accent"

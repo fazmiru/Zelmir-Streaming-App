@@ -7419,3 +7419,140 @@ main.content.content-artist {
   .now-playing-body-desktop { display: none !important; }
 }
 
+
+/* ============================================================
+   BACKGROUND STYLE — Halftone mesh glow
+   Uses --bg-a/b/c/d from the Background color system.
+   ============================================================ */
+
+/* Soft mesh orbs under the dots (home) */
+.bg-style-halftone .home-theme-backdrop {
+  background: radial-gradient(
+      ellipse 90% 70% at 50% -10%,
+      color-mix(in srgb, var(--bg-a) 55%, transparent) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 70% 55% at 15% 25%,
+      color-mix(in srgb, var(--bg-b) 40%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 65% 50% at 85% 20%,
+      color-mix(in srgb, var(--bg-c, var(--bg-a)) 35%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 50% 40%,
+      color-mix(in srgb, var(--bg-d, var(--bg-b)) 22%, transparent) 0%,
+      transparent 70%
+    ) !important;
+  filter: none !important;
+}
+
+/* Tone down classic orbs when halftone is on — mesh handles the glow */
+.bg-style-halftone .home-theme-orb {
+  filter: blur(100px) saturate(1.4) !important;
+  opacity: 0.35 !important;
+}
+
+.bg-style-halftone .home-theme-shade {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.25) 40%,
+    rgba(0, 0, 0, 0.75) 75%,
+    var(--bg) 100%
+  ) !important;
+}
+
+/* Halftone dot layer on home backdrop */
+.bg-style-halftone .home-theme-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  /* Dense radial dots */
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.55) 0.9px,
+    transparent 1.15px
+  );
+  background-size: 5px 5px;
+  background-position: 0 0;
+  /* Fade dots with the mesh so edges dissolve */
+  -webkit-mask-image: radial-gradient(
+    ellipse 95% 75% at 50% 5%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.55) 45%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    ellipse 95% 75% at 50% 5%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.55) 45%,
+    transparent 75%
+  );
+  opacity: 0.55;
+  mix-blend-mode: soft-light;
+}
+
+/* Colored tint on the dots so they pick up bg colors */
+.bg-style-halftone .home-theme-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+      circle at 30% 20%,
+      color-mix(in srgb, var(--bg-a) 70%, white) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 70% 25%,
+      color-mix(in srgb, var(--bg-b) 65%, white) 0%,
+      transparent 50%
+    );
+  -webkit-mask-image: radial-gradient(
+    circle,
+    #000 0.85px,
+    transparent 1.1px
+  );
+  mask-image: radial-gradient(circle, #000 0.85px, transparent 1.1px);
+  -webkit-mask-size: 5px 5px;
+  mask-size: 5px 5px;
+  opacity: 0.7;
+  mix-blend-mode: screen;
+}
+
+/* Subtle full-app wash so non-home views still feel related (very light) */
+.bg-style-halftone .app-shell {
+  background-color: var(--bg) !important;
+}
+
+.bg-style-halftone .app-shell > .app-main {
+  background-image: radial-gradient(
+    ellipse 120% 40% at 50% -5%,
+    color-mix(in srgb, var(--bg-a) 18%, transparent),
+    transparent 55%
+  );
+  background-repeat: no-repeat;
+}
+
+/* Mobile: slightly larger dots, less blend cost */
+@media (max-width: 900px) {
+  .bg-style-halftone .home-theme-backdrop::after {
+    background-size: 6px 6px;
+    opacity: 0.45;
+  }
+  .bg-style-halftone .home-theme-backdrop::before {
+    -webkit-mask-size: 6px 6px;
+    mask-size: 6px 6px;
+    opacity: 0.55;
+  }
+  .bg-style-halftone .home-theme-orb {
+    filter: blur(70px) saturate(1.3) !important;
+  }
+}
