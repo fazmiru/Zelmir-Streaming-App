@@ -1,10 +1,19 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import type { RepeatMode, Track } from '../types'
-import { PlayIcon, PauseIcon, NextIcon, PrevIcon, CloseIcon, ShuffleIcon, RepeatIcon } from './Icons'
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, TouchEvent as ReactTouchEvent } from 'react'
+import type { Track, RepeatMode } from '../types'
+import {
+  PlayIcon,
+  PauseIcon,
+  NextIcon,
+  PrevIcon,
+  ShuffleIcon,
+  RepeatIcon,
+  CloseIcon,
+} from './Icons'
 import { searchPipedTracksSimple } from '../utils/piped'
 import { fetchLyrics } from '../utils/lyrics'
 
-const COVER_FALLBACKS = ['maxresdefault', 'sddefault', 'hqdefault'] as const
+const COVER_FALLBACKS = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault'] as const
 
 type Tab = 'upnext' | 'lyrics' | 'recommended'
 
@@ -13,9 +22,8 @@ interface NowPlayingProps {
   queue: Track[]
   queueIndex: number
   isPlaying: boolean
-  currentTime: number
-  duration: number
-  apiKey: string | undefined
+  currentTime?: number
+  duration?: number
   shuffle: boolean
   repeatMode: RepeatMode
   onClose: () => void
@@ -53,14 +61,24 @@ function extractAlbumColors(imageUrl: string): Promise<string[]> {
           if (!ctx) return done(fallback)
           ctx.drawImage(img, 0, 0, size, size)
           const { data } = ctx.getImageData(0, 0, size, size)
-          let r = 0, g = 0, b = 0, n = 0
+          let r = 0,
+            g = 0,
+            b = 0,
+            n = 0
           for (let i = 0; i < data.length; i += 16) {
-            const rr = data[i], gg = data[i + 1], bb = data[i + 2]
+            const rr = data[i],
+              gg = data[i + 1],
+              bb = data[i + 2]
             if (rr + gg + bb < 40 || rr + gg + bb > 720) continue
-            r += rr; g += gg; b += bb; n++
+            r += rr
+            g += gg
+            b += bb
+            n++
           }
           if (!n) return done(fallback)
-          r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n)
+          r = Math.round(r / n)
+          g = Math.round(g / n)
+          b = Math.round(b / n)
           const hex = (x: number) => x.toString(16).padStart(2, '0')
           const base = `#${hex(r)}${hex(g)}${hex(b)}`
           const light = `#${hex(Math.min(255, r + 40))}${hex(Math.min(255, g + 30))}${hex(Math.min(255, b + 20))}`
@@ -115,6 +133,10 @@ export function NowPlaying({
 
   const [albumColors, setAlbumColors] = useState<string[]>(['#c45c26', '#e8a04a', '#8b3a1a', '#f0c070'])
 
+  // Mobile sheet (swipe up for queue) — YouTube Music style
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const touchStartY = useRef<number | null>(null)
+
   const safeQueue = Array.isArray(queue) ? queue : []
   const upNext = safeQueue.slice(Math.max(0, queueIndex) + 1)
   const seekProgress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
@@ -165,25 +187,111 @@ export function NowPlaying({
   }, [tab, track.videoId, track.artist, track.title])
 
   const npStyle = {
-    '--np-a': albumColors[0],
-    '--np-b': albumColors[1],
-    '--np-c': albumColors[2],
-    '--np-d': albumColors[3],
+    '--np-c0': albumColors[0],
+    '--np-c1': albumColors[1],
+    '--np-c2': albumColors[2],
+    '--np-c3': albumColors[3],
   } as CSSProperties
 
+  const onTouchStart = (e: ReactTouchEvent) => {
+    touchStartY.current = e.touches[0].clientY
+  }
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    if (touchStartY.current == null) return
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    touchStartY.current = null
+    // swipe up → open sheet, swipe down → close sheet or now playing
+    if (dy < -48) setSheetOpen(true)
+    else if (dy > 64) {
+      if (sheetOpen) setSheetOpen(false)
+      else onClose()
+    }
+  }
+
+  const panelBody = (
+    <>
+      {tab === 'upnext' && (
+        <>
+          {upNext.length === 0 && (
+            <p className="now-playing-empty">No more songs in the queue.</p>
+          )}
+          {upNext.map((t, i) => (
+            <div
+              key={`${t.videoId}-${i}`}
+              className="now-playing-row"
+              role="button"
+              tabIndex={0}
+              onClick={() => onPlayFromQueue(t, safeQueue)}
+            >
+              <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
+              <div className="now-playing-row-meta">
+                <span className="now-playing-row-title">{t.title}</span>
+                <span className="now-playing-row-artist">{t.artist}</span>
+              </div>
+            </div>
+          ))}
+          {/* current at top when sheet */}
+          <div className="now-playing-row now-playing-row-current" style={{ order: -1 }}>
+            <img src={track.thumbnail || coverSrc} alt="" className="now-playing-row-thumb" />
+            <div className="now-playing-row-meta">
+              <span className="now-playing-row-title">{track.title}</span>
+              <span className="now-playing-row-artist">{track.artist}</span>
+            </div>
+          </div>
+        </>
+      )}
+      {tab === 'lyrics' && (
+        <div className="now-playing-lyrics">
+          {loadingLyrics && <p className="now-playing-empty">Loading lyrics…</p>}
+          {!loadingLyrics && lyricsNotFound && (
+            <p className="now-playing-empty">No lyrics found for this track.</p>
+          )}
+          {!loadingLyrics && lyrics && (
+            <pre className="now-playing-lyrics-text">{lyrics}</pre>
+          )}
+        </div>
+      )}
+      {tab === 'recommended' && (
+        <>
+          {loadingRecommended && <p className="now-playing-empty">Finding similar songs…</p>}
+          {!loadingRecommended &&
+            recommended.map((t, i) => (
+              <div
+                key={`${t.videoId}-r-${i}`}
+                className="now-playing-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => onPlayFromQueue(t, [t, ...recommended])}
+              >
+                <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
+                <div className="now-playing-row-meta">
+                  <span className="now-playing-row-title">{t.title}</span>
+                  <span className="now-playing-row-artist">{t.artist}</span>
+                </div>
+              </div>
+            ))}
+          {!loadingRecommended && recommended.length === 0 && (
+            <p className="now-playing-empty">No recommendations found.</p>
+          )}
+        </>
+      )}
+    </>
+  )
+
   return (
-    <div className="now-playing-overlay" style={npStyle}>
+    <div
+      className={`now-playing-overlay ${sheetOpen ? 'np-sheet-open' : ''}`}
+      style={npStyle}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <div className="now-playing-backdrop" aria-hidden="true">
-        <img
-          className="now-playing-backdrop-img"
-          src={coverSrc}
-          alt=""
-          onError={() => setCoverStage((s) => s + 1)}
-        />
+        <img className="now-playing-backdrop-img" src={coverSrc} alt="" />
         <div className="now-playing-backdrop-shade" />
       </div>
 
-      <div className="now-playing-body">
+      {/* ===== Desktop / tablet layout (unchanged structure) ===== */}
+      <div className="now-playing-body now-playing-body-desktop">
         <div className="now-playing-left">
           <div className="now-playing-cover-wrap">
             <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
@@ -200,9 +308,9 @@ export function NowPlaying({
           <button
             type="button"
             className="now-playing-artist now-playing-artist-link"
-            onClick={() => onOpenArtist(track.artist || '')}
+            onClick={() => onOpenArtist(track.artist)}
           >
-            {track.artist || 'Unknown'}
+            {track.artist}
           </button>
 
           <div className="now-playing-transport">
@@ -212,21 +320,21 @@ export function NowPlaying({
               onClick={onToggleShuffle}
               aria-label="Shuffle"
             >
-              <ShuffleIcon size={19} />
+              <ShuffleIcon />
             </button>
             <button type="button" className="transport-button" onClick={onPrev} aria-label="Previous">
-              <PrevIcon size={22} />
+              <PrevIcon />
             </button>
             <button
               type="button"
-              className="transport-button transport-button-main now-playing-play"
+              className="transport-button transport-button-main now-playing-play accent-fill"
               onClick={onToggle}
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? <PauseIcon size={22} /> : <PlayIcon size={22} />}
             </button>
             <button type="button" className="transport-button" onClick={onNext} aria-label="Next">
-              <NextIcon size={22} />
+              <NextIcon />
             </button>
             <button
               type="button"
@@ -234,8 +342,8 @@ export function NowPlaying({
               onClick={onCycleRepeat}
               aria-label="Repeat"
             >
-              <RepeatIcon size={19} />
-              {repeatMode === 'one' && <span className="repeat-one-dot now-playing-dot" />}
+              <RepeatIcon />
+              {repeatMode === 'one' && <span className="repeat-one-dot now-playing-dot accent-fill" />}
             </button>
           </div>
 
@@ -243,14 +351,13 @@ export function NowPlaying({
             <span className="now-playing-time">{formatTime(currentTime)}</span>
             <input
               type="range"
-              className="now-playing-seek-bar"
+              className="now-playing-seek-bar accent-range"
               min={0}
               max={duration > 0 ? duration : 100}
               step={0.1}
-              value={Number.isFinite(currentTime) ? currentTime : 0}
-              onChange={(e) => onSeek?.(Number(e.target.value))}
+              value={currentTime}
+              onChange={(e) => onSeek(Number(e.target.value))}
               style={{ '--progress': `${seekProgress}%` } as CSSProperties}
-              aria-label="Seek"
             />
             <span className="now-playing-time">{formatTime(duration)}</span>
           </div>
@@ -263,91 +370,176 @@ export function NowPlaying({
               className={`now-playing-tab ${tab === 'upnext' ? 'now-playing-tab-active' : ''}`}
               onClick={() => setTab('upnext')}
             >
-              Up next
+              UP NEXT
             </button>
             <button
               type="button"
               className={`now-playing-tab ${tab === 'lyrics' ? 'now-playing-tab-active' : ''}`}
               onClick={() => setTab('lyrics')}
             >
-              Lyrics
+              LYRICS
             </button>
             <button
               type="button"
               className={`now-playing-tab ${tab === 'recommended' ? 'now-playing-tab-active' : ''}`}
               onClick={() => setTab('recommended')}
             >
-              Recommended
+              RECOMMENDED
             </button>
           </div>
-
-          <div className="now-playing-panel">
-            {tab === 'upnext' && (
-              <>
-                <div className="now-playing-row now-playing-row-current">
-                  <img src={track.thumbnail || coverSrc} alt="" className="now-playing-row-thumb" />
-                  <div className="now-playing-row-meta">
-                    <span className="now-playing-row-title">{track.title}</span>
-                    <span className="now-playing-row-artist">{track.artist}</span>
-                  </div>
-                </div>
-                {upNext.length === 0 ? (
-                  <p className="now-playing-empty">Nothing queued after this.</p>
-                ) : (
-                  upNext.map((t) => (
-                    <div
-                      key={t.videoId}
-                      className="now-playing-row"
-                      onClick={() => onPlayFromQueue(t, safeQueue)}
-                    >
-                      <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
-                      <div className="now-playing-row-meta">
-                        <span className="now-playing-row-title">{t.title}</span>
-                        <span className="now-playing-row-artist">{t.artist}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </>
-            )}
-
-            {tab === 'lyrics' && (
-              <div className="now-playing-lyrics">
-                {loadingLyrics && <p className="now-playing-empty">Looking up lyrics…</p>}
-                {!loadingLyrics && lyrics && <p className="now-playing-lyrics-text">{lyrics}</p>}
-                {!loadingLyrics && !lyrics && (
-                  <div className="now-playing-lyrics-placeholder">
-                    <p>{lyricsNotFound ? "Couldn't find lyrics for this track." : 'Lyrics unavailable.'}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {tab === 'recommended' && (
-              <>
-                {loadingRecommended && <p className="now-playing-empty">Finding similar tracks…</p>}
-                {!loadingRecommended &&
-                  recommended.map((t) => (
-                    <div
-                      key={t.videoId}
-                      className="now-playing-row"
-                      onClick={() => onPlayFromQueue(t, recommended)}
-                    >
-                      <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
-                      <div className="now-playing-row-meta">
-                        <span className="now-playing-row-title">{t.title}</span>
-                        <span className="now-playing-row-artist">{t.artist}</span>
-                      </div>
-                    </div>
-                  ))}
-                {!loadingRecommended && recommended.length === 0 && (
-                  <p className="now-playing-empty">No recommendations found.</p>
-                )}
-              </>
-            )}
-          </div>
+          <div className="now-playing-panel">{panelBody}</div>
         </div>
       </div>
+
+      {/* ===== Mobile layout — YouTube Music style ===== */}
+      <div className="now-playing-body now-playing-body-mobile">
+        <div className="np-mobile-top">
+          <button type="button" className="np-mobile-chevron" onClick={onClose} aria-label="Close">
+            ⌄
+          </button>
+        </div>
+
+        <div className="np-mobile-cover-wrap">
+          <img
+            className="np-mobile-cover"
+            src={coverSrc}
+            alt=""
+            onError={() => setCoverStage((s) => s + 1)}
+          />
+        </div>
+
+        <div className="np-mobile-meta">
+          <h2 className="np-mobile-title">{track.title || 'Unknown'}</h2>
+          <button
+            type="button"
+            className="np-mobile-artist"
+            onClick={() => onOpenArtist(track.artist)}
+          >
+            {track.artist}
+          </button>
+        </div>
+
+        <div className="np-mobile-seek">
+          <input
+            type="range"
+            className="np-mobile-seek-bar accent-range"
+            min={0}
+            max={duration > 0 ? duration : 100}
+            step={0.1}
+            value={currentTime}
+            onChange={(e) => onSeek(Number(e.target.value))}
+            style={{ '--progress': `${seekProgress}%` } as CSSProperties}
+          />
+          <div className="np-mobile-times">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        <div className="np-mobile-transport">
+          <button
+            type="button"
+            className={`np-mob-btn ${shuffle ? 'np-mob-btn-on' : ''}`}
+            onClick={onToggleShuffle}
+            aria-label="Shuffle"
+          >
+            <ShuffleIcon size={26} />
+          </button>
+          <button type="button" className="np-mob-btn np-mob-btn-lg" onClick={onPrev} aria-label="Previous">
+            <PrevIcon size={36} />
+          </button>
+          <button
+            type="button"
+            className="np-mob-play accent-fill"
+            onClick={onToggle}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <PauseIcon size={32} /> : <PlayIcon size={32} />}
+          </button>
+          <button type="button" className="np-mob-btn np-mob-btn-lg" onClick={onNext} aria-label="Next">
+            <NextIcon size={36} />
+          </button>
+          <button
+            type="button"
+            className={`np-mob-btn ${repeatMode !== 'off' ? 'np-mob-btn-on' : ''}`}
+            onClick={onCycleRepeat}
+            aria-label="Repeat"
+          >
+            <RepeatIcon size={26} />
+            {repeatMode === 'one' && <span className="repeat-one-dot accent-fill" />}
+          </button>
+        </div>
+
+        {/* Drag hint — swipe up for queue */}
+        <button
+          type="button"
+          className="np-mobile-sheet-handle"
+          onClick={() => setSheetOpen(true)}
+          aria-label="Open queue"
+        >
+          <span className="np-handle-bar" />
+          <span className="np-handle-label">UP NEXT · LYRICS · RELATED</span>
+        </button>
+      </div>
+
+      {/* Glass sheet */}
+      <div
+        className={`np-glass-sheet ${sheetOpen ? 'np-glass-sheet-open' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="np-glass-handle"
+          onClick={() => setSheetOpen(false)}
+          aria-label="Close queue"
+        >
+          <span className="np-handle-bar" />
+        </button>
+        <div className="np-glass-mini">
+          <img src={track.thumbnail || coverSrc} alt="" />
+          <div>
+            <div className="np-glass-mini-title">{track.title}</div>
+            <div className="np-glass-mini-artist">{track.artist}</div>
+          </div>
+          <button type="button" className="np-glass-mini-play accent-fill" onClick={onToggle}>
+            {isPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
+          </button>
+        </div>
+        <div className="now-playing-tabs np-glass-tabs">
+          <button
+            type="button"
+            className={`now-playing-tab ${tab === 'upnext' ? 'now-playing-tab-active' : ''}`}
+            onClick={() => setTab('upnext')}
+          >
+            UP NEXT
+          </button>
+          <button
+            type="button"
+            className={`now-playing-tab ${tab === 'lyrics' ? 'now-playing-tab-active' : ''}`}
+            onClick={() => setTab('lyrics')}
+          >
+            LYRICS
+          </button>
+          <button
+            type="button"
+            className={`now-playing-tab ${tab === 'recommended' ? 'now-playing-tab-active' : ''}`}
+            onClick={() => setTab('recommended')}
+          >
+            RELATED
+          </button>
+        </div>
+        <div className="np-glass-panel">{panelBody}</div>
+      </div>
+
+      {/* Sheet backdrop dim */}
+      {sheetOpen && (
+        <button
+          type="button"
+          className="np-sheet-dim"
+          aria-label="Close sheet"
+          onClick={() => setSheetOpen(false)}
+        />
+      )}
     </div>
   )
 }

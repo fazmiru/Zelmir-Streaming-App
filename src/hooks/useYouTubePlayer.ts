@@ -227,21 +227,29 @@ export function useYouTubePlayer(
       }
     }
     const onPause = () => {
-      // iOS often fires a transient pause right after setting src — resume only if we
-      // still intend to play AND the element has a real source (not mid-load empty).
-      if (intendedPlayingRef.current && audio.src && audio.readyState >= 2) {
-        void audio.play().then(() => setIsPlaying(true)).catch(() => {
-          // Don't force isPlaying false yet — user may tap again; keep optimistic UI
-        })
+      // Ignore transient pauses during src changes. Only resume if we still own stream/offline.
+      if (
+        intendedPlayingRef.current &&
+        (sourceRef.current === 'stream' || sourceRef.current === 'offline') &&
+        audio.src &&
+        audio.readyState >= 2 &&
+        !audio.ended
+      ) {
+        window.setTimeout(() => {
+          if (!intendedPlayingRef.current) return
+          if (sourceRef.current !== 'stream' && sourceRef.current !== 'offline') return
+          if (!audio.paused) return
+          void audio.play().catch(() => {})
+        }, 120)
         return
       }
-      if (!intendedPlayingRef.current) setIsPlaying(false)
-      try {
-        if ('mediaSession' in navigator && !intendedPlayingRef.current) {
-          navigator.mediaSession.playbackState = 'paused'
+      if (!intendedPlayingRef.current) {
+        setIsPlaying(false)
+        try {
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
     }
     const onEnded = () => {
@@ -571,44 +579,37 @@ export function useYouTubePlayer(
         return false
       }
 
-      // Mobile / PWA:
-      // 1) Start YouTube IMMEDIATELY while the user gesture is still valid (sound works).
-      // 2) In parallel, try HTML5 stream — if it works, switch over for background play.
-      // Waiting on the stream API first was blocking play for 8–16s and breaking mobile.
+      // Mobile / PWA — pick ONE source and stick with it for the whole track.
+      // Switching YouTube ↔ stream mid-play is what made playback stop after a few seconds.
       if (mobile) {
+        // Gesture is still active: kick YouTube first so something audible starts now.
         if (ytReady) {
           playYouTube(videoId)
         }
 
-        // Upgrade to HTML5 stream when available (background / lock screen)
-        void (async () => {
-          try {
-            const streamUrl = await fetchStreamUrl(videoId)
-            if (!streamUrl) return
-            if (!intendedPlayingRef.current) return
-            if (requestedVideoIdRef.current !== videoId && requestedVideoIdRef.current !== null) {
-              // another track may have been chosen; still OK if ids match after race
+        // Try stream once (for background capability). Only switch if it actually starts.
+        // If stream fails, leave YouTube running — do NOT tear it down.
+        try {
+          const streamUrl = await fetchStreamUrl(videoId)
+          if (streamUrl && intendedPlayingRef.current) {
+            // Still the same track?
+            const currentId = queueRef.current[queueIndexRef.current]?.videoId
+            if (!currentId || currentId === videoId) {
+              const ok = await playStreamUrl(videoId, streamUrl)
+              if (ok) return true
+              // Stream failed after starting YT — ensure YT is still going
+              if (ytReady && intendedPlayingRef.current) {
+                playYouTube(videoId)
+                return true
+              }
             }
-            // Only switch if user still wants this track
-            if (queueRef.current[queueIndexRef.current]?.videoId !== videoId) return
-            const ok = await playStreamUrl(videoId, streamUrl)
-            if (!ok && intendedPlayingRef.current && ytReady) {
-              // Stream failed — keep / restart YouTube
-              playYouTube(videoId)
-            }
-          } catch (err) {
-            console.warn('stream upgrade failed', err)
           }
-        })()
+        } catch (err) {
+          console.warn('mobile stream attempt failed', err)
+        }
 
         if (ytReady) return true
 
-        // YT not ready yet — try stream only
-        const streamUrl = await fetchStreamUrl(videoId)
-        if (streamUrl) {
-          const ok = await playStreamUrl(videoId, streamUrl)
-          if (ok) return true
-        }
         requestedVideoIdRef.current = null
         setIsPlaying(false)
         return false
