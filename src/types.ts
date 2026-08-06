@@ -26,7 +26,7 @@ export interface Playlist {
 
 export type RepeatMode = 'off' | 'all' | 'one'
 
-export type ThemeMode = 'solid' | 'cycle' | 'pulse'
+export type ThemeMode = 'solid' | 'cycle' | 'pulse' | 'album'
 
 /** Accent or background color system. `colors` holds 2–4 stops used by cycle/pulse. */
 export interface ThemeState {
@@ -93,6 +93,28 @@ export const DEFAULT_AMBIENT: AmbientTheme = {
 export type BackgroundStyle = 'glow' | 'halftone'
 
 export const DEFAULT_BACKGROUND_STYLE: BackgroundStyle = 'glow'
+
+/** Home-screen active-lyric display (desktop / tablet only). */
+export type SubtitleMode = 'solid' | 'gradient' | 'cycle' | 'album'
+export type SubtitleGlitch = 'off' | 'subtle' | 'on_change'
+
+export interface SubtitleTheme {
+  enabled: boolean
+  mode: SubtitleMode
+  solid: string
+  colors: string[]
+  speed: number
+  glitch: SubtitleGlitch
+}
+
+export const DEFAULT_SUBTITLE: SubtitleTheme = {
+  enabled: true,
+  mode: 'gradient',
+  solid: '#e8e0ff',
+  colors: ['#e8e0ff', '#c4b5fd', '#f0abfc', '#7dd3fc'],
+  speed: 8,
+  glitch: 'on_change',
+}
 
 
 /* ---------------- Auth ---------------- */

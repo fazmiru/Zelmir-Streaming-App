@@ -5,10 +5,12 @@ import {
   DEFAULT_OUTLINE,
   DEFAULT_AMBIENT,
   DEFAULT_BACKGROUND_STYLE,
+  DEFAULT_SUBTITLE,
   type ThemeState,
   type OutlineTheme,
   type AmbientTheme,
   type BackgroundStyle,
+  type SubtitleTheme,
 } from '../types'
 import { useAuth } from '../auth/AuthContext'
 import { supabase } from '../lib/supabaseClient'
@@ -24,6 +26,8 @@ interface ThemeContextValue {
   setAmbient: (next: AmbientTheme) => void
   backgroundStyle: BackgroundStyle
   setBackgroundStyle: (next: BackgroundStyle) => void
+  subtitle: SubtitleTheme
+  setSubtitle: (next: SubtitleTheme) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
@@ -33,6 +37,7 @@ const BG_THEME_STORAGE_KEY = 'zelmir-bg-theme'
 const OUTLINE_STORAGE_KEY = 'zelmir-outline'
 const AMBIENT_STORAGE_KEY = 'zelmir-ambient'
 const BG_STYLE_STORAGE_KEY = 'zelmir-bg-style'
+const SUBTITLE_STORAGE_KEY = 'zelmir-subtitle'
 
 function normalizeColors(raw: unknown, fallbackA: string, fallbackB: string): string[] {
   if (Array.isArray(raw) && raw.length >= 2) {
@@ -46,7 +51,9 @@ function normalizeColors(raw: unknown, fallbackA: string, fallbackB: string): st
 function normalizeTheme(input: Partial<ThemeState> & Record<string, any>, fallback: ThemeState): ThemeState {
   const solid = typeof input.solid === 'string' ? input.solid : fallback.solid
   const mode =
-    input.mode === 'solid' || input.mode === 'cycle' || input.mode === 'pulse' ? input.mode : fallback.mode
+    input.mode === 'solid' || input.mode === 'cycle' || input.mode === 'pulse' || input.mode === 'album'
+      ? input.mode
+      : fallback.mode
   const speed = typeof input.speed === 'number' && input.speed > 0 ? input.speed : fallback.speed
 
   let colors: string[]
@@ -139,7 +146,7 @@ function isValidTheme(value: unknown): value is ThemeState {
   if (!value || typeof value !== 'object') return false
   const t = value as any
   return (
-    (t.mode === 'solid' || t.mode === 'cycle' || t.mode === 'pulse') &&
+    (t.mode === 'solid' || t.mode === 'cycle' || t.mode === 'pulse' || t.mode === 'album') &&
     typeof t.solid === 'string' &&
     typeof t.speed === 'number' &&
     (Array.isArray(t.colors) || (typeof t.cycleA === 'string' && typeof t.cycleB === 'string'))
@@ -219,6 +226,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return DEFAULT_BACKGROUND_STYLE
     } catch {
       return DEFAULT_BACKGROUND_STYLE
+    }
+  })
+  const [subtitle, setSubtitleState] = useState<SubtitleTheme>(() => {
+    try {
+      const raw = localStorage.getItem(SUBTITLE_STORAGE_KEY)
+      if (!raw) return DEFAULT_SUBTITLE
+      return { ...DEFAULT_SUBTITLE, ...JSON.parse(raw) }
+    } catch {
+      return DEFAULT_SUBTITLE
     }
   })
 
@@ -366,12 +382,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const setSubtitle = (next: SubtitleTheme) => {
+    setSubtitleState(next)
+    try {
+      localStorage.setItem(SUBTITLE_STORAGE_KEY, JSON.stringify(next))
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     const root = document.documentElement
     applyColorVars('accent', theme)
     root.classList.toggle('theme-cycle', theme.mode === 'cycle')
     root.classList.toggle('theme-solid', theme.mode === 'solid')
     root.classList.toggle('theme-pulse', theme.mode === 'pulse')
+    root.classList.toggle('theme-album', theme.mode === 'album')
   }, [theme])
 
   useEffect(() => {
@@ -387,6 +413,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.toggle('bg-style-halftone', backgroundStyle === 'halftone')
     root.classList.toggle('bg-style-glow', backgroundStyle === 'glow')
   }, [backgroundStyle])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('subtitle-enabled', subtitle.enabled)
+    root.classList.toggle('subtitle-solid', subtitle.mode === 'solid')
+    root.classList.toggle('subtitle-gradient', subtitle.mode === 'gradient')
+    root.classList.toggle('subtitle-cycle', subtitle.mode === 'cycle')
+    root.classList.toggle('subtitle-album', subtitle.mode === 'album')
+    root.style.setProperty('--sub-solid', subtitle.solid)
+    const cols = subtitle.colors.length >= 2 ? subtitle.colors : [subtitle.solid, subtitle.solid]
+    root.style.setProperty('--sub-a', cols[0] ?? subtitle.solid)
+    root.style.setProperty('--sub-b', cols[1] ?? cols[0] ?? subtitle.solid)
+    root.style.setProperty('--sub-c', cols[2] ?? cols[1] ?? cols[0] ?? subtitle.solid)
+    root.style.setProperty('--sub-d', cols[3] ?? cols[2] ?? cols[1] ?? cols[0] ?? subtitle.solid)
+    root.style.setProperty('--sub-speed', `${subtitle.speed}s`)
+  }, [subtitle])
 
   useEffect(() => {
     const root = document.documentElement
@@ -406,9 +448,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setAmbient,
       backgroundStyle,
       setBackgroundStyle,
+      subtitle,
+      setSubtitle,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [theme, backgroundTheme, outline, ambient, backgroundStyle, user]
+    [theme, backgroundTheme, outline, ambient, backgroundStyle, subtitle, user]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

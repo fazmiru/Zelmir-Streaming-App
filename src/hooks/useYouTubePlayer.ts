@@ -125,6 +125,29 @@ export function useYouTubePlayer(
   // onStateChange to confirm it's actually PLAYING, at which point we unmute.
   const pendingUnmuteRef = useRef(false)
 
+  const forceYtUnmute = () => {
+    const p = playerRef.current
+    if (!p) return
+    try {
+      p.unMute?.()
+    } catch {
+      /* ignore */
+    }
+    try {
+      p.setVolume?.(Math.max(1, volumeRef.current))
+    } catch {
+      /* ignore */
+    }
+    try {
+      // Some embeds expose isMuted()
+      if (typeof p.isMuted === 'function' && p.isMuted()) {
+        p.unMute?.()
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   useEffect(() => {
     queueRef.current = queue
   }, [queue])
@@ -316,8 +339,8 @@ export function useYouTubePlayer(
       const target = host.querySelector('[data-yt-mount]') || mount
       try {
         playerRef.current = new window.YT.Player(target, {
-          height: '0',
-          width: '0',
+          height: '48',
+          width: '48',
           playerVars: {
             autoplay: 1,
             playsinline: 1,
@@ -327,8 +350,15 @@ export function useYouTubePlayer(
             origin: window.location.origin,
           },
           events: {
-            onReady: () => {
-              if (!cancelled) setReady(true)
+            onReady: (ev: any) => {
+              if (cancelled) return
+              try {
+                ev?.target?.unMute?.()
+                ev?.target?.setVolume?.(Math.max(1, volumeRef.current || 80))
+              } catch {
+                /* ignore */
+              }
+              setReady(true)
             },
             onStateChange: (e: any) => {
               if (sourceRef.current !== 'youtube') return
@@ -336,21 +366,13 @@ export function useYouTubePlayer(
               if (e.data === YT.PlayerState.PLAYING) {
                 setIsPlaying(true)
                 intendedPlayingRef.current = true
-                // Unmuting an already-playing video is broadly permitted by
-                // autoplay policies, unlike starting unmuted straight out of
-                // loadVideoById() (which mobile browsers often silently
-                // block since the postMessage-driven playVideo() call isn't
-                // treated as a strong enough gesture). So we start muted and
-                // unmute right here, the instant playback is confirmed.
-                if (pendingUnmuteRef.current) {
-                  pendingUnmuteRef.current = false
-                  try {
-                    playerRef.current?.unMute?.()
-                    playerRef.current?.setVolume?.(volumeRef.current)
-                  } catch {
-                    /* ignore */
-                  }
-                }
+                // Always force audible when we intend to play — pending flag
+                // alone was leaving many sessions permanently muted.
+                pendingUnmuteRef.current = false
+                forceYtUnmute()
+                window.setTimeout(forceYtUnmute, 80)
+                window.setTimeout(forceYtUnmute, 250)
+                window.setTimeout(forceYtUnmute, 600)
               } else if (e.data === YT.PlayerState.ENDED) {
                 handleTrackEnded()
               } else if (
@@ -529,28 +551,42 @@ export function useYouTubePlayer(
       stopHtmlAudio()
       sourceRef.current = 'youtube'
       const p = playerRef.current
-      if (!p?.loadVideoById) return
+      if (!p?.loadVideoById) {
+        console.warn('YouTube player not ready')
+        return
+      }
       requestedVideoIdRef.current = videoId
       intendedPlayingRef.current = true
-      pendingUnmuteRef.current = true
       setIsPlaying(true)
+
+      const mobile = prefersHtmlAudio()
+      pendingUnmuteRef.current = mobile // only need unmute dance on mobile
+
       try {
-        // Start MUTED. Muted autoplay right after loadVideoById() is allowed
-        // almost everywhere; starting UNMUTED from a fresh load frequently
-        // gets silently blocked on mobile because the postMessage-driven
-        // loadVideoById()/playVideo() calls aren't treated as a strong
-        // enough gesture by the iframe's own browsing context — audio just
-        // never starts, even though our UI optimistically shows "playing."
-        // We unmute in onStateChange the instant PLAYING is confirmed,
-        // which browsers treat far more leniently (resuming/adjusting an
-        // already-playing video, not starting a new autoplay).
-        try {
-          p.mute?.()
-        } catch {
-          /* ignore */
+        if (mobile) {
+          try {
+            p.mute?.()
+          } catch {
+            /* ignore */
+          }
+        } else {
+          // Desktop / wide screens: start loud. Muted-start was leaving
+          // localhost sessions silent when onStateChange unmute never stuck.
+          try {
+            p.unMute?.()
+          } catch {
+            /* ignore */
+          }
+          try {
+            p.setVolume?.(Math.max(1, volumeRef.current || 80))
+          } catch {
+            /* ignore */
+          }
         }
+
         p.loadVideoById({ videoId, startSeconds: 0 })
         p.playVideo?.()
+
         const kick = (delay: number) => {
           window.setTimeout(() => {
             if (!intendedPlayingRef.current) return
@@ -561,11 +597,18 @@ export function useYouTubePlayer(
             } catch {
               /* ignore */
             }
+            try {
+              p.unMute?.()
+              p.setVolume?.(Math.max(1, volumeRef.current || 80))
+            } catch {
+              /* ignore */
+            }
           }, delay)
         }
-        kick(150)
-        kick(400)
-        kick(1000)
+        kick(100)
+        kick(300)
+        kick(800)
+        kick(1600)
       } catch (err) {
         console.error('playYouTube failed', err)
       }
@@ -849,9 +892,31 @@ export function useYouTubePlayer(
       }
       try {
         const p = playerRef.current
-        if (p?.mute && p?.playVideo) {
-          p.mute()
+        if (p?.playVideo) {
+          const mobile = prefersHtmlAudio()
+          if (mobile) {
+            try {
+              p.mute?.()
+            } catch {
+              /* ignore */
+            }
+          } else {
+            try {
+              p.unMute?.()
+              p.setVolume?.(Math.max(1, volumeRef.current || 80))
+            } catch {
+              /* ignore */
+            }
+          }
           p.playVideo()
+          window.setTimeout(() => {
+            try {
+              p.unMute?.()
+              p.setVolume?.(Math.max(1, volumeRef.current || 80))
+            } catch {
+              /* ignore */
+            }
+          }, 200)
         }
       } catch {
         /* ignore */
@@ -932,7 +997,21 @@ export function useYouTubePlayer(
       p.pauseVideo()
     } else {
       intendedPlayingRef.current = true
+      try {
+        p.unMute?.()
+        p.setVolume?.(Math.max(1, volumeRef.current))
+      } catch {
+        /* ignore */
+      }
       p.playVideo()
+      window.setTimeout(() => {
+        try {
+          p.unMute?.()
+          p.setVolume?.(Math.max(1, volumeRef.current))
+        } catch {
+          /* ignore */
+        }
+      }, 150)
     }
   }, [])
 

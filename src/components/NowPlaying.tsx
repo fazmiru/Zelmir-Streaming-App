@@ -11,7 +11,8 @@ import {
   CloseIcon,
 } from './Icons'
 import { searchPipedTracksSimple } from '../utils/piped'
-import { fetchLyrics } from '../utils/lyrics'
+import { fetchLyrics, approximateTimedLines, type LyricLine } from '../utils/lyrics'
+import { extractAlbumColors } from '../utils/albumColors'
 
 const COVER_FALLBACKS = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault'] as const
 
@@ -42,58 +43,6 @@ function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function extractAlbumColors(imageUrl: string): Promise<string[]> {
-  const fallback = ['#c45c26', '#e8a04a', '#8b3a1a', '#f0c070']
-  return new Promise((resolve) => {
-    try {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      const done = (colors: string[]) => resolve(colors)
-      img.onload = () => {
-        try {
-          const size = 32
-          const canvas = document.createElement('canvas')
-          canvas.width = size
-          canvas.height = size
-          const ctx = canvas.getContext('2d')
-          if (!ctx) return done(fallback)
-          ctx.drawImage(img, 0, 0, size, size)
-          const { data } = ctx.getImageData(0, 0, size, size)
-          let r = 0,
-            g = 0,
-            b = 0,
-            n = 0
-          for (let i = 0; i < data.length; i += 16) {
-            const rr = data[i],
-              gg = data[i + 1],
-              bb = data[i + 2]
-            if (rr + gg + bb < 40 || rr + gg + bb > 720) continue
-            r += rr
-            g += gg
-            b += bb
-            n++
-          }
-          if (!n) return done(fallback)
-          r = Math.round(r / n)
-          g = Math.round(g / n)
-          b = Math.round(b / n)
-          const hex = (x: number) => x.toString(16).padStart(2, '0')
-          const base = `#${hex(r)}${hex(g)}${hex(b)}`
-          const light = `#${hex(Math.min(255, r + 40))}${hex(Math.min(255, g + 30))}${hex(Math.min(255, b + 20))}`
-          const dark = `#${hex(Math.max(0, r - 30))}${hex(Math.max(0, g - 25))}${hex(Math.max(0, b - 20))}`
-          done([base, light, dark, light])
-        } catch {
-          done(fallback)
-        }
-      }
-      img.onerror = () => done(fallback)
-      img.src = imageUrl
-    } catch {
-      resolve(fallback)
-    }
-  })
 }
 
 export function NowPlaying({
@@ -127,9 +76,11 @@ export function NowPlaying({
       : track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
 
   const [lyrics, setLyrics] = useState<string | null>(null)
+  const [lyricLines, setLyricLines] = useState<LyricLine[] | null>(null)
   const [lyricsNotFound, setLyricsNotFound] = useState(false)
   const [loadingLyrics, setLoadingLyrics] = useState(false)
   const lyricsFetchedFor = useRef<string | null>(null)
+  const activeLyricRef = useRef<HTMLParagraphElement | null>(null)
 
   const [albumColors, setAlbumColors] = useState<string[]>(['#c45c26', '#e8a04a', '#8b3a1a', '#f0c070'])
 
@@ -140,6 +91,23 @@ export function NowPlaying({
   const safeQueue = Array.isArray(queue) ? queue : []
   const upNext = safeQueue.slice(Math.max(0, queueIndex) + 1)
   const seekProgress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0
+
+  // Prefer real LRC; otherwise approximate from plain lyrics + duration
+  const displayLines: LyricLine[] | null =
+    lyricLines && lyricLines.length
+      ? lyricLines
+      : lyrics
+        ? approximateTimedLines(lyrics, duration || 0)
+        : null
+
+  let activeLyricIndex = -1
+  if (displayLines && displayLines.length) {
+    for (let i = 0; i < displayLines.length; i++) {
+      if (displayLines[i].time <= currentTime + 0.2) activeLyricIndex = i
+      else break
+    }
+  }
+
 
   useEffect(() => {
     setCoverStage(0)
@@ -161,11 +129,19 @@ export function NowPlaying({
     lyricsFetchedFor.current = track.videoId
     setLoadingLyrics(true)
     setLyrics(null)
+    setLyricLines(null)
     setLyricsNotFound(false)
     fetchLyrics(track.artist || '', track.title || '')
       .then((result) => {
-        if (result?.lyrics) setLyrics(result.lyrics)
-        else setLyricsNotFound(true)
+        if (result?.lines && result.lines.length) {
+          setLyricLines(result.lines)
+          setLyrics(result.lyrics)
+        } else if (result?.lyrics) {
+          setLyrics(result.lyrics)
+          setLyricLines(null)
+        } else {
+          setLyricsNotFound(true)
+        }
       })
       .catch(() => setLyricsNotFound(true))
       .finally(() => setLoadingLyrics(false))
@@ -192,6 +168,12 @@ export function NowPlaying({
     '--np-c2': albumColors[2],
     '--np-c3': albumColors[3],
   } as CSSProperties
+
+  useEffect(() => {
+    if (tab !== 'lyrics') return
+    if (activeLyricIndex < 0) return
+    activeLyricRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activeLyricIndex, tab])
 
   const onTouchStart = (e: ReactTouchEvent) => {
     touchStartY.current = e.touches[0].clientY
@@ -246,8 +228,22 @@ export function NowPlaying({
           {!loadingLyrics && lyricsNotFound && (
             <p className="now-playing-empty">No lyrics found for this track.</p>
           )}
-          {!loadingLyrics && lyrics && (
-            <pre className="now-playing-lyrics-text">{lyrics}</pre>
+          {!loadingLyrics && displayLines && displayLines.length > 0 && (
+            <div className="now-playing-lyrics-sync">
+              {displayLines.map((line, i) => {
+                const state =
+                  i < activeLyricIndex ? 'past' : i === activeLyricIndex ? 'active' : 'future'
+                return (
+                  <p
+                    key={`${line.time}-${i}`}
+                    ref={i === activeLyricIndex ? activeLyricRef : undefined}
+                    className={`np-lyric-line np-lyric-${state}`}
+                  >
+                    {line.text}
+                  </p>
+                )
+              })}
+            </div>
           )}
         </div>
       )}

@@ -12,7 +12,9 @@ import { AlbumPage } from './components/AlbumPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ThemeSettings } from './components/ThemeSettings'
 import { AmbientParticles } from './components/AmbientParticles'
+import { HomeLyrics } from './components/HomeLyrics'
 import { useTheme } from './theme/ThemeContext'
+import { extractAlbumColors } from './utils/albumColors'
 import { AuthScreen } from './components/AuthScreen'
 import { SpotifyImportModal } from './components/SpotifyImportModal'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer'
@@ -138,7 +140,7 @@ function looksJapaneseTaste(artists: string[], tracks: Track[]): boolean {
 
 function App() {
   const { user, loading: authLoading } = useAuth()
-  const { ambient } = useTheme()
+  const { ambient, theme, subtitle } = useTheme()
   const [view, setView] = useState<View>('home')
   const [sidebarRailCollapsed, setSidebarRailCollapsed] = useState(() => {
     try {
@@ -237,6 +239,41 @@ function App() {
   }
 
   const player = useYouTubePlayer(ytContainerRef, { onQueueEnded: handleQueueEnded })
+
+  // Accent / home-lyrics follow current cover when mode is "album"
+  useEffect(() => {
+    const thumb = player.current?.thumbnail
+    if (!thumb) return
+    let cancelled = false
+    extractAlbumColors(thumb).then((colors) => {
+      if (cancelled) return
+      const root = document.documentElement
+      const [a0, b0, c0, d0] = colors
+      root.style.setProperty('--album-a', a0)
+      root.style.setProperty('--album-b', b0)
+      root.style.setProperty('--album-c', c0)
+      root.style.setProperty('--album-d', d0)
+      if (theme.mode === 'album') {
+        root.style.setProperty('--accent-solid', a0)
+        root.style.setProperty('--accent-a', a0)
+        root.style.setProperty('--accent-b', b0)
+        root.style.setProperty('--accent-c', c0)
+        root.style.setProperty('--accent-d', d0)
+        root.classList.add('theme-cycle')
+      }
+      if (subtitle.mode === 'album') {
+        root.style.setProperty('--sub-solid', a0)
+        root.style.setProperty('--sub-a', a0)
+        root.style.setProperty('--sub-b', b0)
+        root.style.setProperty('--sub-c', c0)
+        root.style.setProperty('--sub-d', d0)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [player.current?.videoId, player.current?.thumbnail, theme.mode, subtitle.mode])
+
   useEffect(() => {
     playTrackRef.current = player.playTrack
   }, [player.playTrack])
@@ -886,6 +923,12 @@ function App() {
                 )}
                 <div className="home-theme-shade" />
               </div>
+              <HomeLyrics
+                track={player.current}
+                currentTime={player.currentTime}
+                duration={player.duration}
+                isPlaying={player.isPlaying}
+              />
               <header className="home-header">
                 <div className="home-header-text">
                   <p className="home-greeting">
@@ -1581,9 +1624,9 @@ function App() {
           position: 'fixed',
           bottom: 0,
           right: 0,
-          width: 1,
-          height: 1,
-          opacity: 0,
+          width: 48,
+          height: 48,
+          opacity: 0.001,
           overflow: 'hidden',
           pointerEvents: 'none',
           zIndex: -1,

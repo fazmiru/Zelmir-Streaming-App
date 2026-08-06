@@ -3142,7 +3142,7 @@ button.now-playing-artist-link:hover {
   50%      { opacity: 0.65; transform: scale(1.12); }
 }
 
-.home-view > *:not(.home-theme-backdrop) {
+.home-view > *:not(.home-theme-backdrop):not(.home-lyrics) {
   position: relative;
   z-index: 1;
 }
@@ -7702,10 +7702,20 @@ main.content.content-artist {
     text-shadow: 0 0 10px color-mix(in srgb, var(--accent-solid, #c4b5fd) 40%, transparent);
   }
 
-  /* ---- Collapsed icon rail ---- */
+  /* ---- Collapsed icon rail — transparent over background ---- */
   .sidebar.sidebar-rail {
     padding: 12px 8px !important;
     align-items: center;
+    background: transparent !important;
+    background-image: none !important;
+    border-right: none !important;
+    box-shadow: none !important;
+  }
+
+  .app-shell.sidebar-rail-collapsed .sidebar {
+    background: transparent !important;
+    background-image: none !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
   }
 
   .sidebar.sidebar-rail .sidebar-brand {
@@ -7719,6 +7729,17 @@ main.content.content-artist {
     width: 48px;
     height: 48px;
     margin: 0 auto;
+    background: rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .sidebar.sidebar-rail .nav-item:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .sidebar.sidebar-rail .nav-item.nav-item-active {
+    background: rgba(255, 255, 255, 0.12) !important;
   }
 
   .sidebar.sidebar-rail .nav-item-label {
@@ -7735,6 +7756,22 @@ main.content.content-artist {
 
   .sidebar.sidebar-rail .sidebar-user-meta {
     display: none !important;
+  }
+
+  .sidebar.sidebar-rail .sidebar-rail-toggle {
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .sidebar.sidebar-rail .sidebar-rail-icon-btn {
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .sidebar.sidebar-rail .sidebar-user-avatar {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   }
 
   .sidebar-rail-actions {
@@ -7777,4 +7814,745 @@ main.content.content-artist {
   .sidebar-brand {
     display: none !important;
   }
+}
+
+
+/* ============================================================
+   LYRICS — rounded font, karaoke highlight
+   ============================================================ */
+.now-playing-lyrics,
+.now-playing-lyrics-sync,
+.now-playing-lyrics-text {
+  font-family: 'M PLUS Rounded 1c', 'Nunito', system-ui, sans-serif !important;
+  font-size: 17px !important;
+  line-height: 1.75 !important;
+  letter-spacing: 0.01em;
+}
+
+.now-playing-lyrics-text {
+  white-space: pre-wrap;
+  color: rgba(255, 255, 255, 0.72);
+  margin: 0;
+  font-weight: 500;
+}
+
+.now-playing-lyrics-sync {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 4px 48px;
+}
+
+.np-lyric-line {
+  margin: 0;
+  transition: color 0.2s ease, text-shadow 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+  font-weight: 500;
+}
+
+/* Already sung */
+.np-lyric-past {
+  color: rgba(255, 255, 255, 0.32) !important;
+  font-weight: 400 !important;
+  text-shadow: none !important;
+}
+
+/* Currently singing */
+.np-lyric-active {
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 19px !important;
+  text-shadow:
+    0 0 12px color-mix(in srgb, var(--accent-solid, #c4b5fd) 65%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent-solid, #c4b5fd) 40%, transparent),
+    0 0 48px color-mix(in srgb, var(--np-c1, var(--accent-solid, #c4b5fd)) 25%, transparent);
+  transform: translateX(2px);
+}
+
+/* Upcoming */
+.np-lyric-future {
+  color: rgba(255, 255, 255, 0.72) !important;
+  font-weight: 500 !important;
+}
+
+@media (max-width: 900px) {
+  .now-playing-lyrics,
+  .now-playing-lyrics-sync,
+  .now-playing-lyrics-text {
+    font-size: 16px !important;
+  }
+  .np-lyric-active {
+    font-size: 18px !important;
+  }
+}
+
+/* Playlist row: name + delete on one line */
+.sidebar .playlist-item {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+}
+.sidebar .playlist-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar .playlist-delete-button {
+  display: flex;
+  opacity: 0;
+}
+.sidebar .playlist-item:hover .playlist-delete-button {
+  opacity: 1;
+}
+
+
+/* FINAL: collapsed sidebar rail — transparent column, search stays in main */
+@media (min-width: 901px) {
+  /* Keep a real column so topbar/search never slide under the rail */
+  .app-shell.sidebar-rail-collapsed {
+    grid-template-columns: 64px 1fr !important;
+  }
+
+  .app-shell.sidebar-rail-collapsed .app-main {
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+    width: auto !important;
+  }
+
+  .app-shell.sidebar-rail-collapsed .sidebar,
+  .app-shell.sidebar-rail-collapsed aside.sidebar,
+  .sidebar.sidebar-rail {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: 100% !important;
+    z-index: 2 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    border-right: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 14px 6px 12px !important;
+    gap: 6px !important;
+  }
+
+  /* Full-bleed home glow under the transparent rail */
+  .app-shell.sidebar-rail-collapsed .home-theme-backdrop {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: min(820px, 95vh) !important;
+    z-index: 0 !important;
+  }
+
+  .app-shell.sidebar-rail-collapsed .home-view {
+    isolation: auto;
+  }
+
+  /* Smaller icons, more breathing room */
+  .sidebar.sidebar-rail .nav {
+    gap: 10px !important;
+    align-items: center;
+    padding-top: 4px;
+  }
+
+  .sidebar.sidebar-rail .nav-item {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    border-radius: 12px !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow: none !important;
+  }
+
+  .sidebar.sidebar-rail .nav-item .nav-icon {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .sidebar.sidebar-rail .nav-item.nav-item-active {
+    background: rgba(255, 255, 255, 0.12) !important;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent-solid, #c4b5fd) 45%, transparent),
+      0 0 14px color-mix(in srgb, var(--accent-solid, #c4b5fd) 25%, transparent) !important;
+  }
+
+  .sidebar.sidebar-rail .sidebar-rail-toggle {
+    width: 32px !important;
+    height: 32px !important;
+    margin: 0 auto 6px;
+    background: rgba(0, 0, 0, 0.22) !important;
+    border-radius: 10px !important;
+  }
+
+  .sidebar-rail-actions {
+    gap: 10px !important;
+    margin-top: 8px !important;
+    width: 100%;
+    align-items: center;
+  }
+
+  .sidebar.sidebar-rail .sidebar-rail-icon-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 10px !important;
+    background: rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .sidebar-rail-playlists {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 2px;
+    max-height: min(40vh, 300px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+
+  .sidebar-rail-playlists::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar-rail-pl {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .sidebar-rail-pl:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .sidebar-rail-pl-active {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--accent-solid, #c4b5fd) 70%, transparent),
+      0 0 12px color-mix(in srgb, var(--accent-solid, #c4b5fd) 30%, transparent);
+  }
+
+  .sidebar.sidebar-rail .sidebar-user-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+  }
+
+  .sidebar.sidebar-rail .sidebar-footer {
+    padding: 0 !important;
+    align-items: center;
+  }
+}
+
+
+/* NOW PLAYING — album-cover gradient on controls + lyrics (overlay only) */
+.now-playing-overlay {
+  --np-grad: linear-gradient(
+    115deg,
+    var(--np-c0, #c45c26) 0%,
+    var(--np-c1, #e8a04a) 40%,
+    var(--np-c2, #8b3a1a) 70%,
+    var(--np-c3, #f0c070) 100%
+  );
+  --np-grad-soft: linear-gradient(
+    90deg,
+    var(--np-c0, #c45c26),
+    var(--np-c1, #e8a04a),
+    var(--np-c3, #f0c070)
+  );
+}
+
+/* Play button — album gradient fill (desktop + mobile) */
+.now-playing-overlay .now-playing-play.accent-fill,
+.now-playing-overlay .np-mob-play.accent-fill,
+.now-playing-overlay .np-glass-mini-play.accent-fill {
+  background: var(--np-grad) !important;
+  background-size: 200% 200% !important;
+  animation: np-grad-shift 6s ease-in-out infinite !important;
+  color: #0b0b0d !important;
+  border: none !important;
+  box-shadow:
+    0 8px 28px color-mix(in srgb, var(--np-c0, #c45c26) 45%, transparent),
+    0 0 24px color-mix(in srgb, var(--np-c1, #e8a04a) 30%, transparent) !important;
+}
+
+.now-playing-overlay .repeat-one-dot.accent-fill,
+.now-playing-overlay .now-playing-dot.accent-fill {
+  background: var(--np-c1, var(--np-c0, #e8a04a)) !important;
+}
+
+/* Seek bar track fill — album gradient */
+.now-playing-overlay .now-playing-seek-bar.accent-range,
+.now-playing-overlay .np-mobile-seek-bar.accent-range {
+  background: linear-gradient(
+    to right,
+    var(--np-c0, #c45c26) 0%,
+    var(--np-c1, #e8a04a) var(--progress, 0%),
+    rgba(255, 255, 255, 0.18) var(--progress, 0%),
+    rgba(255, 255, 255, 0.18) 100%
+  ) !important;
+}
+
+.now-playing-overlay .now-playing-seek-bar::-webkit-slider-thumb,
+.now-playing-overlay .np-mobile-seek-bar::-webkit-slider-thumb {
+  background: var(--np-c1, var(--np-c0, #e8a04a)) !important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--np-c0, #c45c26) 35%, transparent),
+    0 0 12px color-mix(in srgb, var(--np-c1, #e8a04a) 50%, transparent) !important;
+  border: none !important;
+}
+
+.now-playing-overlay .now-playing-seek-bar::-moz-range-thumb,
+.now-playing-overlay .np-mobile-seek-bar::-moz-range-thumb {
+  background: var(--np-c1, var(--np-c0, #e8a04a)) !important;
+  border: none !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--np-c1, #e8a04a) 50%, transparent) !important;
+}
+
+/* Active lyric — glow in album colors */
+.now-playing-overlay .np-lyric-active {
+  color: #fff !important;
+  font-weight: 700 !important;
+  background: var(--np-grad-soft);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* fallback glow behind clipped text */
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--np-c0, #c45c26) 55%, transparent))
+    drop-shadow(0 0 22px color-mix(in srgb, var(--np-c1, #e8a04a) 40%, transparent));
+  text-shadow: none !important;
+}
+
+/* When background-clip isn't ideal on some browsers, reinforce with outline glow via pseudo isn't needed */
+
+@keyframes np-grad-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Transport toggles that are "on" pick up album tint lightly */
+.now-playing-overlay .transport-button-on,
+.now-playing-overlay .np-mob-btn-on {
+  color: var(--np-c1, var(--np-c0, #e8a04a)) !important;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--np-c0, #c45c26) 45%, transparent));
+}
+
+
+/* HOME LYRICS — desktop/iPad glitch subtitle (right free space) */
+.home-lyrics {
+  display: none !important;
+}
+
+@media (min-width: 901px) {
+  .home-view {
+    position: relative !important;
+  }
+
+  .home-view > .home-lyrics {
+    display: block !important;
+    position: absolute !important;
+    /* Center of the open right area (past Jump back in cards) */
+    top: 260px !important;
+    left: 58% !important;
+    right: 5% !important;
+    bottom: auto !important;
+    width: auto !important;
+    max-width: min(420px, 36vw) !important;
+    margin: 0 !important;
+    margin-left: auto !important;
+    z-index: 5 !important;
+    pointer-events: none !important;
+    text-align: center !important;
+  }
+
+  .home-lyrics-line {
+    margin: 0 !important;
+    font-family: 'M PLUS Rounded 1c', system-ui, sans-serif !important;
+    font-size: clamp(22px, 2.2vw, 34px) !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    letter-spacing: 0.01em !important;
+    opacity: 0.92 !important;
+    color: var(--sub-solid, rgba(255, 255, 255, 0.9));
+    text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+    position: relative;
+  }
+
+  .subtitle-gradient .home-lyrics-line {
+    background: linear-gradient(
+      115deg,
+      var(--sub-a),
+      var(--sub-b),
+      var(--sub-c, var(--sub-a))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.35));
+    text-shadow: none;
+  }
+
+  .subtitle-cycle .home-lyrics-line {
+    background: linear-gradient(
+      90deg,
+      var(--sub-a),
+      var(--sub-b),
+      var(--sub-c, var(--sub-a)),
+      var(--sub-d, var(--sub-b)),
+      var(--sub-a)
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: sub-cycle var(--sub-speed, 8s) linear infinite;
+    filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.35));
+    text-shadow: none;
+  }
+
+  .subtitle-solid .home-lyrics-line {
+    color: var(--sub-solid, #e8e0ff) !important;
+    -webkit-text-fill-color: var(--sub-solid, #e8e0ff);
+    background: none;
+  }
+
+  .home-lyrics-glitching .home-lyrics-line {
+    animation: home-lyric-glitch 0.4s steps(2, end);
+  }
+
+  .home-lyrics-glitching .home-lyrics-line::before,
+  .home-lyrics-glitching .home-lyrics-line::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    overflow: hidden;
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  .home-lyrics-glitching .home-lyrics-line::before {
+    color: var(--sub-a, #67e8f9);
+    -webkit-text-fill-color: var(--sub-a, #67e8f9);
+    background: none;
+    clip-path: inset(0 0 55% 0);
+    transform: translate(-2px, -1px);
+    animation: home-lyric-glitch-a 0.4s steps(2, end);
+  }
+
+  .home-lyrics-glitching .home-lyrics-line::after {
+    color: var(--sub-b, var(--sub-c, #f0abfc));
+    -webkit-text-fill-color: var(--sub-b, var(--sub-c, #f0abfc));
+    background: none;
+    clip-path: inset(45% 0 0 0);
+    transform: translate(2px, 1px);
+    animation: home-lyric-glitch-b 0.4s steps(2, end);
+  }
+
+  @keyframes sub-cycle {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
+
+  @keyframes home-lyric-glitch {
+    0% { transform: translate(0); }
+    20% { transform: translate(-1px, 0.5px); }
+    40% { transform: translate(1.5px, -0.5px); }
+    60% { transform: translate(-0.5px, 0); }
+    100% { transform: translate(0); }
+  }
+
+  @keyframes home-lyric-glitch-a {
+    0%, 100% { transform: translate(-2px, -1px); }
+    50% { transform: translate(2px, 1px); }
+  }
+
+  @keyframes home-lyric-glitch-b {
+    0%, 100% { transform: translate(2px, 1px); }
+    50% { transform: translate(-2px, -1px); }
+  }
+}
+
+@media (max-width: 900px) {
+  .home-lyrics {
+    display: none !important;
+  }
+}
+
+
+/* ALBUM MODE — accent + home lyrics from cover */
+.theme-album .accent-fill,
+.theme-album .accent-text {
+  /* cycling-style multi-stop using album vars mapped to accent-* */
+}
+
+.theme-album .accent-fill {
+  background: linear-gradient(
+    115deg,
+    var(--accent-a, var(--album-a, #c45c26)),
+    var(--accent-b, var(--album-b, #e8a04a)),
+    var(--accent-c, var(--album-c, #8b3a1a)),
+    var(--accent-d, var(--album-d, #f0c070))
+  ) !important;
+  background-size: 200% 200% !important;
+  animation: np-grad-shift 7s ease-in-out infinite;
+}
+
+.theme-album .accent-range {
+  /* seek / volume use solid A for thumb */
+  accent-color: var(--accent-a, var(--album-a));
+}
+
+.subtitle-album .home-lyrics-line {
+  background: linear-gradient(
+    115deg,
+    var(--sub-a, var(--album-a)),
+    var(--sub-b, var(--album-b)),
+    var(--sub-c, var(--album-c)),
+    var(--sub-d, var(--album-d))
+  ) !important;
+  background-size: 220% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  animation: sub-cycle 9s linear infinite;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.35));
+  text-shadow: none !important;
+}
+
+.subtitle-album.home-lyrics-glitching .home-lyrics-line::before,
+.home-lyrics-glitching .home-lyrics-line::before {
+  color: var(--sub-a, var(--album-a, #67e8f9)) !important;
+  -webkit-text-fill-color: var(--sub-a, var(--album-a, #67e8f9)) !important;
+}
+
+.home-lyrics-glitching .home-lyrics-line::after {
+  color: var(--sub-b, var(--album-b, #f0abfc)) !important;
+  -webkit-text-fill-color: var(--sub-b, var(--album-b, #f0abfc)) !important;
+}
+
+
+@keyframes accent-slide {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+
+/* ============================================================
+   RESTORED — full cycling + strong halftone
+   ============================================================ */
+
+/* Accent cycle on all accent-fill surfaces */
+html.theme-cycle .accent-fill {
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a) 0%,
+    var(--accent-b) 25%,
+    var(--accent-c) 50%,
+    var(--accent-d) 75%,
+    var(--accent-a) 100%
+  ) !important;
+  background-size: 300% 100% !important;
+  background-position: 0% 50% !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+}
+
+html.theme-cycle .accent-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d),
+    var(--accent-a)
+  ) !important;
+  background-size: 300% 100% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+}
+
+html.theme-pulse .accent-fill {
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d)
+  ) !important;
+  animation: accent-pulse var(--accent-speed, 4s) ease-in-out infinite !important;
+}
+
+/* Background orbs — full cycle animation restored */
+.bg-theme-cycle .home-theme-orb-a {
+  animation: home-cycle-a var(--bg-speed, 8s) ease-in-out infinite !important;
+}
+.bg-theme-cycle .home-theme-orb-b {
+  animation: home-cycle-b var(--bg-speed, 8s) ease-in-out infinite !important;
+}
+.bg-theme-cycle .home-theme-orb-c {
+  animation: home-cycle-c var(--bg-speed, 8s) ease-in-out infinite !important;
+}
+.bg-theme-cycle .home-theme-orb-d {
+  animation: home-cycle-d var(--bg-speed, 8s) ease-in-out infinite !important;
+}
+
+.bg-theme-pulse .home-theme-orb-a {
+  animation: home-pulse-a var(--bg-speed, 4s) ease-in-out infinite !important;
+}
+.bg-theme-pulse .home-theme-orb-b {
+  animation: home-pulse-b var(--bg-speed, 4s) ease-in-out infinite !important;
+}
+.bg-theme-pulse .home-theme-orb-c {
+  animation: home-pulse-c var(--bg-speed, 4s) ease-in-out infinite !important;
+}
+.bg-theme-pulse .home-theme-orb-d {
+  animation: home-pulse-d var(--bg-speed, 4s) ease-in-out infinite !important;
+}
+
+.home-theme-orb {
+  filter: blur(80px) saturate(1.5) !important;
+  will-change: opacity, transform;
+}
+
+/* Full-strength halftone mesh */
+.bg-style-halftone .home-theme-backdrop {
+  background: radial-gradient(
+      ellipse 90% 70% at 50% -10%,
+      color-mix(in srgb, var(--bg-a) 60%, transparent) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 70% 55% at 15% 25%,
+      color-mix(in srgb, var(--bg-b) 45%, transparent) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 65% 50% at 85% 20%,
+      color-mix(in srgb, var(--bg-c, var(--bg-a)) 40%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 50% 40%,
+      color-mix(in srgb, var(--bg-d, var(--bg-b)) 28%, transparent) 0%,
+      transparent 70%
+    ) !important;
+}
+
+.bg-style-halftone .home-theme-orb {
+  filter: blur(90px) saturate(1.45) !important;
+  opacity: 0.4 !important;
+}
+
+.bg-style-halftone .home-theme-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.6) 0.9px,
+    transparent 1.15px
+  );
+  background-size: 5px 5px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 95% 75% at 50% 5%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.55) 45%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    ellipse 95% 75% at 50% 5%,
+    rgba(0, 0, 0, 0.95) 0%,
+    rgba(0, 0, 0, 0.55) 45%,
+    transparent 75%
+  );
+  opacity: 0.55 !important;
+  mix-blend-mode: soft-light !important;
+}
+
+.bg-style-halftone .home-theme-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+      circle at 30% 20%,
+      color-mix(in srgb, var(--bg-a) 75%, white) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 70% 25%,
+      color-mix(in srgb, var(--bg-b) 70%, white) 0%,
+      transparent 50%
+    );
+  -webkit-mask-image: radial-gradient(circle, #000 0.85px, transparent 1.1px);
+  mask-image: radial-gradient(circle, #000 0.85px, transparent 1.1px);
+  -webkit-mask-size: 5px 5px;
+  mask-size: 5px 5px;
+  opacity: 0.7 !important;
+  mix-blend-mode: screen !important;
+}
+
+/* Cycle seek / volume thumbs with accent */
+html.theme-cycle .accent-range {
+  background: linear-gradient(
+    to right,
+    var(--accent-a) 0%,
+    var(--accent-b) var(--progress, 0%),
+    var(--surface-3) var(--progress, 0%),
+    var(--surface-3) 100%
+  ) !important;
+}
+
+html.theme-cycle .accent-range::-webkit-slider-thumb {
+  background: var(--accent-b) !important;
+}
+
+html.theme-cycle .search-button.accent-fill,
+html.theme-cycle .mode-button-active.accent-fill {
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a),
+    var(--accent-b),
+    var(--accent-c),
+    var(--accent-d),
+    var(--accent-a)
+  ) !important;
+  background-size: 300% 100% !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+  color: #0b0b0d !important;
 }

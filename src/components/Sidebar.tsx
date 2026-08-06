@@ -223,30 +223,37 @@ export function Sidebar({
                   {playlists.map((pl) => {
                     const active = activePlaylistId === pl.id && view === 'playlist'
                     return (
-                      <div
+                      <button
                         key={pl.id}
-                        className={`playlist-row ${active ? 'playlist-row-active' : ''}`}
+                        type="button"
+                        className={`playlist-item ${active ? 'playlist-item-active' : ''}`}
+                        onClick={() => onOpenPlaylist(pl.id)}
                       >
-                        <button
-                          type="button"
-                          className="playlist-item"
-                          onClick={() => onOpenPlaylist(pl.id)}
-                        >
-                          <span className={active ? 'accent-text' : ''}>{pl.name}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="playlist-delete"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deletePlaylist(pl.id)
-                          }}
+                        <span className={`playlist-item-name ${active ? 'accent-text' : ''}`}>
+                          {pl.name}
+                        </span>
+                        <span
+                          className="playlist-delete-button"
+                          role="button"
+                          tabIndex={0}
                           aria-label={`Delete ${pl.name}`}
                           title="Delete playlist"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            deletePlaylist(pl.id)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              deletePlaylist(pl.id)
+                            }
+                          }}
                         >
                           <TrashIcon />
-                        </button>
-                      </div>
+                        </span>
+                      </button>
                     )
                   })}
                 </div>
@@ -256,7 +263,7 @@ export function Sidebar({
         </>
       )}
 
-      {/* Collapsed rail: quick + only */}
+      {/* Collapsed rail: + and playlist initials */}
       {railCollapsed && (
         <div className="sidebar-rail-actions">
           <button
@@ -264,13 +271,34 @@ export function Sidebar({
             className="sidebar-rail-icon-btn"
             onClick={() => {
               onToggleRail?.()
-              setCreating(true)
+              window.setTimeout(() => {
+                setPlaylistsCollapsed(false)
+                setCreating(true)
+              }, 0)
             }}
             title="New playlist"
             aria-label="New playlist"
           >
             <PlusIcon size={18} />
           </button>
+          <div className="sidebar-rail-playlists">
+            {playlists.map((pl) => {
+              const active = activePlaylistId === pl.id && view === 'playlist'
+              const initial = (pl.name.trim().charAt(0) || '?').toUpperCase()
+              return (
+                <button
+                  key={pl.id}
+                  type="button"
+                  className={`sidebar-rail-pl ${active ? 'sidebar-rail-pl-active' : ''}`}
+                  title={pl.name}
+                  aria-label={pl.name}
+                  onClick={() => onOpenPlaylist(pl.id)}
+                >
+                  {initial}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 

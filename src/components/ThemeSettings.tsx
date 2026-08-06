@@ -5,10 +5,14 @@ import {
   DEFAULT_OUTLINE,
   DEFAULT_AMBIENT,
   DEFAULT_BACKGROUND_STYLE,
+  DEFAULT_SUBTITLE,
   type ThemeState,
   type OutlineTheme,
   type AmbientStyle,
   type BackgroundStyle,
+  type SubtitleTheme,
+  type SubtitleMode,
+  type SubtitleGlitch,
 } from '../types'
 
 const PRESETS = [
@@ -101,7 +105,19 @@ function ColorSection({
         >
           Pulse
         </button>
+        <button
+          className={`mode-button ${theme.mode === 'album' ? 'mode-button-active accent-fill' : ''}`}
+          onClick={() => onChange({ ...theme, mode: 'album' })}
+        >
+          Song album
+        </button>
       </div>
+
+      {theme.mode === 'album' && (
+        <p className="settings-subtitle" style={{ marginTop: 4, marginBottom: 8 }}>
+          Follows the currently playing track&apos;s cover colors (play button, seek bar, active tabs).
+        </p>
+      )}
 
       {theme.mode === 'solid' && (
         <div className="settings-section">
@@ -287,6 +303,8 @@ export function ThemeSettings() {
     setAmbient,
     backgroundStyle,
     setBackgroundStyle,
+    subtitle,
+    setSubtitle,
   } = useTheme()
 
   return (
@@ -353,6 +371,136 @@ export function ThemeSettings() {
         onChange={setOutline}
         onReset={() => setOutline(DEFAULT_OUTLINE)}
       />
+
+      <div className="settings-panel">
+        <h2>Home lyrics</h2>
+        <p className="settings-subtitle">
+          Active lyric on the home screen (desktop &amp; iPad only) — optional cyber glitch accent.
+        </p>
+
+        <div className="settings-mode-toggle">
+          <button
+            type="button"
+            className={`mode-button ${subtitle.enabled ? 'mode-button-active accent-fill' : ''}`}
+            onClick={() => setSubtitle({ ...subtitle, enabled: true })}
+          >
+            On
+          </button>
+          <button
+            type="button"
+            className={`mode-button ${!subtitle.enabled ? 'mode-button-active accent-fill' : ''}`}
+            onClick={() => setSubtitle({ ...subtitle, enabled: false })}
+          >
+            Off
+          </button>
+        </div>
+
+        <p className="settings-label">Color style</p>
+        <div className="settings-mode-toggle">
+          {(
+            [
+              { id: 'solid', label: 'Solid' },
+              { id: 'gradient', label: 'Gradient' },
+              { id: 'cycle', label: 'Cycling' },
+              { id: 'album', label: 'Song album' },
+            ] as { id: SubtitleMode; label: string }[]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`mode-button ${subtitle.mode === opt.id ? 'mode-button-active accent-fill' : ''}`}
+              onClick={() => setSubtitle({ ...subtitle, mode: opt.id, enabled: true })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {subtitle.mode === 'album' && (
+          <p className="settings-subtitle">Uses the currently playing track&apos;s cover colors.</p>
+        )}
+
+        {subtitle.mode === 'solid' && (
+          <div className="settings-section">
+            <label className="settings-label">Custom color</label>
+            <div className="color-row">
+              <input
+                type="color"
+                value={subtitle.solid}
+                onChange={(e) => setSubtitle({ ...subtitle, solid: e.target.value })}
+              />
+              <span>{subtitle.solid}</span>
+            </div>
+          </div>
+        )}
+
+        {(subtitle.mode === 'gradient' || subtitle.mode === 'cycle') && (
+          <div className="settings-section">
+            {subtitle.colors.slice(0, 4).map((c, i) => (
+              <div key={i} className="color-row-with-action">
+                <label className="settings-label">Color {String.fromCharCode(65 + i)}</label>
+                <div className="color-row">
+                  <input
+                    type="color"
+                    value={c}
+                    onChange={(e) => {
+                      const colors = [...subtitle.colors]
+                      while (colors.length < 4) colors.push(colors[colors.length - 1] || c)
+                      colors[i] = e.target.value
+                      setSubtitle({ ...subtitle, colors: colors.slice(0, 4) })
+                    }}
+                  />
+                  <span>{c}</span>
+                </div>
+              </div>
+            ))}
+            {subtitle.mode === 'cycle' && (
+              <>
+                <label className="settings-label" htmlFor="sub-speed">
+                  Cycle speed — {subtitle.speed}s per loop
+                </label>
+                <input
+                  id="sub-speed"
+                  type="range"
+                  min={3}
+                  max={20}
+                  step={1}
+                  value={subtitle.speed}
+                  onChange={(e) => setSubtitle({ ...subtitle, speed: Number(e.target.value) })}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        <p className="settings-label">Glitch</p>
+        <div className="settings-mode-toggle">
+          {(
+            [
+              { id: 'off', label: 'Off' },
+              { id: 'on_change', label: 'On line change' },
+              { id: 'subtle', label: 'Occasional' },
+            ] as { id: SubtitleGlitch; label: string }[]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`mode-button ${subtitle.glitch === opt.id ? 'mode-button-active accent-fill' : ''}`}
+              onClick={() => setSubtitle({ ...subtitle, glitch: opt.id })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="settings-reset"
+          onClick={() => setSubtitle(DEFAULT_SUBTITLE)}
+        >
+          Reset home lyrics
+        </button>
+      </div>
 
       <div className="settings-panel">
         <h2>Ambient effects</h2>
