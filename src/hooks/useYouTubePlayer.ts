@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState, useCallback, type RefObject } from 'react'
 import type { RepeatMode, Track } from '../types'
 import { getOfflineAudioBlob } from '../utils/offline'
+import {
+  getBackgroundAudio,
+  unlockFromGesture,
+  setMediaSessionMetadata,
+  setMediaSessionPlaybackState,
+  bindMediaSessionHandlers,
+  setMediaSessionPosition,
+  attachBackgroundResume,
+} from '../utils/iosBackgroundAudio'
 
 declare global {
   interface Window {
@@ -226,31 +235,15 @@ export function useYouTubePlayer(
     requestedVideoIdRef.current = null
   }, [])
 
-  // Hidden <audio> — offline blobs + streamed audio (background-capable on iOS)
+  // Shared HTML5 <audio> via iosBackgroundAudio (iPhone PWA lock-screen capable)
   useEffect(() => {
-    const audio = new Audio()
-    audio.preload = 'auto'
-    audio.crossOrigin = 'anonymous'
-    audio.setAttribute('playsinline', 'true')
-    audio.setAttribute('webkit-playsinline', 'true')
-    // Keep element eligible for lock-screen / Control Center
-    ;(audio as any).disableRemotePlayback = false
-    try {
-      // iOS: mark as media session candidate
-      audio.setAttribute('x-webkit-airplay', 'allow')
-    } catch {
-      /* ignore */
-    }
+    const audio = getBackgroundAudio()
     audioRef.current = audio
 
     const onPlay = () => {
       setIsPlaying(true)
       intendedPlayingRef.current = true
-      try {
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
-      } catch {
-        /* ignore */
-      }
+      setMediaSessionPlaybackState('playing')
     }
     const onPause = () => {
       // Ignore transient pauses during src changes. Only resume if we still own stream/offline.
@@ -271,11 +264,7 @@ export function useYouTubePlayer(
       }
       if (!intendedPlayingRef.current) {
         setIsPlaying(false)
-        try {
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
-        } catch {
-          /* ignore */
-        }
+        setMediaSessionPlaybackState('paused')
       }
     }
     const onEnded = () => {
@@ -511,7 +500,7 @@ export function useYouTubePlayer(
         requestedVideoIdRef.current = videoId
         setIsPlaying(true)
         try {
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
+          setMediaSessionPlaybackState('playing')
         } catch {
           /* ignore */
         }
@@ -628,15 +617,14 @@ export function useYouTubePlayer(
     async (videoId: string) => {
       intendedPlayingRef.current = true
 
-      // Unlock HTML5 audio inside the user-gesture stack (required on iOS/PWA).
-      // Do NOT pause after unlock — pausing here is what left mobile at 0:00 silent.
+      // Real unlock should already have run in playTrack; keep the session warm.
+      unlockFromGesture(audioRef.current || undefined)
       try {
-        const a = audioRef.current
-        if (a) {
-          a.muted = false
-          a.volume = Math.max(0.01, volumeRef.current / 100)
-          void a.play().catch(() => {})
-        }
+        const a = audioRef.current || getBackgroundAudio()
+        audioRef.current = a
+        a.muted = false
+        a.volume = Math.max(0.01, volumeRef.current / 100)
+        void a.play().catch(() => {})
       } catch {
         /* ignore */
       }
@@ -753,124 +741,103 @@ export function useYouTubePlayer(
     return () => clearInterval(id)
   }, [isPlaying])
 
-  // ---- Media Session (lock screen / Control Center / notification) ----
+  // ---- Media Session (lock screen / Control Center) via iosBackgroundAudio ----
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return
     const track = queue[queueIndex]
     if (!track) {
-      try {
-        navigator.mediaSession.metadata = null
-      } catch {
-        /* ignore */
-      }
+      setMediaSessionMetadata(null)
       return
     }
-
-    try {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.title,
-        artist: track.artist,
-        album: 'Zelmir',
-        artwork: track.thumbnail
-          ? [
-              { src: track.thumbnail, sizes: '96x96', type: 'image/jpeg' },
-              { src: track.thumbnail, sizes: '256x256', type: 'image/jpeg' },
-              { src: track.thumbnail, sizes: '512x512', type: 'image/jpeg' },
-            ]
-          : [],
-      })
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
-    } catch {
-      /* ignore */
-    }
+    setMediaSessionMetadata({
+      title: track.title,
+      artist: track.artist,
+      album: 'Zelmir',
+      artworkUrl: track.thumbnail,
+    })
+    setMediaSessionPlaybackState(isPlaying ? 'playing' : 'paused')
   }, [queue, queueIndex, isPlaying])
 
-  // Media Session action handlers (stable refs via loadAndPlay / next wiring below)
+  // Media Session action handlers (stable refs)
   const nextRef = useRef<() => void>(() => {})
   const prevRef = useRef<() => void>(() => {})
   const toggleRef = useRef<() => void>(() => {})
   const seekRef = useRef<(s: number) => void>(() => {})
 
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return
-
-    const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
-      try {
-        navigator.mediaSession.setActionHandler(action, handler)
-      } catch {
-        /* unsupported action */
-      }
-    }
-
-    setHandler('play', () => toggleRef.current())
-    setHandler('pause', () => toggleRef.current())
-    setHandler('previoustrack', () => prevRef.current())
-    setHandler('nexttrack', () => nextRef.current())
-    setHandler('seekto', (details) => {
-      if (typeof details.seekTime === 'number') seekRef.current(details.seekTime)
+    bindMediaSessionHandlers({
+      play: () => {
+        intendedPlayingRef.current = true
+        if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
+          const a = audioRef.current
+          if (a) {
+            a.muted = false
+            void a.play().catch(() => {})
+          }
+        } else {
+          try {
+            playerRef.current?.unMute?.()
+            playerRef.current?.playVideo?.()
+          } catch {
+            /* ignore */
+          }
+        }
+        setIsPlaying(true)
+        setMediaSessionPlaybackState('playing')
+      },
+      pause: () => {
+        intendedPlayingRef.current = false
+        if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
+          audioRef.current?.pause()
+        } else {
+          try {
+            playerRef.current?.pauseVideo?.()
+          } catch {
+            /* ignore */
+          }
+        }
+        setIsPlaying(false)
+        setMediaSessionPlaybackState('paused')
+      },
+      next: () => nextRef.current(),
+      prev: () => prevRef.current(),
+      seek: (seconds) => seekRef.current(seconds),
+      seekForward: (off) => {
+        if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
+          const a = audioRef.current
+          if (a) a.currentTime = Math.min(a.duration || 1e9, (a.currentTime || 0) + off)
+        } else {
+          seekRef.current((audioRef.current?.currentTime ?? 0) + off)
+        }
+      },
+      seekBackward: (off) => {
+        if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
+          const a = audioRef.current
+          if (a) a.currentTime = Math.max(0, (a.currentTime || 0) - off)
+        } else {
+          seekRef.current(Math.max(0, (audioRef.current?.currentTime ?? 0) - off))
+        }
+      },
     })
-    setHandler('seekbackward', (details) => {
-      const off = details.seekOffset ?? 10
-      const t = Math.max(0, (audioRef.current?.currentTime ?? 0) - off)
-      seekRef.current(t)
-    })
-    setHandler('seekforward', (details) => {
-      const off = details.seekOffset ?? 10
-      const t = (audioRef.current?.currentTime ?? 0) + off
-      seekRef.current(t)
-    })
-
-    return () => {
-      setHandler('play', null)
-      setHandler('pause', null)
-      setHandler('previoustrack', null)
-      setHandler('nexttrack', null)
-      setHandler('seekto', null)
-      setHandler('seekbackward', null)
-      setHandler('seekforward', null)
-    }
   }, [])
 
   // Keep position updated for lock screen scrubber
   useEffect(() => {
-    if (!('mediaSession' in navigator)) return
     if (!isPlaying) return
-    try {
-      navigator.mediaSession.setPositionState({
-        duration: duration || 0,
-        playbackRate: 1,
-        position: Math.min(currentTime, duration || currentTime),
-      })
-    } catch {
-      /* ignore */
-    }
+    setMediaSessionPosition({
+      duration: duration || 0,
+      position: currentTime,
+      playbackRate: 1,
+    })
   }, [currentTime, duration, isPlaying])
 
-  // Keep HTML5 audio alive across background / lock screen (iPhone PWA).
-  // Never pause on hide — only resume if iOS suspended us.
+  // Keep HTML5 audio alive across background / lock screen (iPhone PWA)
   useEffect(() => {
-    const resumeIfNeeded = () => {
-      if (!intendedPlayingRef.current) return
-      if (sourceRef.current !== 'offline' && sourceRef.current !== 'stream') return
-      const a = audioRef.current
-      if (a && a.paused) {
-        a.muted = false
-        void a.play().catch(() => {})
-      }
-    }
-    const onVis = () => {
-      if (document.visibilityState === 'visible') resumeIfNeeded()
-    }
-    const onPageShow = () => resumeIfNeeded()
-    // iOS sometimes fires these when returning from Control Center / app switcher
-    document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('pageshow', onPageShow)
-    window.addEventListener('focus', resumeIfNeeded)
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('pageshow', onPageShow)
-      window.removeEventListener('focus', resumeIfNeeded)
-    }
+    return attachBackgroundResume(
+      () =>
+        !!intendedPlayingRef.current &&
+        (sourceRef.current === 'offline' || sourceRef.current === 'stream'),
+      audioRef.current || undefined
+    )
   }, [])
 
   const playTrack = useCallback(
@@ -879,14 +846,14 @@ export function useYouTubePlayer(
       setIsPlaying(true) // optimistic UI so bar doesn't look "stuck paused"
       historyRef.current = []
 
-      // Sync unlock inside the click stack (critical for iOS / PWA)
+      // MUST run sync in the user-gesture stack (iPhone PWA background eligibility)
+      unlockFromGesture(audioRef.current || undefined)
       try {
-        const a = audioRef.current
-        if (a) {
-          a.muted = false
-          a.volume = Math.max(0.01, volumeRef.current / 100)
-          void a.play().catch(() => {})
-        }
+        const a = audioRef.current || getBackgroundAudio()
+        audioRef.current = a
+        a.muted = false
+        a.volume = Math.max(0.01, volumeRef.current / 100)
+        void a.play().catch(() => {})
       } catch {
         /* ignore */
       }
