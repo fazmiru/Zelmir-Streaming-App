@@ -232,7 +232,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(SUBTITLE_STORAGE_KEY)
       if (!raw) return DEFAULT_SUBTITLE
-      return { ...DEFAULT_SUBTITLE, ...JSON.parse(raw) }
+      const parsed = { ...DEFAULT_SUBTITLE, ...JSON.parse(raw) }
+      if (parsed.fxStyle !== 'classic' && parsed.fxStyle !== 'cinematic') parsed.fxStyle = 'classic'
+      return parsed
     } catch {
       return DEFAULT_SUBTITLE
     }
@@ -421,6 +423,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.toggle('subtitle-gradient', subtitle.mode === 'gradient')
     root.classList.toggle('subtitle-cycle', subtitle.mode === 'cycle')
     root.classList.toggle('subtitle-album', subtitle.mode === 'album')
+    root.classList.toggle('subtitle-fx-classic', subtitle.fxStyle !== 'cinematic')
+    root.classList.toggle('subtitle-fx-cinematic', subtitle.fxStyle === 'cinematic')
     root.style.setProperty('--sub-solid', subtitle.solid)
     const cols = subtitle.colors.length >= 2 ? subtitle.colors : [subtitle.solid, subtitle.solid]
     root.style.setProperty('--sub-a', cols[0] ?? subtitle.solid)

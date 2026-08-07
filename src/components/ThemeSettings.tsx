@@ -12,6 +12,7 @@ import {
   type BackgroundStyle,
   type SubtitleMode,
   type SubtitleGlitch,
+  type SubtitleFxStyle,
 } from '../types'
 
 const PRESETS = [
@@ -471,6 +472,28 @@ export function ThemeSettings() {
             )}
           </div>
         )}
+
+        <p className="settings-label">Lyric look</p>
+        <div className="settings-mode-toggle">
+          {(
+            [
+              { id: 'classic', label: 'Classic glitch' },
+              { id: 'cinematic', label: 'Cinematic MV' },
+            ] as { id: SubtitleFxStyle; label: string }[]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              className={`mode-button ${subtitle.fxStyle === opt.id ? 'mode-button-active accent-fill' : ''}`}
+              onClick={() => setSubtitle({ ...subtitle, fxStyle: opt.id, enabled: true })}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="settings-subtitle" style={{ marginTop: 0, marginBottom: 12 }}>
+          Cinematic MV — large glowing type, ghost layers &amp; particle dust (like a Japanese music video).
+        </p>
 
         <p className="settings-label">Glitch</p>
         <div className="settings-mode-toggle">

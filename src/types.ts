@@ -97,6 +97,8 @@ export const DEFAULT_BACKGROUND_STYLE: BackgroundStyle = 'glow'
 /** Home-screen active-lyric display (desktop / tablet only). */
 export type SubtitleMode = 'solid' | 'gradient' | 'cycle' | 'album'
 export type SubtitleGlitch = 'off' | 'subtle' | 'on_change'
+/** classic = current cyber glitch · cinematic = MV-style ghost type / particles */
+export type SubtitleFxStyle = 'classic' | 'cinematic'
 
 export interface SubtitleTheme {
   enabled: boolean
@@ -105,6 +107,7 @@ export interface SubtitleTheme {
   colors: string[]
   speed: number
   glitch: SubtitleGlitch
+  fxStyle: SubtitleFxStyle
 }
 
 export const DEFAULT_SUBTITLE: SubtitleTheme = {
@@ -114,6 +117,7 @@ export const DEFAULT_SUBTITLE: SubtitleTheme = {
   colors: ['#e8e0ff', '#c4b5fd', '#f0abfc', '#7dd3fc'],
   speed: 8,
   glitch: 'on_change',
+  fxStyle: 'classic',
 }
 
 
