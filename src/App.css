@@ -8556,3 +8556,79 @@ html.theme-cycle .mode-button-active.accent-fill {
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
   color: #0b0b0d !important;
 }
+
+
+/* AUDIO-REACTIVE PULSE / RIPPLE
+   --beat-scale / --beat-glow set by useAudioReactivePulse (HTML5 audio).
+   Fallback soft CSS pulse when playing without analyser data. */
+:root {
+  --beat-scale: 1;
+  --beat-glow: 0;
+}
+
+/* Album art in player bar */
+.audio-pulse-on .player-thumb {
+  transform: scale(var(--beat-scale, 1));
+  box-shadow:
+    0 0 calc(8px + var(--beat-glow, 0) * 18px)
+      color-mix(in srgb, var(--accent-solid, #a78bfa) calc(20% + var(--beat-glow, 0) * 55%), transparent),
+    0 0 calc(2px + var(--beat-glow, 0) * 6px)
+      color-mix(in srgb, var(--accent-b, #c4b5fd) calc(10% + var(--beat-glow, 0) * 40%), transparent);
+  transition: transform 0.05s linear, box-shadow 0.08s linear;
+  border-radius: 8px;
+}
+
+/* Home backdrop orbs — gentle expand with bass */
+.audio-pulse-on .home-theme-orb {
+  transform: scale(var(--beat-scale, 1));
+  opacity: calc(0.45 + var(--beat-glow, 0) * 0.35);
+  transition: transform 0.06s linear, opacity 0.08s linear;
+}
+
+/* Soft CSS-only fallback pulse when vars stay at rest (e.g. YouTube iframe) */
+@keyframes beat-fallback-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+@keyframes beat-fallback-glow {
+  0%, 100% { box-shadow: 0 0 6px transparent; }
+  50% {
+    box-shadow:
+      0 0 14px color-mix(in srgb, var(--accent-solid, #a78bfa) 45%, transparent),
+      0 0 28px color-mix(in srgb, var(--accent-b, #c4b5fd) 25%, transparent);
+  }
+}
+
+/* If analyser isn't feeding (glow stays ~0 while playing), still breathe slightly */
+.audio-pulse-on.beat-active .player-thumb {
+  /* analyser overrides transform each frame; fallback only when scale stuck at 1 is hard —
+     so layer a very subtle secondary animation on a wrapper pseudo isn't available.
+     Instead: home orbs keep analyser scale; thumb always gets analyser scale. */
+}
+
+/* Now Playing cover — subtle ring pulse */
+.audio-pulse-on .now-playing-cover,
+.audio-pulse-on .np-cover-img,
+.audio-pulse-on .cover-art {
+  transform: scale(var(--beat-scale, 1));
+  transition: transform 0.06s linear;
+}
+
+.audio-pulse-on .now-playing-cover {
+  box-shadow:
+    0 0 calc(12px + var(--beat-glow, 0) * 28px)
+      color-mix(in srgb, var(--np-c0, var(--accent-solid)) calc(25% + var(--beat-glow, 0) * 50%), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .audio-pulse-on .player-thumb,
+  .audio-pulse-on .home-theme-orb,
+  .audio-pulse-on .now-playing-cover,
+  .audio-pulse-on .np-cover-img,
+  .audio-pulse-on .cover-art {
+    transform: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+  }
+}

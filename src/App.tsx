@@ -18,6 +18,7 @@ import { extractAlbumColors } from './utils/albumColors'
 import { AuthScreen } from './components/AuthScreen'
 import { SpotifyImportModal } from './components/SpotifyImportModal'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer'
+import { useAudioReactivePulse } from './hooks/useAudioReactivePulse'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
@@ -239,6 +240,12 @@ function App() {
   }
 
   const player = useYouTubePlayer(ytContainerRef, { onQueueEnded: handleQueueEnded })
+
+  // Bass-reactive CSS vars (--beat-scale / --beat-glow) for orbs + album art
+  useAudioReactivePulse({
+    active: player.isPlaying,
+    preferAnalyser: true,
+  })
 
   // Accent / home-lyrics follow current cover when mode is "album"
   useEffect(() => {
@@ -874,7 +881,7 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${sidebarRailCollapsed ? 'sidebar-rail-collapsed' : ''}`}>
+    <div className={`app-shell ${sidebarRailCollapsed ? 'sidebar-rail-collapsed' : ''} ${player.isPlaying ? 'is-playing audio-pulse-on' : ''}`}>
       <AmbientParticles ambient={ambient} />
       <Sidebar
         view={view}
