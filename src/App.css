@@ -603,16 +603,32 @@
   left: 0;
   height: 3px;
   z-index: 2;
-  border: none !important;          /* never use button outline on this hairline */
+  border: none !important;
   border-radius: 0 !important;
   padding: 0 !important;
   box-shadow: none !important;
-  /* solid fallback — cycle/pulse override via .accent-fill */
   background: var(--accent-solid);
 }
 
-/* Keep cycle / pulse working on the top progress hairline */
-.theme-cycle .player-progress-line.accent-fill,
+/* Progress hairline cycles left→right with accent (seamless) */
+.theme-cycle .player-progress-line,
+.theme-cycle .player-progress-line.accent-fill {
+  border: none !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a) 0%,
+    var(--accent-b) 25%,
+    var(--accent-c) 50%,
+    var(--accent-d) 75%,
+    var(--accent-a) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: repeat !important;
+  background-position: 0% 50% !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+}
+
 .theme-pulse .player-progress-line.accent-fill {
   border: none !important;
 }
@@ -4260,15 +4276,12 @@ html.theme-cycle .transport-button-main.accent-fill {
   background-image: linear-gradient(
     90deg,
     var(--accent-a) 0%,
-    var(--accent-b) 14%,
-    var(--accent-c) 28%,
-    var(--accent-d) 42%,
-    var(--accent-a) 56%,
-    var(--accent-b) 70%,
-    var(--accent-c) 84%,
-    var(--accent-d) 100%
+    var(--accent-b) 25%,
+    var(--accent-c) 50%,
+    var(--accent-d) 75%,
+    var(--accent-a) 100%
   ) !important;
-  background-size: 300% 100% !important;
+  background-size: 200% 100% !important;
   background-repeat: repeat !important;
   background-position: 0% 50% !important;
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
@@ -8388,7 +8401,7 @@ html.theme-cycle .accent-fill {
     var(--accent-d) 75%,
     var(--accent-a) 100%
   ) !important;
-  background-size: 300% 100% !important;
+  background-size: 200% 100% !important;
   background-position: 0% 50% !important;
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
 }
@@ -8402,7 +8415,7 @@ html.theme-cycle .accent-text {
     var(--accent-d),
     var(--accent-a)
   ) !important;
-  background-size: 300% 100% !important;
+  background-size: 200% 100% !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   color: transparent !important;
@@ -8559,7 +8572,7 @@ html.theme-cycle .mode-button-active.accent-fill {
     var(--accent-d),
     var(--accent-a)
   ) !important;
-  background-size: 300% 100% !important;
+  background-size: 200% 100% !important;
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
   color: #0b0b0d !important;
 }

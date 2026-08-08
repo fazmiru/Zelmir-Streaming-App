@@ -134,14 +134,14 @@ input[type='text'] {
 /* Accent system: every themeable surface uses .accent-fill / .accent-text / .accent-range */
 /* ---------------------------------------------------------------- */
 
-/* Seamless loop: gradient is A→B→C→D→A duplicated, we scroll exactly one period */
+/* Seamless L→R cycle: gradient starts AND ends on A so the loop never jumps */
 @keyframes accent-slide {
-  /* 100% → 0% makes the gradient travel left → right across the button */
   from {
-    background-position: 100% 50%;
+    background-position: 0% 50%;
   }
   to {
-    background-position: 0% 50%;
+    /* With background-size 200%, 100% shifts exactly one color period */
+    background-position: 100% 50%;
   }
 }
 
@@ -153,42 +153,36 @@ input[type='text'] {
 }
 
 .theme-cycle .accent-fill {
-  /* Pattern twice so 0% and 100% background-position look identical */
   background-image: linear-gradient(
     90deg,
     var(--accent-a) 0%,
-    var(--accent-b) 12.5%,
-    var(--accent-c) 25%,
-    var(--accent-d) 37.5%,
-    var(--accent-a) 50%,
-    var(--accent-b) 62.5%,
-    var(--accent-c) 75%,
-    var(--accent-d) 87.5%,
+    var(--accent-b) 25%,
+    var(--accent-c) 50%,
+    var(--accent-d) 75%,
     var(--accent-a) 100%
   );
   background-size: 200% 100%;
   background-repeat: repeat;
-  animation: accent-slide var(--accent-speed) linear infinite;
+  background-position: 0% 50%;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite;
 }
 .theme-cycle .accent-text {
   background-image: linear-gradient(
     90deg,
     var(--accent-a) 0%,
-    var(--accent-b) 12.5%,
-    var(--accent-c) 25%,
-    var(--accent-d) 37.5%,
-    var(--accent-a) 50%,
-    var(--accent-b) 62.5%,
-    var(--accent-c) 75%,
-    var(--accent-d) 87.5%,
+    var(--accent-b) 25%,
+    var(--accent-c) 50%,
+    var(--accent-d) 75%,
     var(--accent-a) 100%
   );
   background-size: 200% 100%;
   background-repeat: repeat;
+  background-position: 0% 50%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: accent-slide var(--accent-speed) linear infinite;
+  -webkit-text-fill-color: transparent;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite;
 }
 
 .accent-fill {
