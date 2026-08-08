@@ -176,3 +176,48 @@ export const MoreIcon = ({ size = 18, className }: IconProps) => (
     <circle cx="12" cy="19" r="1.8" />
   </svg>
 )
+
+export const BackdropIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="3" y="4" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M3 14.5 8 10l3.5 3.5L16 9l5 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+export const DropletIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M12 3.2S6.5 9.2 6.5 13.5a5.5 5.5 0 0 0 11 0C17.5 9.2 12 3.2 12 3.2Z"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+export const FrameIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M8 8h8v8H8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" opacity="0.55" />
+  </svg>
+)
+
+export const CaptionsIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <rect x="2.5" y="5" width="19" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M6.5 14.5h3M11.5 14.5h6M6.5 11h5M13.5 11h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+)
+
+export const ParticlesIcon = ({ size = 18, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <circle cx="6" cy="7" r="1.4" />
+    <circle cx="12" cy="5" r="1.1" opacity="0.7" />
+    <circle cx="18" cy="8" r="1.5" />
+    <circle cx="9" cy="13" r="1.2" opacity="0.8" />
+    <circle cx="15.5" cy="14" r="1.35" />
+    <circle cx="6.5" cy="18" r="1.1" opacity="0.65" />
+    <circle cx="12.5" cy="19" r="1.3" />
+    <circle cx="18.5" cy="17.5" r="1.05" opacity="0.75" />
+  </svg>
+)

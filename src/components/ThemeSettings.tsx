@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from 'react'
 import { useTheme } from '../theme/ThemeContext'
 import {
   DEFAULT_THEME,
@@ -7,13 +8,20 @@ import {
   DEFAULT_BACKGROUND_STYLE,
   DEFAULT_SUBTITLE,
   type ThemeState,
-  type OutlineTheme,
   type AmbientStyle,
   type BackgroundStyle,
   type SubtitleMode,
   type SubtitleGlitch,
   type SubtitleFxStyle,
 } from '../types'
+import {
+  BackdropIcon,
+  DropletIcon,
+  FrameIcon,
+  CaptionsIcon,
+  ParticlesIcon,
+  PlayIcon,
+} from './Icons'
 
 const PRESETS = [
   { label: 'Paper white', solid: '#f5f5f2' },
@@ -37,275 +45,272 @@ const BG_PRESETS: { label: string; colors: string[] }[] = [
   { label: 'Neon four', colors: ['#7c3aed', '#ec4899', '#06b6d4', '#a3e635'] },
 ]
 
-interface ColorSectionProps {
-  title: string
-  description: string
-  theme: ThemeState
-  onChange: (next: ThemeState) => void
-  onReset: () => void
-  presets: { label: string; solid: string }[]
-  cyclePresets: { label: string; colors: string[] }[]
-  speedLabel: (seconds: number) => string
-  speedMin: number
-  speedMax: number
+function speedLabel(seconds: number) {
+  return `${seconds}s per loop`
 }
 
-function ColorSection({
+function pct(value: number, min: number, max: number) {
+  if (max <= min) return 0
+  return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
+}
+
+function sliderVars(value: number, min: number, max: number): CSSProperties {
+  return { ['--progress' as string]: `${pct(value, min, max)}%` }
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  size = 'md',
+}: {
+  value: T
+  options: { id: T; label: string }[]
+  onChange: (id: T) => void
+  size?: 'sm' | 'md'
+}) {
+  return (
+    <div className={`seg ${size === 'sm' ? 'seg-sm' : ''}`} role="group">
+      {options.map((opt) => (
+        <button
+          key={opt.id}
+          type="button"
+          className={`seg-btn ${value === opt.id ? 'seg-btn-active accent-fill' : ''}`}
+          onClick={() => onChange(opt.id)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ColorChip({
+  id,
+  value,
+  onChange,
+  label,
+}: {
+  id?: string
+  value: string
+  onChange: (hex: string) => void
+  label?: string
+}) {
+  return (
+    <label className="color-chip" htmlFor={id}>
+      <span className="color-chip-swatch" style={{ background: value }}>
+        <input
+          id={id}
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={label || 'Color'}
+        />
+      </span>
+      <span className="color-hex">{value}</span>
+    </label>
+  )
+}
+
+function CardHead({
+  icon,
   title,
   description,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <header className="settings-card-head">
+      <div className="settings-card-title-row">
+        <span className="settings-card-icon" aria-hidden>
+          {icon}
+        </span>
+        <h2>{title}</h2>
+      </div>
+      <p>{description}</p>
+    </header>
+  )
+}
+
+function ColorPickers({
   theme,
   onChange,
-  onReset,
-  presets,
   cyclePresets,
-  speedLabel,
-  speedMin,
-  speedMax,
-}: ColorSectionProps) {
+  idPrefix,
+}: {
+  theme: ThemeState
+  onChange: (next: ThemeState) => void
+  cyclePresets: { label: string; colors: string[] }[]
+  idPrefix: string
+}) {
   const colors = theme.colors?.length >= 2 ? theme.colors : [theme.solid, theme.solid]
-
   const setColorAt = (index: number, value: string) => {
     const next = [...colors]
     next[index] = value
     onChange({ ...theme, colors: next })
   }
-
   const addColor = () => {
     if (colors.length >= 4) return
-    const last = colors[colors.length - 1] ?? theme.solid
-    onChange({ ...theme, colors: [...colors, last] })
+    onChange({ ...theme, colors: [...colors, colors[colors.length - 1] ?? theme.solid] })
   }
-
   const removeColor = (index: number) => {
     if (colors.length <= 2) return
     onChange({ ...theme, colors: colors.filter((_, i) => i !== index) })
   }
 
-  return (
-    <div className="settings-panel">
-      <h2>{title}</h2>
-      <p className="settings-subtitle">{description}</p>
-
-      <div className="settings-mode-toggle">
-        <button
-          className={`mode-button ${theme.mode === 'solid' ? 'mode-button-active accent-fill' : ''}`}
-          onClick={() => onChange({ ...theme, mode: 'solid' })}
-        >
-          Solid
-        </button>
-        <button
-          className={`mode-button ${
-            theme.mode === 'cycle' || theme.mode === 'album' ? 'mode-button-active accent-fill' : ''
-          }`}
-          onClick={() => {
-            // Already on Cycling (in either sub-mode) — clicking again shouldn't reset it.
-            if (theme.mode !== 'cycle' && theme.mode !== 'album') onChange({ ...theme, mode: 'cycle' })
-          }}
-        >
-          Cycling
-        </button>
-        <button
-          className={`mode-button ${theme.mode === 'pulse' ? 'mode-button-active accent-fill' : ''}`}
-          onClick={() => onChange({ ...theme, mode: 'pulse' })}
-        >
-          Pulse
-        </button>
-      </div>
-
-      {(theme.mode === 'cycle' || theme.mode === 'album') && (
-        <div className="settings-subtoggle-row">
-          <button
-            type="button"
-            className={`settings-subtoggle ${theme.mode === 'cycle' ? 'settings-subtoggle-active' : ''}`}
-            onClick={() => onChange({ ...theme, mode: 'cycle' })}
-          >
-            Custom colors
-          </button>
-          <button
-            type="button"
-            className={`settings-subtoggle ${theme.mode === 'album' ? 'settings-subtoggle-active' : ''}`}
-            onClick={() => onChange({ ...theme, mode: 'album' })}
-          >
-            Song album
-          </button>
-        </div>
-      )}
-
-      {theme.mode === 'album' && (
-        <p className="settings-subtitle" style={{ marginTop: 4, marginBottom: 8 }}>
-          Follows the currently playing track&apos;s cover colors (play button, seek bar, active tabs).
-        </p>
-      )}
-
-      {theme.mode === 'solid' && (
-        <div className="settings-section">
-          <label className="settings-label" htmlFor={`${title}-solid-color`}>
-            Custom color
-          </label>
-          <div className="color-row">
-            <input
-              id={`${title}-solid-color`}
-              type="color"
-              value={theme.solid}
-              onChange={(e) => onChange({ ...theme, solid: e.target.value })}
+  if (theme.mode === 'solid') {
+    return (
+      <div className="set-block">
+        <span className="set-label">Color</span>
+        <ColorChip
+          id={`${idPrefix}-solid`}
+          value={theme.solid}
+          onChange={(hex) => onChange({ ...theme, solid: hex })}
+          label="Solid color"
+        />
+        <div className="preset-row">
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              className="preset-swatch"
+              style={{ background: p.solid }}
+              title={p.label}
+              onClick={() => onChange({ ...theme, solid: p.solid })}
             />
-            <span>{theme.solid}</span>
-          </div>
-
-          <p className="settings-label">Presets</p>
-          <div className="preset-row">
-            {presets.map((p) => (
-              <button
-                key={p.label}
-                className="preset-swatch"
-                style={{ background: p.solid }}
-                title={p.label}
-                onClick={() => onChange({ ...theme, solid: p.solid })}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {(theme.mode === 'cycle' || theme.mode === 'pulse') && (
-        <div className="settings-section">
-          {colors.map((c, i) => (
-            <div key={i} className="color-row-with-action">
-              <label className="settings-label" htmlFor={`${title}-color-${i}`}>
-                Color {String.fromCharCode(65 + i)}
-              </label>
-              <div className="color-row">
-                <input
-                  id={`${title}-color-${i}`}
-                  type="color"
-                  value={c}
-                  onChange={(e) => setColorAt(i, e.target.value)}
-                />
-                <span>{c}</span>
-                {colors.length > 2 && (
-                  <button
-                    type="button"
-                    className="color-remove-btn"
-                    title="Remove color"
-                    onClick={() => removeColor(i)}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            </div>
           ))}
+        </div>
+      </div>
+    )
+  }
 
-          {colors.length < 4 && (
-            <button type="button" className="add-color-btn" onClick={addColor}>
-              + Add color ({colors.length}/4)
-            </button>
-          )}
+  if (theme.mode === 'album') {
+    return (
+      <div className="set-block">
+        <label className="set-label" htmlFor={`${idPrefix}-album-speed`}>
+          Cycle speed — {speedLabel(theme.speed)}
+        </label>
+        <input
+          id={`${idPrefix}-album-speed`}
+          type="range"
+          min={2}
+          max={16}
+          value={theme.speed}
+          onChange={(e) => onChange({ ...theme, speed: Number(e.target.value) })}
+          className="accent-range set-slider"
+          style={sliderVars(theme.speed, 2, 16)}
+        />
+      </div>
+    )
+  }
 
-          <label className="settings-label" htmlFor={`${title}-speed`}>
-            {theme.mode === 'pulse' ? 'Pulse speed' : 'Cycle speed'} — {speedLabel(theme.speed)}
-          </label>
-          <input
-            id={`${title}-speed`}
-            type="range"
-            min={speedMin}
-            max={speedMax}
-            value={theme.speed}
-            onChange={(e) => onChange({ ...theme, speed: Number(e.target.value) })}
-            className="accent-range"
-          />
-
-          <p className="settings-label">Presets</p>
-          <div className="preset-row">
-            {cyclePresets.map((p) => (
-              <button
-                key={p.label}
-                className="preset-swatch preset-swatch-split"
-                style={{
-                  background: `linear-gradient(90deg, ${p.colors.join(', ')})`,
-                }}
-                title={p.label}
-                onClick={() => onChange({ ...theme, colors: [...p.colors] })}
-              />
-            ))}
+  return (
+    <div className="set-block">
+      {colors.map((c, i) => (
+        <div key={i} className="color-row-with-action">
+          <span className="set-label">Color {String.fromCharCode(65 + i)}</span>
+          <div className="color-chip-row">
+            <ColorChip
+              id={`${idPrefix}-c${i}`}
+              value={c}
+              onChange={(hex) => setColorAt(i, hex)}
+              label={`Color ${String.fromCharCode(65 + i)}`}
+            />
+            {colors.length > 2 && (
+              <button type="button" className="color-remove-btn" onClick={() => removeColor(i)} title="Remove">
+                ×
+              </button>
+            )}
           </div>
         </div>
+      ))}
+      {colors.length < 4 && (
+        <button type="button" className="add-color-btn" onClick={addColor}>
+          + Add color ({colors.length}/4)
+        </button>
       )}
-
-      <button className="reset-button" onClick={onReset}>
-        Reset to default
-      </button>
+      <label className="set-label" htmlFor={`${idPrefix}-speed`}>
+        {theme.mode === 'pulse' ? 'Pulse speed' : 'Cycle speed'} — {speedLabel(theme.speed)}
+      </label>
+      <input
+        id={`${idPrefix}-speed`}
+        type="range"
+        min={2}
+        max={16}
+        value={theme.speed}
+        onChange={(e) => onChange({ ...theme, speed: Number(e.target.value) })}
+        className="accent-range set-slider"
+        style={sliderVars(theme.speed, 2, 16)}
+      />
+      <p className="set-label">Presets</p>
+      <div className="preset-row">
+        {cyclePresets.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            className="preset-swatch preset-swatch-split"
+            title={p.label}
+            style={{
+              background: `linear-gradient(135deg, ${p.colors[0]}, ${p.colors[1] ?? p.colors[0]})`,
+            }}
+            onClick={() =>
+              onChange({
+                ...theme,
+                colors: p.colors,
+                mode: theme.mode === 'pulse' ? 'pulse' : 'cycle',
+              })
+            }
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
-function OutlineSection({
-  outline,
+function ModeAndSource({
+  theme,
   onChange,
-  onReset,
 }: {
-  outline: OutlineTheme
-  onChange: (next: OutlineTheme) => void
-  onReset: () => void
+  theme: ThemeState
+  onChange: (next: ThemeState) => void
 }) {
+  const mainMode = theme.mode === 'album' ? 'cycle' : theme.mode
   return (
-    <div className="settings-panel">
-      <h2>Button outline</h2>
-      <p className="settings-subtitle">
-        Border around accent buttons (Search, Play, mode pills, etc.). Independent from the fill
-        color. Set thickness to 0 to hide.
-      </p>
-
-      <div className="settings-section">
-        <label className="settings-label" htmlFor="outline-color">
-          Outline color
-        </label>
-        <div className="color-row">
-          <input
-            id="outline-color"
-            type="color"
-            value={outline.color}
-            onChange={(e) => onChange({ ...outline, color: e.target.value })}
+    <>
+      <Segmented
+        value={mainMode as 'solid' | 'cycle' | 'pulse'}
+        options={[
+          { id: 'solid', label: 'Solid' },
+          { id: 'cycle', label: 'Cycling' },
+          { id: 'pulse', label: 'Pulse' },
+        ]}
+        onChange={(id) =>
+          onChange({
+            ...theme,
+            mode: id === 'cycle' && theme.mode === 'album' ? 'album' : id,
+          })
+        }
+      />
+      {(theme.mode === 'cycle' || theme.mode === 'album') && (
+        <div className="set-block set-block-tight">
+          <p className="set-label">Color source</p>
+          <Segmented
+            size="sm"
+            value={theme.mode === 'album' ? 'album' : 'custom'}
+            options={[
+              { id: 'custom', label: 'Custom' },
+              { id: 'album', label: 'Song album' },
+            ]}
+            onChange={(id) => onChange({ ...theme, mode: id === 'album' ? 'album' : 'cycle' })}
           />
-          <span>{outline.color}</span>
+          {theme.mode === 'album' && (
+            <p className="set-hint">Uses colors from the currently playing cover.</p>
+          )}
         </div>
-
-        <label className="settings-label" htmlFor="outline-thickness">
-          Thickness — {outline.thickness}px
-        </label>
-        <input
-          id="outline-thickness"
-          type="range"
-          min={0}
-          max={6}
-          step={1}
-          value={outline.thickness}
-          onChange={(e) => onChange({ ...outline, thickness: Number(e.target.value) })}
-          className="accent-range"
-        />
-
-        <div className="outline-preview-row">
-          <span className="settings-label">Preview</span>
-          <button type="button" className="accent-fill outline-preview-btn" tabIndex={-1}>
-            Button
-          </button>
-          <button
-            type="button"
-            className="transport-button transport-button-main accent-fill outline-preview-play"
-            tabIndex={-1}
-            aria-label="Play preview"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M7 4.8v14.4c0 .8.9 1.3 1.6.9l11.4-7.2c.6-.4.6-1.4 0-1.8L8.6 3.9C7.9 3.5 7 4 7 4.8Z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <button className="reset-button" onClick={onReset}>
-        Reset to default
-      </button>
-    </div>
+      )}
+    </>
   )
 }
 
@@ -315,331 +320,353 @@ export function ThemeSettings() {
     setTheme,
     backgroundTheme,
     setBackgroundTheme,
+    backgroundStyle,
+    setBackgroundStyle,
     outline,
     setOutline,
     ambient,
     setAmbient,
-    backgroundStyle,
-    setBackgroundStyle,
     subtitle,
     setSubtitle,
   } = useTheme()
 
   return (
-    <div className="settings-page">
-      <ColorSection
-        title="Background"
-        description="The animated backdrop behind Home. Its own color system, separate from the rest of the app."
-        theme={backgroundTheme}
-        onChange={setBackgroundTheme}
-        onReset={() => setBackgroundTheme(DEFAULT_BACKGROUND_THEME)}
-        presets={BG_PRESETS.map((p) => ({ label: p.label, solid: p.colors[0] }))}
-        cyclePresets={BG_PRESETS}
-        speedLabel={(s) => `${s}s per loop`}
-        speedMin={3}
-        speedMax={30}
-      />
-
-      <div className="settings-panel">
-        <h2>Background effect</h2>
-        <p className="settings-subtitle">
-          Visual treatment for the backdrop — soft glow orbs, or a halftone mesh glow.
-        </p>
-        <div className="preset-row bg-style-row">
-          {(
-            [
-              { id: 'glow', label: 'Glow orbs' },
-              { id: 'halftone', label: 'Halftone mesh' },
-            ] as { id: BackgroundStyle; label: string }[]
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              className={`preset-chip ${backgroundStyle === opt.id ? 'preset-chip-active' : ''}`}
-              onClick={() => setBackgroundStyle(opt.id)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
-          className="settings-reset"
-          onClick={() => setBackgroundStyle(DEFAULT_BACKGROUND_STYLE)}
-        >
-          Reset effect
-        </button>
-      </div>
-
-      <ColorSection
-        title="Accent"
-        description="Button fill, the seek bar, your active tab, the wordmark, and the play button."
-        theme={theme}
-        onChange={setTheme}
-        onReset={() => setTheme(DEFAULT_THEME)}
-        presets={PRESETS}
-        cyclePresets={CYCLE_PRESETS}
-        speedLabel={(s) => (theme.mode === 'pulse' ? `${s}s per beat` : `${s}s per loop`)}
-        speedMin={2}
-        speedMax={20}
-      />
-
-      <OutlineSection
-        outline={outline}
-        onChange={setOutline}
-        onReset={() => setOutline(DEFAULT_OUTLINE)}
-      />
-
-      <div className="settings-panel">
-        <h2>Home lyrics</h2>
-        <p className="settings-subtitle">
-          Active lyric on the home screen (desktop &amp; iPad only) — optional cyber glitch accent.
-        </p>
-
-        <div className="settings-mode-toggle">
-          <button
-            type="button"
-            className={`mode-button ${subtitle.enabled ? 'mode-button-active accent-fill' : ''}`}
-            onClick={() => setSubtitle({ ...subtitle, enabled: true })}
-          >
-            On
-          </button>
-          <button
-            type="button"
-            className={`mode-button ${!subtitle.enabled ? 'mode-button-active accent-fill' : ''}`}
-            onClick={() => setSubtitle({ ...subtitle, enabled: false })}
-          >
-            Off
-          </button>
-        </div>
-
-        <p className="settings-label">Color style</p>
-        <div className="settings-mode-toggle">
-          {(
-            [
-              { id: 'solid', label: 'Solid' },
-              { id: 'gradient', label: 'Gradient' },
-              { id: 'cycle', label: 'Cycling' },
-              { id: 'album', label: 'Song album' },
-            ] as { id: SubtitleMode; label: string }[]
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              className={`mode-button ${subtitle.mode === opt.id ? 'mode-button-active accent-fill' : ''}`}
-              onClick={() => setSubtitle({ ...subtitle, mode: opt.id, enabled: true })}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {subtitle.mode === 'album' && (
-          <p className="settings-subtitle">Uses the currently playing track&apos;s cover colors.</p>
-        )}
-
-        {subtitle.mode === 'solid' && (
-          <div className="settings-section">
-            <label className="settings-label">Custom color</label>
-            <div className="color-row">
-              <input
-                type="color"
-                value={subtitle.solid}
-                onChange={(e) => setSubtitle({ ...subtitle, solid: e.target.value })}
+    <div className="settings-page appearance-bento">
+      <h3 className="settings-cat">Visuals</h3>
+      <div className="settings-bento">
+        <section className="settings-card settings-card-backdrop">
+          <CardHead
+            icon={<BackdropIcon size={18} />}
+            title="Backdrop"
+            description="Home background colors and visual treatment."
+          />
+          <div className="settings-card-body settings-card-split">
+            <div className="settings-card-col">
+              <p className="set-label">Colors</p>
+              <ModeAndSource theme={backgroundTheme} onChange={setBackgroundTheme} />
+              <ColorPickers
+                theme={backgroundTheme}
+                onChange={setBackgroundTheme}
+                cyclePresets={BG_PRESETS}
+                idPrefix="bg"
               />
-              <span>{subtitle.solid}</span>
+              <button
+                type="button"
+                className="reset-button"
+                onClick={() => setBackgroundTheme(DEFAULT_BACKGROUND_THEME)}
+              >
+                Reset colors
+              </button>
+            </div>
+            <div className="settings-card-col settings-card-col-divider">
+              <p className="set-label">Effect</p>
+              <Segmented
+                value={backgroundStyle}
+                options={[
+                  { id: 'glow' as BackgroundStyle, label: 'Glow orbs' },
+                  { id: 'halftone' as BackgroundStyle, label: 'Halftone mesh' },
+                ]}
+                onChange={(id) => setBackgroundStyle(id)}
+              />
+              <p className="set-hint">Soft orbs or a dotted mesh over the gradient.</p>
+              <button
+                type="button"
+                className="reset-button"
+                onClick={() => setBackgroundStyle(DEFAULT_BACKGROUND_STYLE)}
+              >
+                Reset effect
+              </button>
             </div>
           </div>
-        )}
+        </section>
 
-        {(subtitle.mode === 'gradient' || subtitle.mode === 'cycle') && (
-          <div className="settings-section">
-            {subtitle.colors.slice(0, 4).map((c, i) => (
-              <div key={i} className="color-row-with-action">
-                <label className="settings-label">Color {String.fromCharCode(65 + i)}</label>
-                <div className="color-row">
-                  <input
-                    type="color"
-                    value={c}
-                    onChange={(e) => {
-                      const colors = [...subtitle.colors]
-                      while (colors.length < 4) colors.push(colors[colors.length - 1] || c)
-                      colors[i] = e.target.value
-                      setSubtitle({ ...subtitle, colors: colors.slice(0, 4) })
-                    }}
-                  />
-                  <span>{c}</span>
-                </div>
-              </div>
-            ))}
-            {subtitle.mode === 'cycle' && (
+        <section className="settings-card">
+          <CardHead
+            icon={<DropletIcon size={18} />}
+            title="Accent"
+            description="Play button, seek bar, active tabs, and wordmark."
+          />
+          <div className="settings-card-body">
+            <ModeAndSource theme={theme} onChange={setTheme} />
+            <ColorPickers
+              theme={theme}
+              onChange={setTheme}
+              cyclePresets={CYCLE_PRESETS}
+              idPrefix="accent"
+            />
+            <button type="button" className="reset-button" onClick={() => setTheme(DEFAULT_THEME)}>
+              Reset to default
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <h3 className="settings-cat">Playback accents</h3>
+      <div className="settings-bento">
+        <section className="settings-card">
+          <CardHead
+            icon={<FrameIcon size={18} />}
+            title="Button outline"
+            description="Border around accent buttons. Independent of fill color."
+          />
+          <div className="settings-card-body">
+            <div className="set-block">
+              <span className="set-label">Outline color</span>
+              <ColorChip
+                id="outline-color"
+                value={outline.color}
+                onChange={(hex) => setOutline({ ...outline, color: hex })}
+                label="Outline color"
+              />
+            </div>
+            <div className="set-block">
+              <label className="set-label" htmlFor="outline-width">
+                Thickness — {outline.thickness}px
+              </label>
+              <input
+                id="outline-width"
+                type="range"
+                min={0}
+                max={4}
+                step={1}
+                value={outline.thickness}
+                onChange={(e) => setOutline({ ...outline, thickness: Number(e.target.value) })}
+                className="accent-range set-slider"
+                style={sliderVars(outline.thickness, 0, 4)}
+              />
+            </div>
+            <div className="outline-preview-row">
+              <span className="set-label" style={{ margin: 0 }}>
+                Preview
+              </span>
+              <button type="button" className="outline-preview-btn accent-fill">
+                Button
+              </button>
+              <button type="button" className="outline-preview-play accent-fill" aria-label="Play preview">
+                <PlayIcon size={14} />
+              </button>
+            </div>
+            <button type="button" className="reset-button" onClick={() => setOutline(DEFAULT_OUTLINE)}>
+              Reset to default
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <h3 className="settings-cat">Effects</h3>
+      <div className="settings-bento">
+        <section className="settings-card">
+          <CardHead
+            icon={<ParticlesIcon size={18} />}
+            title="Ambient particles"
+            description="Soft particles over the app — stars, embers, dust, or snow."
+          />
+          <div className="settings-card-body">
+            <Segmented
+              value={ambient.enabled ? 'on' : 'off'}
+              options={[
+                { id: 'on', label: 'On' },
+                { id: 'off', label: 'Off' },
+              ]}
+              onChange={(id) => setAmbient({ ...ambient, enabled: id === 'on' })}
+            />
+            {ambient.enabled && (
               <>
-                <label className="settings-label" htmlFor="sub-speed">
-                  Cycle speed — {subtitle.speed}s per loop
-                </label>
-                <input
-                  id="sub-speed"
-                  type="range"
-                  min={3}
-                  max={20}
-                  step={1}
-                  value={subtitle.speed}
-                  onChange={(e) => setSubtitle({ ...subtitle, speed: Number(e.target.value) })}
-                />
+                <div className="set-block">
+                  <p className="set-label">Style</p>
+                  <Segmented
+                    size="sm"
+                    value={ambient.style === 'off' ? 'stars' : ambient.style}
+                    options={[
+                      { id: 'stars' as AmbientStyle, label: 'Stars' },
+                      { id: 'embers' as AmbientStyle, label: 'Embers' },
+                      { id: 'dust' as AmbientStyle, label: 'Dust' },
+                      { id: 'snow' as AmbientStyle, label: 'Snow' },
+                    ]}
+                    onChange={(id) => setAmbient({ ...ambient, style: id })}
+                  />
+                </div>
+                <div className="set-block">
+                  <span className="set-label">Color</span>
+                  <ColorChip
+                    id="amb-color"
+                    value={ambient.color}
+                    onChange={(hex) => setAmbient({ ...ambient, color: hex })}
+                    label="Particle color"
+                  />
+                </div>
+                <div className="set-block">
+                  <label className="set-label" htmlFor="amb-density">
+                    Density — {ambient.density.toFixed(1)}x
+                  </label>
+                  <input
+                    id="amb-density"
+                    type="range"
+                    min={0.4}
+                    max={2.4}
+                    step={0.1}
+                    value={ambient.density}
+                    onChange={(e) => setAmbient({ ...ambient, density: Number(e.target.value) })}
+                    className="accent-range set-slider"
+                    style={sliderVars(ambient.density, 0.4, 2.4)}
+                  />
+                </div>
+                <div className="set-block">
+                  <label className="set-label" htmlFor="amb-speed">
+                    Speed — {ambient.speed.toFixed(1)}x
+                  </label>
+                  <input
+                    id="amb-speed"
+                    type="range"
+                    min={0.3}
+                    max={2.5}
+                    step={0.1}
+                    value={ambient.speed}
+                    onChange={(e) => setAmbient({ ...ambient, speed: Number(e.target.value) })}
+                    className="accent-range set-slider"
+                    style={sliderVars(ambient.speed, 0.3, 2.5)}
+                  />
+                </div>
+                <div className="set-block">
+                  <label className="set-label" htmlFor="amb-opacity">
+                    Opacity — {Math.round(ambient.opacity * 100)}%
+                  </label>
+                  <input
+                    id="amb-opacity"
+                    type="range"
+                    min={0.15}
+                    max={1}
+                    step={0.05}
+                    value={ambient.opacity}
+                    onChange={(e) => setAmbient({ ...ambient, opacity: Number(e.target.value) })}
+                    className="accent-range set-slider"
+                    style={sliderVars(ambient.opacity, 0.15, 1)}
+                  />
+                </div>
               </>
             )}
+            <button type="button" className="reset-button" onClick={() => setAmbient(DEFAULT_AMBIENT)}>
+              Reset ambient
+            </button>
           </div>
-        )}
+        </section>
 
-        <p className="settings-label">Lyric look</p>
-        <div className="settings-mode-toggle">
-          {(
-            [
-              { id: 'classic', label: 'Classic glitch' },
-              { id: 'cinematic', label: 'Cinematic MV' },
-              { id: 'cinematic2', label: 'Cinematic MV 2' },
-            ] as { id: SubtitleFxStyle; label: string }[]
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              className={`mode-button ${subtitle.fxStyle === opt.id ? 'mode-button-active accent-fill' : ''}`}
-              onClick={() => setSubtitle({ ...subtitle, fxStyle: opt.id, enabled: true })}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <p className="settings-subtitle" style={{ marginTop: 0, marginBottom: 12 }}>
-          MV — glow type &amp; ghosts. MV 2 — kinetic letters, VHS tears, dust trails, invert flash.
-        </p>
-
-        <p className="settings-label">Glitch</p>
-        <div className="settings-mode-toggle">
-          {(
-            [
-              { id: 'off', label: 'Off' },
-              { id: 'on_change', label: 'On line change' },
-              { id: 'subtle', label: 'Occasional' },
-            ] as { id: SubtitleGlitch; label: string }[]
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              className={`mode-button ${subtitle.glitch === opt.id ? 'mode-button-active accent-fill' : ''}`}
-              onClick={() => setSubtitle({ ...subtitle, glitch: opt.id })}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className="settings-reset"
-          onClick={() => setSubtitle(DEFAULT_SUBTITLE)}
-        >
-          Reset home lyrics
-        </button>
-      </div>
-
-      <div className="settings-panel">
-        <h2>Ambient effects</h2>
-        <p className="settings-subtitle">
-          Soft cinematic particles over the app — stars, embers, dust, or snow. Fully optional.
-        </p>
-
-        <div className="settings-mode-toggle">
-          <button
-            type="button"
-            className={`mode-button ${ambient.enabled ? 'mode-button-active accent-fill' : ''}`}
-            onClick={() => setAmbient({ ...ambient, enabled: true })}
-          >
-            On
-          </button>
-          <button
-            type="button"
-            className={`mode-button ${!ambient.enabled ? 'mode-button-active accent-fill' : ''}`}
-            onClick={() => setAmbient({ ...ambient, enabled: false })}
-          >
-            Off
-          </button>
-        </div>
-
-        <p className="settings-label">Style</p>
-        <div className="preset-row">
-          {(['stars', 'embers', 'dust', 'snow'] as AmbientStyle[]).map((style) => (
-            <button
-              key={style}
-              type="button"
-              className={`preset-chip ${ambient.style === style ? 'preset-chip-active' : ''}`}
-              onClick={() => setAmbient({ ...ambient, style, enabled: true })}
-            >
-              {style.charAt(0).toUpperCase() + style.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        <label className="settings-label" htmlFor="ambient-color">
-          Color
-        </label>
-        <div className="color-row">
-          <input
-            id="ambient-color"
-            type="color"
-            value={ambient.color}
-            onChange={(e) => setAmbient({ ...ambient, color: e.target.value })}
+        <section className="settings-card settings-card-wide">
+          <CardHead
+            icon={<CaptionsIcon size={18} />}
+            title="Home lyrics"
+            description="Active line on the home screen (desktop & iPad) with optional cinematic styles."
           />
-          <span>{ambient.color}</span>
-        </div>
+          <div className="settings-card-body settings-card-lyrics">
+            <div className="settings-card-col">
+              <p className="set-label">Enabled</p>
+              <Segmented
+                value={subtitle.enabled ? 'on' : 'off'}
+                options={[
+                  { id: 'on', label: 'On' },
+                  { id: 'off', label: 'Off' },
+                ]}
+                onChange={(id) => setSubtitle({ ...subtitle, enabled: id === 'on' })}
+              />
 
-        <label className="settings-label" htmlFor="ambient-density">
-          Density — {ambient.density.toFixed(1)}×
-        </label>
-        <input
-          id="ambient-density"
-          type="range"
-          min={0.3}
-          max={2}
-          step={0.1}
-          value={ambient.density}
-          onChange={(e) => setAmbient({ ...ambient, density: Number(e.target.value) })}
-          className="accent-range"
-        />
+              {subtitle.enabled && (
+                <div className="set-block">
+                  <p className="set-label">Color style</p>
+                  <Segmented
+                    size="sm"
+                    value={subtitle.mode}
+                    options={[
+                      { id: 'solid' as SubtitleMode, label: 'Solid' },
+                      { id: 'gradient' as SubtitleMode, label: 'Gradient' },
+                      { id: 'cycle' as SubtitleMode, label: 'Cycling' },
+                      { id: 'album' as SubtitleMode, label: 'Song album' },
+                    ]}
+                    onChange={(id) => setSubtitle({ ...subtitle, mode: id })}
+                  />
+                  {subtitle.mode === 'album' && (
+                    <p className="set-hint">Uses the currently playing track&apos;s cover colors.</p>
+                  )}
+                  {subtitle.mode === 'solid' && (
+                    <ColorChip
+                      value={subtitle.solid}
+                      onChange={(hex) => setSubtitle({ ...subtitle, solid: hex })}
+                      label="Subtitle solid"
+                    />
+                  )}
+                  {(subtitle.mode === 'gradient' || subtitle.mode === 'cycle') && (
+                    <div className="set-block set-block-tight">
+                      {(subtitle.colors?.length >= 2
+                        ? subtitle.colors
+                        : [subtitle.solid, subtitle.solid]
+                      )
+                        .slice(0, 4)
+                        .map((c, i) => (
+                          <ColorChip
+                            key={i}
+                            value={c}
+                            onChange={(hex) => {
+                              const cols = [
+                                ...(subtitle.colors?.length >= 2
+                                  ? subtitle.colors
+                                  : [subtitle.solid, subtitle.solid]),
+                              ]
+                              cols[i] = hex
+                              setSubtitle({ ...subtitle, colors: cols })
+                            }}
+                            label={`Subtitle color ${i + 1}`}
+                          />
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-        <label className="settings-label" htmlFor="ambient-speed">
-          Speed — {ambient.speed.toFixed(1)}×
-        </label>
-        <input
-          id="ambient-speed"
-          type="range"
-          min={0.3}
-          max={2}
-          step={0.1}
-          value={ambient.speed}
-          onChange={(e) => setAmbient({ ...ambient, speed: Number(e.target.value) })}
-          className="accent-range"
-        />
-
-        <label className="settings-label" htmlFor="ambient-opacity">
-          Opacity — {Math.round(ambient.opacity * 100)}%
-        </label>
-        <input
-          id="ambient-opacity"
-          type="range"
-          min={0.05}
-          max={0.8}
-          step={0.05}
-          value={ambient.opacity}
-          onChange={(e) => setAmbient({ ...ambient, opacity: Number(e.target.value) })}
-          className="accent-range"
-        />
-
-        <button className="reset-button" type="button" onClick={() => setAmbient(DEFAULT_AMBIENT)}>
-          Reset ambient
-        </button>
+            {subtitle.enabled && (
+              <div className="settings-card-col settings-card-col-divider">
+                <div className="set-block">
+                  <p className="set-label">Lyric look</p>
+                  <Segmented
+                    size="sm"
+                    value={subtitle.fxStyle}
+                    options={[
+                      { id: 'classic' as SubtitleFxStyle, label: 'Classic glitch' },
+                      { id: 'cinematic' as SubtitleFxStyle, label: 'Cinematic MV' },
+                      { id: 'cinematic2' as SubtitleFxStyle, label: 'Cinematic MV 2' },
+                    ]}
+                    onChange={(id) => setSubtitle({ ...subtitle, fxStyle: id })}
+                  />
+                  <p className="set-hint">
+                    {subtitle.fxStyle === 'cinematic2'
+                      ? 'Kinetic letters, VHS tears, dust trails.'
+                      : subtitle.fxStyle === 'cinematic'
+                        ? 'Glow type, ghosts, soft bloom.'
+                        : 'Subtle cyber glitch on the active line.'}
+                  </p>
+                </div>
+                <div className="set-block">
+                  <p className="set-label">Glitch</p>
+                  <Segmented
+                    size="sm"
+                    value={subtitle.glitch}
+                    options={[
+                      { id: 'off' as SubtitleGlitch, label: 'Off' },
+                      { id: 'on_change' as SubtitleGlitch, label: 'On line change' },
+                      { id: 'subtle' as SubtitleGlitch, label: 'Occasional' },
+                    ]}
+                    onChange={(id) => setSubtitle({ ...subtitle, glitch: id })}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="settings-card-body" style={{ paddingTop: 0 }}>
+            <button type="button" className="reset-button" onClick={() => setSubtitle(DEFAULT_SUBTITLE)}>
+              Reset home lyrics
+            </button>
+          </div>
+        </section>
       </div>
-
     </div>
   )
 }
