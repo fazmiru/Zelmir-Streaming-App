@@ -893,7 +893,7 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${sidebarRailCollapsed ? 'sidebar-rail-collapsed' : ''} ${player.isPlaying ? 'is-playing audio-pulse-on' : ''}`}>
+    <div className={`app-shell ${sidebarRailCollapsed ? 'sidebar-rail-collapsed' : ''} ${player.isPlaying ? 'is-playing audio-pulse-on' : ''} ${nowPlayingOpen ? 'np-open' : ''}`}>
       <AmbientParticles ambient={ambient} />
       <Sidebar
         view={view}

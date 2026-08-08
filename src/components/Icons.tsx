@@ -221,3 +221,22 @@ export const ParticlesIcon = ({ size = 18, className }: IconProps) => (
     <circle cx="18.5" cy="17.5" r="1.05" opacity="0.75" />
   </svg>
 )
+
+export const ResetIcon = ({ size = 14, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path
+      d="M3.5 12a8.5 8.5 0 1 0 2.4-5.9"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+    <path
+      d="M3.5 4.5v5h5"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+

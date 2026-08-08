@@ -21,6 +21,7 @@ import {
   CaptionsIcon,
   ParticlesIcon,
   PlayIcon,
+  ResetIcon,
 } from './Icons'
 
 const PRESETS = [
@@ -134,6 +135,19 @@ function CardHead({
   )
 }
 
+function ResetButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className="reset-button" onClick={onClick}>
+      <ResetIcon size={13} />
+      <span>{label}</span>
+    </button>
+  )
+}
+
+function GroupLabel({ children }: { children: ReactNode }) {
+  return <p className="set-group-label">{children}</p>
+}
+
 function ColorPickers({
   theme,
   onChange,
@@ -208,10 +222,10 @@ function ColorPickers({
 
   return (
     <div className="set-block">
-      {colors.map((c, i) => (
-        <div key={i} className="color-row-with-action">
-          <span className="set-label">Color {String.fromCharCode(65 + i)}</span>
-          <div className="color-chip-row">
+      <p className="set-label">Palette</p>
+      <div className="color-list">
+        {colors.map((c, i) => (
+          <div key={i} className="color-list-row">
             <ColorChip
               id={`${idPrefix}-c${i}`}
               value={c}
@@ -219,16 +233,16 @@ function ColorPickers({
               label={`Color ${String.fromCharCode(65 + i)}`}
             />
             {colors.length > 2 && (
-              <button type="button" className="color-remove-btn" onClick={() => removeColor(i)} title="Remove">
+              <button type="button" className="color-remove-btn" onClick={() => removeColor(i)} title="Remove color" aria-label="Remove color">
                 ×
               </button>
             )}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
       {colors.length < 4 && (
         <button type="button" className="add-color-btn" onClick={addColor}>
-          + Add color ({colors.length}/4)
+          + Add color
         </button>
       )}
       <label className="set-label" htmlFor={`${idPrefix}-speed`}>
@@ -332,7 +346,7 @@ export function ThemeSettings() {
 
   return (
     <div className="settings-page appearance-bento">
-      <h3 className="settings-cat">Visuals</h3>
+      <h3 className="settings-cat">Colors &amp; backdrop</h3>
       <div className="settings-bento">
         <section className="settings-card settings-card-backdrop">
           <CardHead
@@ -350,13 +364,7 @@ export function ThemeSettings() {
                 cyclePresets={BG_PRESETS}
                 idPrefix="bg"
               />
-              <button
-                type="button"
-                className="reset-button"
-                onClick={() => setBackgroundTheme(DEFAULT_BACKGROUND_THEME)}
-              >
-                Reset colors
-              </button>
+              <ResetButton label="Reset to default" onClick={() => setBackgroundTheme(DEFAULT_BACKGROUND_THEME)} />
             </div>
             <div className="settings-card-col settings-card-col-divider">
               <p className="set-label">Effect</p>
@@ -369,13 +377,7 @@ export function ThemeSettings() {
                 onChange={(id) => setBackgroundStyle(id)}
               />
               <p className="set-hint">Soft orbs or a dotted mesh over the gradient.</p>
-              <button
-                type="button"
-                className="reset-button"
-                onClick={() => setBackgroundStyle(DEFAULT_BACKGROUND_STYLE)}
-              >
-                Reset effect
-              </button>
+              <ResetButton label="Reset to default" onClick={() => setBackgroundStyle(DEFAULT_BACKGROUND_STYLE)} />
             </div>
           </div>
         </section>
@@ -394,14 +396,12 @@ export function ThemeSettings() {
               cyclePresets={CYCLE_PRESETS}
               idPrefix="accent"
             />
-            <button type="button" className="reset-button" onClick={() => setTheme(DEFAULT_THEME)}>
-              Reset to default
-            </button>
+            <ResetButton label="Reset to default" onClick={() => setTheme(DEFAULT_THEME)} />
           </div>
         </section>
       </div>
 
-      <h3 className="settings-cat">Playback accents</h3>
+      <h3 className="settings-cat">Playback</h3>
       <div className="settings-bento">
         <section className="settings-card">
           <CardHead
@@ -446,14 +446,12 @@ export function ThemeSettings() {
                 <PlayIcon size={14} />
               </button>
             </div>
-            <button type="button" className="reset-button" onClick={() => setOutline(DEFAULT_OUTLINE)}>
-              Reset to default
-            </button>
+            <ResetButton label="Reset to default" onClick={() => setOutline(DEFAULT_OUTLINE)} />
           </div>
         </section>
       </div>
 
-      <h3 className="settings-cat">Effects</h3>
+      <h3 className="settings-cat">Effects &amp; lyrics</h3>
       <div className="settings-bento">
         <section className="settings-card">
           <CardHead
@@ -545,9 +543,7 @@ export function ThemeSettings() {
                 </div>
               </>
             )}
-            <button type="button" className="reset-button" onClick={() => setAmbient(DEFAULT_AMBIENT)}>
-              Reset ambient
-            </button>
+            <ResetButton label="Reset to default" onClick={() => setAmbient(DEFAULT_AMBIENT)} />
           </div>
         </section>
 
@@ -625,24 +621,40 @@ export function ThemeSettings() {
             {subtitle.enabled && (
               <div className="settings-card-col settings-card-col-divider">
                 <div className="set-block">
-                  <p className="set-label">Lyric look</p>
-                  <Segmented
-                    size="sm"
-                    value={subtitle.fxStyle}
-                    options={[
-                      { id: 'classic' as SubtitleFxStyle, label: 'Classic glitch' },
-                      { id: 'cinematic' as SubtitleFxStyle, label: 'Cinematic MV' },
-                      { id: 'cinematic2' as SubtitleFxStyle, label: 'Cinematic MV 2' },
-                    ]}
-                    onChange={(id) => setSubtitle({ ...subtitle, fxStyle: id })}
-                  />
-                  <p className="set-hint">
-                    {subtitle.fxStyle === 'cinematic2'
-                      ? 'Kinetic letters, VHS tears, dust trails.'
-                      : subtitle.fxStyle === 'cinematic'
-                        ? 'Glow type, ghosts, soft bloom.'
-                        : 'Subtle cyber glitch on the active line.'}
-                  </p>
+                  <p className="set-label">Style</p>
+                  <div className="style-picker" role="radiogroup" aria-label="Lyric style">
+                    {(
+                      [
+                        {
+                          id: 'classic' as SubtitleFxStyle,
+                          title: 'Glitch',
+                          desc: 'Subtle cyber flicker on the active line',
+                        },
+                        {
+                          id: 'cinematic' as SubtitleFxStyle,
+                          title: 'Cinematic',
+                          desc: 'Soft glow, ghost type, bloom',
+                        },
+                        {
+                          id: 'cinematic2' as SubtitleFxStyle,
+                          title: 'Music video',
+                          desc: 'Kinetic letters, VHS tears, dust',
+                        },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={subtitle.fxStyle === opt.id}
+                        className={`style-picker-item ${subtitle.fxStyle === opt.id ? 'style-picker-item-active' : ''}`}
+                        onClick={() => setSubtitle({ ...subtitle, fxStyle: opt.id })}
+                      >
+                        <span className="style-picker-title">{opt.title}</span>
+                        <span className="style-picker-desc">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="set-block">
                   <p className="set-label">Glitch</p>
@@ -661,9 +673,7 @@ export function ThemeSettings() {
             )}
           </div>
           <div className="settings-card-body" style={{ paddingTop: 0 }}>
-            <button type="button" className="reset-button" onClick={() => setSubtitle(DEFAULT_SUBTITLE)}>
-              Reset home lyrics
-            </button>
+            <ResetButton label="Reset to default" onClick={() => setSubtitle(DEFAULT_SUBTITLE)} />
           </div>
         </section>
       </div>
