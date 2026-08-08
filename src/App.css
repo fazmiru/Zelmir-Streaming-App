@@ -610,22 +610,24 @@
   background: var(--accent-solid);
 }
 
-/* Progress hairline cycles left→right with accent (seamless) */
-.theme-cycle .player-progress-line,
-.theme-cycle .player-progress-line.accent-fill {
+/* Progress hairline — seamless L→R cycle (accent colors + song album) */
+html.theme-cycle .player-progress-line,
+html.theme-cycle .player-progress-line.accent-fill,
+html.theme-album .player-progress-line,
+html.theme-album .player-progress-line.accent-fill {
   border: none !important;
   background-color: transparent !important;
   background-image: linear-gradient(
     90deg,
-    var(--accent-a) 0%,
-    var(--accent-b) 25%,
-    var(--accent-c) 50%,
-    var(--accent-d) 75%,
-    var(--accent-a) 100%
+    var(--accent-a, var(--album-a, #c45c26)) 0%,
+    var(--accent-b, var(--album-b, #e8a04a)) 25%,
+    var(--accent-c, var(--album-c, #8b3a1a)) 50%,
+    var(--accent-d, var(--album-d, #f0c070)) 75%,
+    var(--accent-a, var(--album-a, #c45c26)) 100%
   ) !important;
   background-size: 200% 100% !important;
   background-repeat: repeat !important;
-  background-position: 0% 50% !important;
+  background-position: 100% 50% !important;
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
 }
 
@@ -4287,6 +4289,44 @@ html.theme-cycle .transport-button-main.accent-fill {
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
   color: #0b0b0d !important;
   border: var(--btn-outline-width, 0px) solid var(--btn-outline-color, transparent) !important;
+}
+
+
+html.theme-album .transport-button-main,
+html.theme-album .transport-button-main.accent-fill {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a, var(--album-a, #c45c26)) 0%,
+    var(--accent-b, var(--album-b, #e8a04a)) 25%,
+    var(--accent-c, var(--album-c, #8b3a1a)) 50%,
+    var(--accent-d, var(--album-d, #f0c070)) 75%,
+    var(--accent-a, var(--album-a, #c45c26)) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: repeat !important;
+  background-position: 100% 50% !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+  color: #0b0b0d !important;
+  border: var(--btn-outline-width, 0px) solid var(--btn-outline-color, transparent) !important;
+}
+
+/* Final progress line (wins over layout media queries) */
+html.theme-cycle .player-bar .player-progress-line,
+html.theme-album .player-bar .player-progress-line {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a, var(--album-a)) 0%,
+    var(--accent-b, var(--album-b)) 25%,
+    var(--accent-c, var(--album-c)) 50%,
+    var(--accent-d, var(--album-d)) 75%,
+    var(--accent-a, var(--album-a)) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: repeat !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+  border: none !important;
 }
 
 html.theme-pulse .transport-button-main,
@@ -8332,19 +8372,38 @@ main.content.content-artist {
 /* ALBUM MODE — accent + home lyrics from cover */
 .theme-album .accent-fill,
 .theme-album .accent-text {
-  /* cycling-style multi-stop using album vars mapped to accent-* */
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a, var(--album-a)) 0%,
+    var(--accent-b, var(--album-b)) 25%,
+    var(--accent-c, var(--album-c)) 50%,
+    var(--accent-d, var(--album-d)) 75%,
+    var(--accent-a, var(--album-a)) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  background-repeat: repeat !important;
+  background-position: 100% 50% !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
 }
 
+
 .theme-album .accent-fill {
-  background: linear-gradient(
-    115deg,
-    var(--accent-a, var(--album-a, #c45c26)),
-    var(--accent-b, var(--album-b, #e8a04a)),
-    var(--accent-c, var(--album-c, #8b3a1a)),
-    var(--accent-d, var(--album-d, #f0c070))
+  background-image: linear-gradient(
+    90deg,
+    var(--accent-a, var(--album-a, #c45c26)) 0%,
+    var(--accent-b, var(--album-b, #e8a04a)) 25%,
+    var(--accent-c, var(--album-c, #8b3a1a)) 50%,
+    var(--accent-d, var(--album-d, #f0c070)) 75%,
+    var(--accent-a, var(--album-a, #c45c26)) 100%
   ) !important;
-  background-size: 200% 200% !important;
-  animation: np-grad-shift 7s ease-in-out infinite;
+  background-size: 200% 100% !important;
+  background-repeat: repeat !important;
+  background-position: 100% 50% !important;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
 }
 
 .theme-album .accent-range {

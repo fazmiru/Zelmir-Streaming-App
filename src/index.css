@@ -136,12 +136,12 @@ input[type='text'] {
 
 /* Seamless L→R cycle: gradient starts AND ends on A so the loop never jumps */
 @keyframes accent-slide {
+  /* 100% → 0%: gradient colors appear to travel left → right */
   from {
-    background-position: 0% 50%;
+    background-position: 100% 50%;
   }
   to {
-    /* With background-size 200%, 100% shifts exactly one color period */
-    background-position: 100% 50%;
+    background-position: 0% 50%;
   }
 }
 
