@@ -40,6 +40,36 @@ function extractVideoId(url: string): string | null {
   return match ? match[1] : null
 }
 
+/** Absolute usable thumbnail URL; prefer i.ytimg when input is relative/empty. */
+export function normalizeThumbnail(
+  raw: string | undefined | null,
+  videoId?: string | null,
+  baseOrigin?: string
+): string {
+  const fallback = videoId
+    ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+    : ''
+  if (!raw || typeof raw !== 'string') return fallback
+  let url = raw.trim()
+  if (!url) return fallback
+
+  if (url.startsWith('//')) url = 'https:' + url
+
+  if (url.startsWith('/')) {
+    if (baseOrigin) url = baseOrigin.replace(/\/+$/, '') + url
+    else if (videoId) return fallback
+    else return ''
+  }
+
+  if (!/^https?:\/\//i.test(url)) {
+    return fallback || url
+  }
+
+  return url
+}
+
+
+
 function toTrack(item: PipedStreamItem): Track | null {
   const videoId = extractVideoId(item.url)
   if (!videoId) return null
@@ -698,20 +728,30 @@ export async function fetchPlaylistTracks(
         const videoId = String(v.videoId || v.video_id || '')
         if (!videoId || seen.has(videoId)) continue
         seen.add(videoId)
+        const thumbRaw =
+          (Array.isArray(v.videoThumbnails) &&
+            (v.videoThumbnails.find((th: any) => th.quality === 'maxres' || th.quality === 'maxresdefault')?.url ||
+              v.videoThumbnails.find((th: any) => th.quality === 'high' || th.quality === 'hqdefault')?.url ||
+              v.videoThumbnails[v.videoThumbnails.length - 1]?.url ||
+              v.videoThumbnails[0]?.url)) ||
+          v.videoThumbnail ||
+          ''
         tracks.push({
           videoId,
           title: String(v.title || 'Untitled'),
           artist: String(v.author || data?.author || ''),
-          thumbnail:
-            (Array.isArray(v.videoThumbnails) && v.videoThumbnails[0]?.url) ||
-            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+          thumbnail: normalizeThumbnail(String(thumbRaw || ''), videoId, base),
         })
       }
       if (tracks.length) {
         return {
           name: String(data?.title || data?.name || 'Album'),
           description: String(data?.description || ''),
-          thumbnail: String(data?.playlistThumbnail || data?.thumbnail || tracks[0]?.thumbnail || ''),
+          thumbnail: normalizeThumbnail(
+            String(data?.playlistThumbnail || data?.thumbnail || tracks[0]?.thumbnail || ''),
+            tracks[0]?.videoId,
+            base
+          ),
           uploaderName: String(data?.author || data?.uploader || ''),
           tracks,
         }
@@ -774,10 +814,14 @@ export async function fetchPlaylistTracks(
             videoId,
             title: String(item?.snippet?.title || 'Untitled'),
             artist: String(item?.snippet?.videoOwnerChannelTitle || metaChannel || ''),
-            thumbnail:
-              item?.snippet?.thumbnails?.high?.url ||
-              item?.snippet?.thumbnails?.medium?.url ||
-              `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+            thumbnail: normalizeThumbnail(
+              item?.snippet?.thumbnails?.maxres?.url ||
+                item?.snippet?.thumbnails?.high?.url ||
+                item?.snippet?.thumbnails?.medium?.url ||
+                item?.snippet?.thumbnails?.default?.url ||
+                '',
+              videoId
+            ),
           })
         }
         pageToken = data.nextPageToken || ''
@@ -811,7 +855,7 @@ export async function fetchPlaylistTracks(
         videoId,
         title: String(item.title || 'Untitled'),
         artist: String(item.uploaderName || data?.uploader || ''),
-        thumbnail: String(item.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`),
+        thumbnail: normalizeThumbnail(String(item.thumbnail || item.thumbnailUrl || ''), videoId),
       })
     }
     if (tracks.length) {

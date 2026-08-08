@@ -22,7 +22,7 @@ import { useAudioReactivePulse } from './hooks/useAudioReactivePulse'
 import { usePlaylists } from './playlists/PlaylistContext'
 import { useAuth } from './auth/AuthContext'
 import { toTrack, filterOutShorts } from './utils/youtube'
-import { searchPipedTracks, searchPipedTracksSimple, fetchArtistChannel, searchArtistTracks, searchArtistTracksMore, searchArtistAlbums, fetchPlaylistTracks, fetchSimilarTracks } from './utils/piped'
+import { searchPipedTracks, searchPipedTracksSimple, fetchArtistChannel, searchArtistTracks, searchArtistTracksMore, searchArtistAlbums, fetchPlaylistTracks, fetchSimilarTracks, normalizeThumbnail } from './utils/piped'
 import { handleSpotifyRedirect } from './utils/spotifyAuth'
 import { PlaylistHeader } from './components/PlaylistHeader'
 import type { Track } from './types'
@@ -741,7 +741,7 @@ function App() {
       const data = await fetchPlaylistTracks(album.id, API_KEY)
       setAlbumName(data.name || album.name)
       setAlbumDescription(data.description)
-      setAlbumThumbnail(data.thumbnail || album.thumbnail)
+      setAlbumThumbnail(normalizeThumbnail(data.thumbnail || album.thumbnail, data.tracks[0]?.videoId))
       if (data.uploaderName) setAlbumArtist(data.uploaderName)
       let tracks = data.tracks
       // Last-resort: search album title and keep artist-matching uploads
@@ -760,7 +760,12 @@ function App() {
           /* leave empty */
         }
       }
-      setAlbumTracks(tracks)
+      setAlbumTracks(
+        tracks.map((tr) => ({
+          ...tr,
+          thumbnail: normalizeThumbnail(tr.thumbnail, tr.videoId),
+        }))
+      )
     } catch (err) {
       console.error('Album load failed', err)
     } finally {

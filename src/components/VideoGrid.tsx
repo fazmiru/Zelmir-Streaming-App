@@ -142,7 +142,24 @@ export function VideoGrid({
             </div>
 
             <div className="track-col-title">
-              <img src={track.thumbnail} alt={track.title} className="track-thumb" />
+              <img
+                src={
+                  track.thumbnail && /^https?:\/\//i.test(track.thumbnail)
+                    ? track.thumbnail
+                    : `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
+                }
+                alt=""
+                className="track-thumb"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  const el = e.currentTarget
+                  if (!el.dataset.fallback) {
+                    el.dataset.fallback = '1'
+                    el.src = `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
+                  }
+                }}
+              />
               <div className="track-details">
                 <span className={`track-name ${isActive ? 'accent-text' : ''}`}>{track.title}</span>
                 {onOpenArtist ? (

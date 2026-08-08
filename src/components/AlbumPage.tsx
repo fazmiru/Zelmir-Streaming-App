@@ -51,7 +51,21 @@ export function AlbumPage({
   return (
     <div className="album-page">
       <div className="album-header">
-        <img className="album-cover" src={thumbnail} alt="" />
+        <img
+          className="album-cover"
+          src={thumbnail || (tracks[0]?.thumbnail ?? '')}
+          alt=""
+          loading="eager"
+          decoding="async"
+          onError={(e) => {
+            const el = e.currentTarget
+            const vid = tracks[0]?.videoId
+            if (vid && !el.dataset.fallback) {
+              el.dataset.fallback = '1'
+              el.src = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`
+            }
+          }}
+        />
         <div className="album-header-meta">
           <p className="album-label">Album</p>
           <h1 className="album-title">{name}</h1>

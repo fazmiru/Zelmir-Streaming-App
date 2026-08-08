@@ -842,9 +842,12 @@
 .track-thumb {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: 6px;
   object-fit: cover;
+  object-position: center;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  filter: none !important;
 }
 
 .track-details {
@@ -5818,8 +5821,12 @@ main.content.content-artist {
   height: 220px;
   border-radius: 8px;
   object-fit: cover;
+  object-position: center;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   flex-shrink: 0;
+  filter: none !important;
+  image-rendering: auto;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .album-header-meta {
