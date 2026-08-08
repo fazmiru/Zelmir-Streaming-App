@@ -8920,6 +8920,14 @@ html.theme-cycle .mode-button-active.accent-fill {
   }
 
   /* Kinetic chars — scatter then settle into a soft cluster */
+  /* Whole words only — never break mid-word */
+  .home-lyrics-kinetic .mv-word {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    margin: 0 0.28em;
+  }
+
   .home-lyrics-kinetic .mv-char {
     display: inline-block;
     position: relative;
@@ -8941,7 +8949,7 @@ html.theme-cycle .mode-button-active.accent-fill {
   }
 
   .home-lyrics-kinetic .mv-word-start {
-    margin-left: 0.22em;
+    margin-left: 0;
   }
 
   @keyframes mv2-char-in {

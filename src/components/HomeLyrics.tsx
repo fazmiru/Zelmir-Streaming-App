@@ -17,15 +17,20 @@ interface HomeLyricsProps {
 
 const lyricsCache = new Map<string, LyricsResult>()
 
-function splitKinetic(text: string): { ch: string; wordStart: boolean }[] {
-  const out: { ch: string; wordStart: boolean }[] = []
-  let prevSpace = true
-  for (const ch of Array.from(text)) {
-    const isSpace = /\s/.test(ch)
-    out.push({ ch: isSpace ? '\u00a0' : ch, wordStart: !isSpace && prevSpace })
-    prevSpace = isSpace
+/** Split into words so flex wrap never cuts mid-word; chars stay inside each word. */
+function splitKineticWords(text: string): { chars: string[]; key: string }[] {
+  const parts = text.split(/(\s+)/)
+  const words: { chars: string[]; key: string }[] = []
+  let wi = 0
+  for (const part of parts) {
+    if (!part) continue
+    if (/^\s+$/.test(part)) {
+      // keep a single non-breaking gap only between real words via margin on word spans
+      continue
+    }
+    words.push({ chars: Array.from(part), key: `w${wi++}-${part.slice(0, 8)}` })
   }
-  return out
+  return words
 }
 
 /**
@@ -162,7 +167,7 @@ export function HomeLyrics({ track, currentTime, duration, isPlaying }: HomeLyri
   const fx = subtitle.fxStyle
   const cinematic = fx === 'cinematic'
   const kinetic = fx === 'cinematic2'
-  const chars = kinetic ? splitKinetic(text) : null
+  const words = kinetic ? splitKineticWords(text) : null
 
   return (
     <div
@@ -195,24 +200,33 @@ export function HomeLyrics({ track, currentTime, duration, isPlaying }: HomeLyri
 
       {kinetic ? (
         <p key={enterKey} className="home-lyrics-line mv-kinetic-line" data-text={text}>
-          {chars!.map((c, i) => {
-            const emphasis = i === 0 || i === chars!.length - 1 || i % 7 === 3
+          {words!.map((word, wi) => {
+            let globalI = 0
+            for (let j = 0; j < wi; j++) globalI += words![j].chars.length
             return (
-              <span
-                key={`${enterKey}-${i}`}
-                className={`mv-char ${c.wordStart ? 'mv-word-start' : ''} ${emphasis ? 'mv-char-hero' : ''}`}
-                style={
-                  {
-                    '--i': i,
-                    '--r': ((i * 37) % 11) - 5,
-                    '--ry': ((i * 19) % 13) - 6,
-                    '--rot': ((i * 23) % 7) - 3,
-                    '--drift-x': ((i * 41) % 21) - 10,
-                    '--drift-y': ((i * 29) % 17) - 8,
-                  } as CSSProperties
-                }
-              >
-                {c.ch}
+              <span key={`${enterKey}-${word.key}`} className="mv-word">
+                {word.chars.map((ch, ci) => {
+                  const i = globalI + ci
+                  const emphasis = i === 0 || (wi === words!.length - 1 && ci === word.chars.length - 1)
+                  return (
+                    <span
+                      key={`${enterKey}-${i}`}
+                      className={`mv-char ${emphasis ? 'mv-char-hero' : ''}`}
+                      style={
+                        {
+                          '--i': i,
+                          '--r': ((i * 37) % 11) - 5,
+                          '--ry': ((i * 19) % 13) - 6,
+                          '--rot': ((i * 23) % 7) - 3,
+                          '--drift-x': ((i * 41) % 21) - 10,
+                          '--drift-y': ((i * 29) % 17) - 8,
+                        } as CSSProperties
+                      }
+                    >
+                      {ch}
+                    </span>
+                  )
+                })}
               </span>
             )
           })}
