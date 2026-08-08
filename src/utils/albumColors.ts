@@ -116,7 +116,6 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
 /** Build alternate thumbnail URLs when the primary fails CORS / 404. */
 function candidateUrls(imageUrl: string): string[] {
   const urls: string[] = [imageUrl]
-  const m = imageUrl.match(/\/vi\/([a-zA-Z0-9_-]{6,})\/|/i) || imageUrl.match(/([a-zA-Z0-9_-]{11})/)
   // YouTube id from common patterns
   const yt = imageUrl.match(/\/vi\/([a-zA-Z0-9_-]{11})\//)
   const id = yt?.[1]
