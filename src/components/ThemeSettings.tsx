@@ -144,10 +144,6 @@ function ResetButton({ label, onClick }: { label: string; onClick: () => void })
   )
 }
 
-function GroupLabel({ children }: { children: ReactNode }) {
-  return <p className="set-group-label">{children}</p>
-}
-
 function ColorPickers({
   theme,
   onChange,
