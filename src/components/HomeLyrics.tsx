@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Track } from '../types'
 import { useTheme } from '../theme/ThemeContext'
 import {
@@ -15,18 +15,29 @@ interface HomeLyricsProps {
   isPlaying: boolean
 }
 
-/** Survive unmount when leaving Home — avoid blank lyrics on return */
 const lyricsCache = new Map<string, LyricsResult>()
 
+function splitKinetic(text: string): { ch: string; wordStart: boolean }[] {
+  const out: { ch: string; wordStart: boolean }[] = []
+  let prevSpace = true
+  for (const ch of Array.from(text)) {
+    const isSpace = /\s/.test(ch)
+    out.push({ ch: isSpace ? '\u00a0' : ch, wordStart: !isSpace && prevSpace })
+    prevSpace = isSpace
+  }
+  return out
+}
+
 /**
- * Desktop / iPad only — active lyric on the home backdrop.
- * Styles: classic cyber glitch · cinematic MV (ghost type / particles).
+ * Desktop / iPad home lyrics.
+ * classic · cinematic · cinematic2 (kinetic MV)
  */
 export function HomeLyrics({ track, currentTime, duration, isPlaying }: HomeLyricsProps) {
   const { subtitle } = useTheme()
   const [lines, setLines] = useState<LyricLine[] | null>(null)
   const [plain, setPlain] = useState<string | null>(null)
   const [glitchOn, setGlitchOn] = useState(false)
+  const [flash, setFlash] = useState(false)
   const [enterKey, setEnterKey] = useState(0)
   const prevLine = useRef(-1)
   const inflight = useRef<string | null>(null)
@@ -115,9 +126,23 @@ export function HomeLyrics({ track, currentTime, duration, isPlaying }: HomeLyri
 
     if (lineChanged && activeIndex >= 0) {
       setEnterKey((k) => k + 1)
+
+      if (subtitle.fxStyle === 'cinematic2') {
+        setGlitchOn(true)
+        // Soft bloom pulse only — no full-screen white invert rectangle
+        setFlash(true)
+        const t1 = window.setTimeout(() => setFlash(false), 280)
+        const t2 = window.setTimeout(() => setGlitchOn(false), 1200)
+        return () => {
+          window.clearTimeout(t1)
+          window.clearTimeout(t2)
+        }
+      }
+
       if (subtitle.glitch === 'on_change' || subtitle.fxStyle === 'cinematic') {
         setGlitchOn(true)
-        const t = window.setTimeout(() => setGlitchOn(false), subtitle.fxStyle === 'cinematic' ? 900 : 420)
+        const ms = subtitle.fxStyle === 'cinematic' ? 900 : 420
+        const t = window.setTimeout(() => setGlitchOn(false), ms)
         return () => window.clearTimeout(t)
       }
     }
@@ -134,23 +159,32 @@ export function HomeLyrics({ track, currentTime, duration, isPlaying }: HomeLyri
 
   if (!subtitle.enabled || !track || !text) return null
 
-  const cinematic = subtitle.fxStyle === 'cinematic'
+  const fx = subtitle.fxStyle
+  const cinematic = fx === 'cinematic'
+  const kinetic = fx === 'cinematic2'
+  const chars = kinetic ? splitKinetic(text) : null
 
   return (
     <div
       className={[
         'home-lyrics',
-        cinematic ? 'home-lyrics-cinematic' : 'home-lyrics-classic',
+        fx === 'classic' ? 'home-lyrics-classic' : '',
+        cinematic ? 'home-lyrics-cinematic' : '',
+        kinetic ? 'home-lyrics-kinetic' : '',
         glitchOn ? 'home-lyrics-glitching' : '',
+        flash ? 'home-lyrics-bloom' : '',
       ]
         .filter(Boolean)
         .join(' ')}
       aria-hidden
     >
-      {cinematic && (
+      {(cinematic || kinetic) && (
         <>
           <div className="mv-dust" />
           <div className="mv-scan" />
+          <div className="mv-grain" />
+          {kinetic && <div className="mv-vhs-slice" />}
+          {kinetic && <div className="mv-trails" />}
           {prevText && (
             <p className="mv-ghost-prev" data-text={prevText}>
               {prevText}
@@ -158,15 +192,50 @@ export function HomeLyrics({ track, currentTime, duration, isPlaying }: HomeLyri
           )}
         </>
       )}
-      <p
-        key={enterKey}
-        className={`home-lyrics-line ${cinematic ? 'mv-line-enter' : ''}`}
-        data-text={text}
-      >
-        {cinematic && <span className="mv-echo" aria-hidden>{text}</span>}
-        <span className="mv-main">{text}</span>
-        {cinematic && <span className="mv-echo mv-echo-2" aria-hidden>{text}</span>}
-      </p>
+
+      {kinetic ? (
+        <p key={enterKey} className="home-lyrics-line mv-kinetic-line" data-text={text}>
+          {chars!.map((c, i) => {
+            const emphasis = i === 0 || i === chars!.length - 1 || i % 7 === 3
+            return (
+              <span
+                key={`${enterKey}-${i}`}
+                className={`mv-char ${c.wordStart ? 'mv-word-start' : ''} ${emphasis ? 'mv-char-hero' : ''}`}
+                style={
+                  {
+                    '--i': i,
+                    '--r': ((i * 37) % 11) - 5,
+                    '--ry': ((i * 19) % 13) - 6,
+                    '--rot': ((i * 23) % 7) - 3,
+                    '--drift-x': ((i * 41) % 21) - 10,
+                    '--drift-y': ((i * 29) % 17) - 8,
+                  } as CSSProperties
+                }
+              >
+                {c.ch}
+              </span>
+            )
+          })}
+        </p>
+      ) : (
+        <p
+          key={enterKey}
+          className={`home-lyrics-line ${cinematic ? 'mv-line-enter' : ''}`}
+          data-text={text}
+        >
+          {cinematic && (
+            <span className="mv-echo" aria-hidden>
+              {text}
+            </span>
+          )}
+          <span className="mv-main">{text}</span>
+          {cinematic && (
+            <span className="mv-echo mv-echo-2" aria-hidden>
+              {text}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   )
 }

@@ -479,6 +479,7 @@ export function ThemeSettings() {
             [
               { id: 'classic', label: 'Classic glitch' },
               { id: 'cinematic', label: 'Cinematic MV' },
+              { id: 'cinematic2', label: 'Cinematic MV 2' },
             ] as { id: SubtitleFxStyle; label: string }[]
           ).map((opt) => (
             <button
@@ -492,7 +493,7 @@ export function ThemeSettings() {
           ))}
         </div>
         <p className="settings-subtitle" style={{ marginTop: 0, marginBottom: 12 }}>
-          Cinematic MV — large glowing type, ghost layers &amp; particle dust (like a Japanese music video).
+          MV — glow type &amp; ghosts. MV 2 — kinetic letters, VHS tears, dust trails, invert flash.
         </p>
 
         <p className="settings-label">Glitch</p>

@@ -98,7 +98,7 @@ export const DEFAULT_BACKGROUND_STYLE: BackgroundStyle = 'glow'
 export type SubtitleMode = 'solid' | 'gradient' | 'cycle' | 'album'
 export type SubtitleGlitch = 'off' | 'subtle' | 'on_change'
 /** classic = current cyber glitch · cinematic = MV-style ghost type / particles */
-export type SubtitleFxStyle = 'classic' | 'cinematic'
+export type SubtitleFxStyle = 'classic' | 'cinematic' | 'cinematic2'
 
 export interface SubtitleTheme {
   enabled: boolean
