@@ -141,7 +141,7 @@ function looksJapaneseTaste(artists: string[], tracks: Track[]): boolean {
 
 function App() {
   const { user, loading: authLoading } = useAuth()
-  const { ambient, theme, subtitle } = useTheme()
+  const { ambient, theme, backgroundTheme, subtitle } = useTheme()
   const [view, setView] = useState<View>('home')
   const [sidebarRailCollapsed, setSidebarRailCollapsed] = useState(() => {
     try {
@@ -268,6 +268,13 @@ function App() {
         root.style.setProperty('--accent-d', d0)
         root.classList.add('theme-cycle')
       }
+      if (backgroundTheme.mode === 'album') {
+        root.style.setProperty('--bg-solid', a0)
+        root.style.setProperty('--bg-a', a0)
+        root.style.setProperty('--bg-b', b0)
+        root.style.setProperty('--bg-c', c0)
+        root.style.setProperty('--bg-d', d0)
+      }
       if (subtitle.mode === 'album') {
         root.style.setProperty('--sub-solid', a0)
         root.style.setProperty('--sub-a', a0)
@@ -279,7 +286,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [player.current?.videoId, player.current?.thumbnail, theme.mode, subtitle.mode])
+  }, [player.current?.videoId, player.current?.thumbnail, theme.mode, backgroundTheme.mode, subtitle.mode])
 
   useEffect(() => {
     playTrackRef.current = player.playTrack

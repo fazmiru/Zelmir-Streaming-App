@@ -123,7 +123,7 @@ input[type='text'] {
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep intentional theme animations (accent + home backdrop) running */
-  *:not(.accent-fill):not(.accent-text):not(.home-theme-orb) {
+  *:not(.accent-fill):not(.accent-text):not(.home-theme-orb):not(.player-progress-line) {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
@@ -136,11 +136,14 @@ input[type='text'] {
 
 /* Seamless L→R cycle: gradient starts AND ends on A so the loop never jumps */
 @keyframes accent-slide {
-  /* 100% → 0%: gradient colors appear to travel left → right */
   from {
-    background-position: 100% 50%;
+    background-position: 200% 50%;
   }
   to {
+    /* With background-size 200%, a full 200% travel is one complete,
+       seamless loop — traveling only to 100% (half) is what caused the
+       visible "reset" jump. Starting at 200% and ending at 0% (rather than
+       the reverse) is what makes it read as left-to-right. */
     background-position: 0% 50%;
   }
 }

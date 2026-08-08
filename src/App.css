@@ -610,24 +610,22 @@
   background: var(--accent-solid);
 }
 
-/* Progress hairline — seamless L→R cycle (accent colors + song album) */
-html.theme-cycle .player-progress-line,
-html.theme-cycle .player-progress-line.accent-fill,
-html.theme-album .player-progress-line,
-html.theme-album .player-progress-line.accent-fill {
+/* Progress hairline cycles left→right with accent (seamless) */
+.theme-cycle .player-progress-line,
+.theme-cycle .player-progress-line.accent-fill {
   border: none !important;
   background-color: transparent !important;
   background-image: linear-gradient(
     90deg,
-    var(--accent-a, var(--album-a, #c45c26)) 0%,
-    var(--accent-b, var(--album-b, #e8a04a)) 25%,
-    var(--accent-c, var(--album-c, #8b3a1a)) 50%,
-    var(--accent-d, var(--album-d, #f0c070)) 75%,
-    var(--accent-a, var(--album-a, #c45c26)) 100%
+    var(--accent-a) 0%,
+    var(--accent-b) 25%,
+    var(--accent-c) 50%,
+    var(--accent-d) 75%,
+    var(--accent-a) 100%
   ) !important;
   background-size: 200% 100% !important;
   background-repeat: repeat !important;
-  background-position: 100% 50% !important;
+  background-position: 0% 50% !important;
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
 }
 
@@ -672,6 +670,32 @@ html.theme-album .player-progress-line.accent-fill {
   padding: 4px;
   width: fit-content;
   margin-bottom: 24px;
+}
+
+.settings-subtoggle-row {
+  display: flex;
+  gap: 6px;
+  margin: -12px 0 16px 4px;
+}
+
+.settings-subtoggle {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.settings-subtoggle:hover {
+  color: var(--text);
+}
+
+.settings-subtoggle-active {
+  color: var(--text);
+  border-color: var(--accent-solid);
+  background: color-mix(in srgb, var(--accent-solid) 16%, transparent);
 }
 
 .mode-button {
@@ -3022,16 +3046,16 @@ button.now-playing-artist-link:hover {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background: color-mix(in srgb, var(--bg-a) 30%, transparent);
+  background: color-mix(in srgb, var(--bg-a) 18%, #0a0a0c);
 }
 
 .home-theme-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px) saturate(1.6);
+  /* Darken bright album/bg colors so the mesh never washes out */
+  filter: blur(90px) saturate(1.35) brightness(0.55);
   will-change: opacity, transform;
-  /* default visible so solid mode still shows color */
-  opacity: 0.55;
+  opacity: 0.42;
 }
 
 .home-theme-orb-a {
@@ -3161,6 +3185,22 @@ button.now-playing-artist-link:hover {
 @keyframes home-pulse-d {
   0%, 100% { opacity: 0.2; transform: scale(1); }
   50%      { opacity: 0.65; transform: scale(1.12); }
+}
+
+/* ---- Album: same crossfade as Cycle, but colors are driven live from
+   the current track's cover (see --bg-a/b/c/d set in App.tsx) rather
+   than a fixed preset. ---- */
+.bg-theme-album .home-theme-orb-a {
+  animation: home-cycle-a var(--bg-speed, 8s) ease-in-out infinite;
+}
+.bg-theme-album .home-theme-orb-b {
+  animation: home-cycle-b var(--bg-speed, 8s) ease-in-out infinite;
+}
+.bg-theme-album .home-theme-orb-c {
+  animation: home-cycle-c var(--bg-speed, 8s) ease-in-out infinite;
+}
+.bg-theme-album .home-theme-orb-d {
+  animation: home-cycle-d var(--bg-speed, 8s) ease-in-out infinite;
 }
 
 .home-view > *:not(.home-theme-backdrop):not(.home-lyrics) {
@@ -4289,44 +4329,6 @@ html.theme-cycle .transport-button-main.accent-fill {
   animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
   color: #0b0b0d !important;
   border: var(--btn-outline-width, 0px) solid var(--btn-outline-color, transparent) !important;
-}
-
-
-html.theme-album .transport-button-main,
-html.theme-album .transport-button-main.accent-fill {
-  background-color: transparent !important;
-  background-image: linear-gradient(
-    90deg,
-    var(--accent-a, var(--album-a, #c45c26)) 0%,
-    var(--accent-b, var(--album-b, #e8a04a)) 25%,
-    var(--accent-c, var(--album-c, #8b3a1a)) 50%,
-    var(--accent-d, var(--album-d, #f0c070)) 75%,
-    var(--accent-a, var(--album-a, #c45c26)) 100%
-  ) !important;
-  background-size: 200% 100% !important;
-  background-repeat: repeat !important;
-  background-position: 100% 50% !important;
-  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
-  color: #0b0b0d !important;
-  border: var(--btn-outline-width, 0px) solid var(--btn-outline-color, transparent) !important;
-}
-
-/* Final progress line (wins over layout media queries) */
-html.theme-cycle .player-bar .player-progress-line,
-html.theme-album .player-bar .player-progress-line {
-  background-color: transparent !important;
-  background-image: linear-gradient(
-    90deg,
-    var(--accent-a, var(--album-a)) 0%,
-    var(--accent-b, var(--album-b)) 25%,
-    var(--accent-c, var(--album-c)) 50%,
-    var(--accent-d, var(--album-d)) 75%,
-    var(--accent-a, var(--album-a)) 100%
-  ) !important;
-  background-size: 200% 100% !important;
-  background-repeat: repeat !important;
-  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
-  border: none !important;
 }
 
 html.theme-pulse .transport-button-main,
@@ -7911,26 +7913,29 @@ main.content.content-artist {
 
 /* Already sung */
 .np-lyric-past {
-  color: rgba(255, 255, 255, 0.32) !important;
+  color: rgba(255, 255, 255, 0.28) !important;
   font-weight: 400 !important;
   text-shadow: none !important;
+  opacity: 0.85;
 }
 
 /* Currently singing */
 .np-lyric-active {
-  color: #fff !important;
-  font-weight: 700 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 800 !important;
   font-size: 19px !important;
+  opacity: 1 !important;
   text-shadow:
-    0 0 12px color-mix(in srgb, var(--accent-solid, #c4b5fd) 65%, transparent),
-    0 0 28px color-mix(in srgb, var(--accent-solid, #c4b5fd) 40%, transparent),
-    0 0 48px color-mix(in srgb, var(--np-c1, var(--accent-solid, #c4b5fd)) 25%, transparent);
+    0 0 12px color-mix(in srgb, var(--np-c0, var(--accent-solid, #c4b5fd)) 70%, transparent),
+    0 0 28px color-mix(in srgb, var(--np-c1, var(--accent-solid, #c4b5fd)) 45%, transparent),
+    0 1px 3px rgba(0, 0, 0, 0.7);
   transform: translateX(2px);
 }
 
 /* Upcoming */
 .np-lyric-future {
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
   font-weight: 500 !important;
 }
 
@@ -8196,21 +8201,23 @@ main.content.content-artist {
   box-shadow: 0 0 12px color-mix(in srgb, var(--np-c1, #e8a04a) 50%, transparent) !important;
 }
 
-/* Active lyric — glow in album colors */
+/* Active lyric — always readable (no transparent fill that can vanish) */
 .now-playing-overlay .np-lyric-active {
-  color: #fff !important;
-  font-weight: 700 !important;
-  background: var(--np-grad-soft);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* fallback glow behind clipped text */
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--np-c0, #c45c26) 55%, transparent))
-    drop-shadow(0 0 22px color-mix(in srgb, var(--np-c1, #e8a04a) 40%, transparent));
-  text-shadow: none !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  font-weight: 800 !important;
+  font-size: 1.15em !important;
+  filter: none !important;
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--np-c0, #fff) 70%, transparent),
+    0 0 24px color-mix(in srgb, var(--np-c1, #fff) 45%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.65) !important;
+  opacity: 1 !important;
+  transform: translateX(2px) scale(1.02);
 }
-
-/* When background-clip isn't ideal on some browsers, reinforce with outline glow via pseudo isn't needed */
 
 @keyframes np-grad-shift {
   0%, 100% { background-position: 0% 50%; }
@@ -8372,38 +8379,19 @@ main.content.content-artist {
 /* ALBUM MODE — accent + home lyrics from cover */
 .theme-album .accent-fill,
 .theme-album .accent-text {
-  background-image: linear-gradient(
-    90deg,
-    var(--accent-a, var(--album-a)) 0%,
-    var(--accent-b, var(--album-b)) 25%,
-    var(--accent-c, var(--album-c)) 50%,
-    var(--accent-d, var(--album-d)) 75%,
-    var(--accent-a, var(--album-a)) 100%
-  ) !important;
-  background-size: 200% 100% !important;
-  background-repeat: repeat !important;
-  background-position: 100% 50% !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent !important;
-  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+  /* cycling-style multi-stop using album vars mapped to accent-* */
 }
 
-
 .theme-album .accent-fill {
-  background-image: linear-gradient(
-    90deg,
-    var(--accent-a, var(--album-a, #c45c26)) 0%,
-    var(--accent-b, var(--album-b, #e8a04a)) 25%,
-    var(--accent-c, var(--album-c, #8b3a1a)) 50%,
-    var(--accent-d, var(--album-d, #f0c070)) 75%,
-    var(--accent-a, var(--album-a, #c45c26)) 100%
+  background: linear-gradient(
+    115deg,
+    var(--accent-a, var(--album-a, #c45c26)),
+    var(--accent-b, var(--album-b, #e8a04a)),
+    var(--accent-c, var(--album-c, #8b3a1a)),
+    var(--accent-d, var(--album-d, #f0c070))
   ) !important;
-  background-size: 200% 100% !important;
-  background-repeat: repeat !important;
-  background-position: 100% 50% !important;
-  animation: accent-slide var(--accent-speed, 6s) linear infinite !important;
+  background-size: 200% 200% !important;
+  animation: np-grad-shift 7s ease-in-out infinite;
 }
 
 .theme-album .accent-range {
@@ -8441,8 +8429,8 @@ main.content.content-artist {
 
 
 @keyframes accent-slide {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 100% 50%; }
+  0% { background-position: 200% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 
@@ -9263,3 +9251,30 @@ html.theme-cycle .mode-button-active.accent-fill {
   animation: mv2-char-in 0.6s cubic-bezier(0.12, 0.85, 0.2, 1) both;
   background: none !important;
 }
+
+
+/* Accents stay fully saturated — never dimmed */
+html.theme-cycle .accent-fill,
+html.theme-album .accent-fill,
+html.theme-cycle .transport-button-main.accent-fill,
+html.theme-album .transport-button-main.accent-fill,
+html.theme-cycle .search-button.accent-fill,
+html.theme-album .search-button.accent-fill,
+html.theme-cycle .mode-button-active.accent-fill,
+html.theme-album .mode-button-active.accent-fill {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html.theme-cycle .accent-text,
+html.theme-album .accent-text {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+html.theme-cycle .player-bar .player-progress-line,
+html.theme-album .player-bar .player-progress-line {
+  filter: none !important;
+  opacity: 1 !important;
+}
+

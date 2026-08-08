@@ -414,6 +414,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.toggle('bg-theme-cycle', backgroundTheme.mode === 'cycle')
     root.classList.toggle('bg-theme-solid', backgroundTheme.mode === 'solid')
     root.classList.toggle('bg-theme-pulse', backgroundTheme.mode === 'pulse')
+    root.classList.toggle('bg-theme-album', backgroundTheme.mode === 'album')
   }, [backgroundTheme])
 
   useEffect(() => {

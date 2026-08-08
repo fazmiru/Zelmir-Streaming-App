@@ -94,8 +94,13 @@ function ColorSection({
           Solid
         </button>
         <button
-          className={`mode-button ${theme.mode === 'cycle' ? 'mode-button-active accent-fill' : ''}`}
-          onClick={() => onChange({ ...theme, mode: 'cycle' })}
+          className={`mode-button ${
+            theme.mode === 'cycle' || theme.mode === 'album' ? 'mode-button-active accent-fill' : ''
+          }`}
+          onClick={() => {
+            // Already on Cycling (in either sub-mode) — clicking again shouldn't reset it.
+            if (theme.mode !== 'cycle' && theme.mode !== 'album') onChange({ ...theme, mode: 'cycle' })
+          }}
         >
           Cycling
         </button>
@@ -105,13 +110,26 @@ function ColorSection({
         >
           Pulse
         </button>
-        <button
-          className={`mode-button ${theme.mode === 'album' ? 'mode-button-active accent-fill' : ''}`}
-          onClick={() => onChange({ ...theme, mode: 'album' })}
-        >
-          Song album
-        </button>
       </div>
+
+      {(theme.mode === 'cycle' || theme.mode === 'album') && (
+        <div className="settings-subtoggle-row">
+          <button
+            type="button"
+            className={`settings-subtoggle ${theme.mode === 'cycle' ? 'settings-subtoggle-active' : ''}`}
+            onClick={() => onChange({ ...theme, mode: 'cycle' })}
+          >
+            Custom colors
+          </button>
+          <button
+            type="button"
+            className={`settings-subtoggle ${theme.mode === 'album' ? 'settings-subtoggle-active' : ''}`}
+            onClick={() => onChange({ ...theme, mode: 'album' })}
+          >
+            Song album
+          </button>
+        </div>
+      )}
 
       {theme.mode === 'album' && (
         <p className="settings-subtitle" style={{ marginTop: 4, marginBottom: 8 }}>
