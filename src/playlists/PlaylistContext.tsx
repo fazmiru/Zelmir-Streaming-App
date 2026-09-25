@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabaseClient'
 interface PlaylistContextValue {
   playlists: Playlist[]
   createPlaylist: (name: string, initialTracks?: Track[]) => string
+  renamePlaylist: (id: string, name: string) => void
+  duplicatePlaylist: (id: string) => string
   deletePlaylist: (id: string) => void
   addTrackToPlaylist: (id: string, track: Track) => void
   addTracksToPlaylist: (id: string, tracks: Track[]) => void
@@ -75,6 +77,25 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
       })
   }
 
+  const renamePlaylist = (id: string, name: string) => {
+    const nextName = name.trim()
+    if (!nextName) return
+    setPlaylists((p) => p.map((pl) => (pl.id === id ? { ...pl, name: nextName } : pl)))
+    supabase
+      .from('playlists')
+      .update({ name: nextName, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) console.error('Failed to rename playlist:', error)
+      })
+  }
+
+  const duplicatePlaylist = (id: string) => {
+    const source = playlists.find((pl) => pl.id === id)
+    if (!source) return ''
+    return createPlaylist(`${source.name} copy`, source.tracks)
+  }
+
   const addTrackToPlaylist = (id: string, track: Track) => {
     setPlaylists((p) =>
       p.map((pl) => {
@@ -119,6 +140,8 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
     () => ({
       playlists,
       createPlaylist,
+      renamePlaylist,
+      duplicatePlaylist,
       deletePlaylist,
       addTrackToPlaylist,
       addTracksToPlaylist,

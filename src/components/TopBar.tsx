@@ -1,4 +1,5 @@
 import { SearchIcon } from './Icons'
+import React from 'react'
 
 interface TopBarProps {
   query: string
@@ -7,7 +8,7 @@ interface TopBarProps {
   loading: boolean
 }
 
-export function TopBar({ query, onQueryChange, onSearch, loading }: TopBarProps) {
+export const TopBar = React.memo(function TopBar({ query, onQueryChange, onSearch, loading }: TopBarProps) {
   return (
     <header className="topbar">
       <div className="search-box">
@@ -25,4 +26,4 @@ export function TopBar({ query, onQueryChange, onSearch, loading }: TopBarProps)
       </button>
     </header>
   )
-}
+})

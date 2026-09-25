@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import {
   HomeIcon,
   SearchIcon,
@@ -82,7 +82,7 @@ function PanelExpandIcon({ size = 18 }: { size?: number }) {
   )
 }
 
-export function Sidebar({
+export const Sidebar = React.memo(function Sidebar({
   view,
   activePlaylistId,
   onNavigate,
@@ -322,4 +322,4 @@ export function Sidebar({
       </div>
     </aside>
   )
-}
+})

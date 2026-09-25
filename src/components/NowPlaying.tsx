@@ -35,6 +35,11 @@ interface NowPlayingProps {
   onToggleShuffle: () => void
   onCycleRepeat: () => void
   onPlayFromQueue: (track: Track, source: Track[]) => void
+  onRemoveFromQueue: (index: number) => void
+  onMoveQueueItem: (fromIndex: number, toIndex: number) => void
+  onClearQueue: () => void
+  playbackRate: number
+  onPlaybackRate: (rate: number) => void
   onOpenArtist: (artist: string) => void
 }
 
@@ -62,6 +67,11 @@ export function NowPlaying({
   onToggleShuffle,
   onCycleRepeat,
   onPlayFromQueue,
+  onRemoveFromQueue,
+  onMoveQueueItem,
+  onClearQueue,
+  playbackRate,
+  onPlaybackRate,
   onOpenArtist,
 }: NowPlayingProps) {
   const [tab, setTab] = useState<Tab>('upnext')
@@ -194,10 +204,16 @@ export function NowPlaying({
     <>
       {tab === 'upnext' && (
         <>
+          <div className="now-playing-queue-actions">
+            <span>{upNext.length} up next</span>
+            <button type="button" onClick={onClearQueue} disabled={upNext.length === 0}>Clear queue</button>
+          </div>
           {upNext.length === 0 && (
             <p className="now-playing-empty">No more songs in the queue.</p>
           )}
-          {upNext.map((t, i) => (
+          {upNext.map((t, i) => {
+            const queueIndexForTrack = Math.max(0, queueIndex) + 1 + i
+            return (
             <div
               key={`${t.videoId}-${i}`}
               className="now-playing-row"
@@ -210,8 +226,13 @@ export function NowPlaying({
                 <span className="now-playing-row-title">{t.title}</span>
                 <span className="now-playing-row-artist">{t.artist}</span>
               </div>
+              <div className="now-playing-row-actions">
+                <button type="button" aria-label="Move up" disabled={queueIndexForTrack <= queueIndex + 1} onClick={(e) => { e.stopPropagation(); onMoveQueueItem(queueIndexForTrack, queueIndexForTrack - 1) }}>↑</button>
+                <button type="button" aria-label="Remove from queue" onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(queueIndexForTrack) }}>×</button>
+              </div>
             </div>
-          ))}
+            )
+          })}
           {/* current at top when sheet */}
           <div className="now-playing-row now-playing-row-current" style={{ order: -1 }}>
             <img src={track.thumbnail || coverSrc} alt="" className="now-playing-row-thumb" />
@@ -383,6 +404,12 @@ export function NowPlaying({
               RECOMMENDED
             </button>
           </div>
+          <label className="now-playing-speed">
+            Speed
+            <select value={playbackRate} onChange={(e) => onPlaybackRate(Number(e.target.value))}>
+              {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
+            </select>
+          </label>
           <div className="now-playing-panel">{panelBody}</div>
         </div>
       </div>

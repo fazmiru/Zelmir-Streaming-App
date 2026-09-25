@@ -291,8 +291,43 @@ function App() {
   useEffect(() => {
     playTrackRef.current = player.playTrack
   }, [player.playTrack])
-  const { playlists, createPlaylist, reorderPlaylistTracks, removeTrackFromPlaylist } = usePlaylists()
+  const {
+    playlists,
+    createPlaylist,
+    renamePlaylist,
+    duplicatePlaylist,
+    deletePlaylist,
+    reorderPlaylistTracks,
+    removeTrackFromPlaylist,
+  } = usePlaylists()
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId) ?? null
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement
+      if (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
+        if (event.key === '/' && target.tagName === 'INPUT') return
+        return
+      }
+      if (event.key === ' ') {
+        event.preventDefault()
+        player.togglePlay()
+      } else if (event.key.toLowerCase() === 'n') {
+        player.next()
+      } else if (event.key.toLowerCase() === 'p') {
+        player.prev()
+      } else if (event.key === '/') {
+        event.preventDefault()
+        document.querySelector<HTMLInputElement>('.search-box input')?.focus()
+      } else if (event.key === 'ArrowRight') {
+        player.seekTo(Math.min(player.duration, player.currentTime + 5))
+      } else if (event.key === 'ArrowLeft') {
+        player.seekTo(Math.max(0, player.currentTime - 5))
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [player])
 
   useEffect(() => {
     playlistRecsRef.current = playlistRecs
@@ -1207,6 +1242,30 @@ function App() {
                 )}
               </section>
 
+              {player.history.length > 0 && (
+                <section className="home-section">
+                  <div className="home-section-header">
+                    <div>
+                      <h2 className="section-heading">Listening history</h2>
+                      <p className="home-section-sub">Pick up where you left off</p>
+                    </div>
+                    <button type="button" className="text-button" onClick={player.clearHistory}>Clear</button>
+                  </div>
+                  <div className="home-playlist-grid home-recent-grid">
+                    {player.history.slice(0, 12).map((track) => (
+                      <button key={track.videoId} type="button" className="home-playlist-tile" onClick={() => handlePlay(track, player.history)}>
+                        <div className="home-playlist-tile-art">
+                          <img src={track.thumbnail} alt="" loading="lazy" />
+                          <span className="home-playlist-tile-play" aria-hidden>▶</span>
+                        </div>
+                        <span className="home-playlist-tile-name">{track.title}</span>
+                        <span className="home-playlist-tile-sub">{track.artist}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {player.queue.length > 0 && (
                 <section className="home-section">
                   <div className="home-section-header">
@@ -1443,29 +1502,28 @@ function App() {
                 </p>
               ) : (
                 <div className="library-list">
-                  {playlists.map((pl) => {
+                  {[...playlists].sort((a, b) => a.name.localeCompare(b.name)).map((pl) => {
                     const art = pl.tracks[0]?.thumbnail
                     return (
-                      <button
+                      <div
                         key={pl.id}
-                        type="button"
                         className="library-row"
-                        onClick={() => handleOpenPlaylist(pl.id)}
                       >
-                        <div className="library-row-art">
-                          {art ? (
-                            <img src={art} alt="" />
-                          ) : (
-                            <div className="library-row-art-empty" />
-                          )}
+                        <button type="button" className="library-row-main" onClick={() => handleOpenPlaylist(pl.id)}>
+                          <div className="library-row-art">
+                            {art ? <img src={art} alt="" loading="lazy" /> : <div className="library-row-art-empty" />}
+                          </div>
+                          <div className="library-row-meta">
+                            <span className="library-row-name">{pl.name}</span>
+                            <span className="library-row-sub">Playlist · {pl.tracks.length} song{pl.tracks.length === 1 ? '' : 's'}</span>
+                          </div>
+                        </button>
+                        <div className="library-row-actions">
+                          <button type="button" onClick={() => { const name = window.prompt('Rename playlist', pl.name); if (name) renamePlaylist(pl.id, name) }} aria-label={`Rename ${pl.name}`}>Rename</button>
+                          <button type="button" onClick={() => duplicatePlaylist(pl.id)} aria-label={`Duplicate ${pl.name}`}>Copy</button>
+                          <button type="button" onClick={() => { if (window.confirm(`Delete "${pl.name}"?`)) deletePlaylist(pl.id) }} aria-label={`Delete ${pl.name}`}>Delete</button>
                         </div>
-                        <div className="library-row-meta">
-                          <span className="library-row-name">{pl.name}</span>
-                          <span className="library-row-sub">
-                            Playlist · {pl.tracks.length} song{pl.tracks.length === 1 ? '' : 's'}
-                          </span>
-                        </div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -1619,6 +1677,11 @@ function App() {
             onSeek={player.seekTo}
             onToggleShuffle={player.toggleShuffle}
             onCycleRepeat={player.cycleRepeat}
+            onRemoveFromQueue={player.removeFromQueue}
+            onMoveQueueItem={player.reorderQueue}
+            onClearQueue={player.clearQueue}
+            playbackRate={player.playbackRate}
+            onPlaybackRate={player.setPlaybackRate}
             onPlayFromQueue={(track, source) => player.playTrack(track, source)}
             onOpenArtist={(artist) => {
               setNowPlayingOpen(false)

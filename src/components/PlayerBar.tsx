@@ -40,7 +40,7 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function PlayerBar({
+export const PlayerBar = React.memo(function PlayerBar({
   current,
   isPlaying,
   currentTime,
@@ -185,4 +185,4 @@ export function PlayerBar({
       <div className="player-progress-line accent-fill" style={{ width: `${seekProgress}%` }} />
     </div>
   )
-}
+})

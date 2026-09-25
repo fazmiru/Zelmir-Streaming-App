@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, useMemo, useCallback } from 'react'
 import type { Track } from '../types'
 import { PlayIcon, GripIcon, ThumbsUpIcon } from './Icons'
 import { AddToPlaylistMenu } from './AddToPlaylistMenu'
@@ -6,6 +6,8 @@ import { TrackOptionsMenu } from './TrackOptionsMenu'
 import { usePlaylists } from '../playlists/PlaylistContext'
 
 const LIKED_SONGS_PLAYLIST_NAME = 'Liked Songs'
+const INITIAL_CHUNK_SIZE = 50
+const CHUNK_INCREMENT = 30
 
 interface VideoGridProps {
   tracks: Track[]
@@ -38,20 +40,28 @@ export function VideoGrid({
 }: VideoGridProps) {
   const { playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist } = usePlaylists()
   const likedPlaylist = playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME)
-  // When "Save to playlist" is chosen from the ⋮ menu, open the add modal for this track.
   const [playlistMenuTrack, setPlaylistMenuTrack] = useState<Track | null>(null)
 
-  const isLiked = (track: Track) => !!likedPlaylist?.tracks.some((t) => t.videoId === track.videoId)
+  // Chunked rendering for performance
+  const [displayedCount, setDisplayedCount] = useState(INITIAL_CHUNK_SIZE)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const toggleLike = (track: Track) => {
-    if (likedPlaylist) {
-      if (isLiked(track)) removeTrackFromPlaylist(likedPlaylist.id, track.videoId)
-      else addTrackToPlaylist(likedPlaylist.id, track)
-    } else {
-      createPlaylist(LIKED_SONGS_PLAYLIST_NAME, [track])
-    }
-  }
+  const isLiked = useCallback(
+    (track: Track) => !!likedPlaylist?.tracks.some((t) => t.videoId === track.videoId),
+    [likedPlaylist]
+  )
 
+  const toggleLike = useCallback(
+    (track: Track) => {
+      if (likedPlaylist) {
+        if (isLiked(track)) removeTrackFromPlaylist(likedPlaylist.id, track.videoId)
+        else addTrackToPlaylist(likedPlaylist.id, track)
+      } else {
+        createPlaylist(LIKED_SONGS_PLAYLIST_NAME, [track])
+      }
+    },
+    [likedPlaylist, isLiked, removeTrackFromPlaylist, addTrackToPlaylist, createPlaylist]
+  )
 
   // Local copy so we can show live reordering while dragging, without waiting on the parent.
   const [order, setOrder] = useState(tracks)
@@ -60,10 +70,48 @@ export function VideoGrid({
   const draggingRef = useRef(false)
 
   useEffect(() => {
-    // Don't clobber the live-reordered list mid-drag if the parent re-renders with old props.
     if (draggingRef.current) return
     setOrder(tracks)
+    setDisplayedCount(INITIAL_CHUNK_SIZE)
   }, [tracks])
+
+  // Infinite scroll handling
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // Find the closest scrollable parent (the .content element)
+    let scrollableParent: HTMLElement | null = container.parentElement
+    while (scrollableParent && window.getComputedStyle(scrollableParent).overflowY !== 'auto') {
+      scrollableParent = scrollableParent.parentElement
+    }
+
+    if (!scrollableParent) {
+      // Fallback: use window scroll if no scrollable parent found
+      const handleScroll = () => {
+        const docHeight = document.documentElement.scrollHeight
+        const viewportHeight = window.innerHeight
+        const scrollTop = window.scrollY
+        if (docHeight - scrollTop - viewportHeight < 500) {
+          setDisplayedCount((prev) => Math.min(prev + CHUNK_INCREMENT, order.length))
+        }
+      }
+      window.addEventListener('scroll', handleScroll)
+      return () => window.removeEventListener('scroll', handleScroll)
+    }
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollableParent
+      if (scrollHeight - scrollTop - clientHeight < 500) {
+        setDisplayedCount((prev) => Math.min(prev + CHUNK_INCREMENT, order.length))
+      }
+    }
+
+    scrollableParent.addEventListener('scroll', handleScroll)
+    return () => scrollableParent.removeEventListener('scroll', handleScroll)
+  }, [order.length])
+
+  const displayedTracks = useMemo(() => order.slice(0, displayedCount), [order, displayedCount])
 
   if (order.length === 0) {
     return <p className="empty-state">{emptyLabel ?? 'Nothing here yet.'}</p>
@@ -103,14 +151,18 @@ export function VideoGrid({
   }
 
   return (
-    <div className={`track-list ${reorderable ? 'track-list-reorderable' : ''}`}>
+    <div
+      ref={containerRef}
+      className={`track-list ${reorderable ? 'track-list-reorderable' : ''}`}
+      style={{ position: 'relative' }}
+    >
       <div className="track-list-header">
         <span className="track-col-index">#</span>
         <span className="track-col-title">Title</span>
         <span className="track-col-actions"></span>
       </div>
 
-      {order.map((track, index) => {
+      {displayedTracks.map((track, index) => {
         const isActive = track.videoId === currentVideoId
         const isDragging = index === dragIndex
 

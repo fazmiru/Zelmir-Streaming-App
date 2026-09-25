@@ -121,6 +121,21 @@ export function useYouTubePlayer(
   const [volume, setVolumeState] = useState(80)
   const [shuffle, setShuffle] = useState(false)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
+  const [playbackRate, setPlaybackRateState] = useState(1)
+  const [history, setHistory] = useState<Track[]>([])
+
+  const persistedState = useRef<{ queue: Track[]; queueIndex: number; volume: number; shuffle: boolean; repeatMode: RepeatMode; playbackRate: number; currentTime?: number } | null>(null)
+  if (persistedState.current === null && typeof window !== 'undefined') {
+    try {
+      const stored = JSON.parse(localStorage.getItem('zelmir-player-state') || 'null')
+      if (stored && Array.isArray(stored.queue)) persistedState.current = stored
+    } catch {
+      persistedState.current = null
+    }
+  }
+  const initialPlayerState = persistedState.current
+  const hasRestoredState = useRef(false)
+  const restoredPositionRef = useRef(0)
 
   const queueRef = useRef(queue)
   const queueIndexRef = useRef(queueIndex)
@@ -128,6 +143,7 @@ export function useYouTubePlayer(
   const shuffleRef = useRef(shuffle)
   const repeatModeRef = useRef(repeatMode)
   const volumeRef = useRef(volume)
+  const playbackRateRef = useRef(playbackRate)
   const historyRef = useRef<number[]>([])
   const requestedVideoIdRef = useRef<string | null>(null)
   // True while a freshly loadVideoById()'d video is muted and waiting for
@@ -175,8 +191,57 @@ export function useYouTubePlayer(
   useEffect(() => {
     volumeRef.current = volume
   }, [volume])
+  useEffect(() => {
+    playbackRateRef.current = playbackRate
+  }, [playbackRate])
+
+  useEffect(() => {
+    if (hasRestoredState.current) return
+    hasRestoredState.current = true
+    if (!initialPlayerState) return
+    setQueue(initialPlayerState.queue)
+    setQueueIndex(Math.min(initialPlayerState.queueIndex || 0, Math.max(0, initialPlayerState.queue.length - 1)))
+    setVolumeState(typeof initialPlayerState.volume === 'number' ? initialPlayerState.volume : 80)
+    setShuffle(Boolean(initialPlayerState.shuffle))
+    setRepeatMode(initialPlayerState.repeatMode || 'off')
+    setPlaybackRateState(typeof initialPlayerState.playbackRate === 'number' ? initialPlayerState.playbackRate : 1)
+    restoredPositionRef.current = typeof initialPlayerState.currentTime === 'number' ? initialPlayerState.currentTime : 0
+  }, [initialPlayerState])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'zelmir-player-state',
+        JSON.stringify({ queue, queueIndex, volume, shuffle, repeatMode, playbackRate, currentTime })
+      )
+    } catch {
+      // Storage can be unavailable in private browsing; playback still works.
+    }
+  }, [queue, queueIndex, volume, shuffle, repeatMode, playbackRate])
 
   const current = queue[queueIndex] ?? null
+
+  useEffect(() => {
+    if (!current) return
+    setHistory((previous) => {
+      const next = [current, ...previous.filter((track) => track.videoId !== current.videoId)].slice(0, 50)
+      try {
+        localStorage.setItem('zelmir-listening-history', JSON.stringify(next))
+      } catch {
+        // History is best effort.
+      }
+      return next
+    })
+  }, [current?.videoId])
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('zelmir-listening-history') || '[]')
+      if (Array.isArray(stored)) setHistory(stored)
+    } catch {
+      // Ignore malformed local history.
+    }
+  }, [])
 
   const revokeObjectUrl = () => {
     if (objectUrlRef.current) {
@@ -194,6 +259,42 @@ export function useYouTubePlayer(
     }
   }, [])
 
+  const removeFromQueue = useCallback((index: number) => {
+    setQueue((q) => {
+      if (index < 0 || index >= q.length) return q
+      const next = q.filter((_, i) => i !== index)
+      setQueueIndex((currentIndex) => {
+        if (next.length === 0) return 0
+        if (index < currentIndex) return currentIndex - 1
+        if (index === currentIndex) return Math.min(currentIndex, next.length - 1)
+        return currentIndex
+      })
+      return next
+    })
+  }, [])
+
+  const reorderQueue = useCallback((fromIndex: number, toIndex: number) => {
+    setQueue((q) => {
+      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= q.length || toIndex >= q.length) return q
+      const next = [...q]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      setQueueIndex((currentIndex) => {
+        if (currentIndex === fromIndex) return toIndex
+        if (fromIndex < currentIndex && toIndex >= currentIndex) return currentIndex - 1
+        if (fromIndex > currentIndex && toIndex <= currentIndex) return currentIndex + 1
+        return currentIndex
+      })
+      return next
+    })
+  }, [])
+
+  const clearQueue = useCallback(() => {
+    const currentTrack = queueRef.current[queueIndexRef.current]
+    setQueue(currentTrack ? [currentTrack] : [])
+    setQueueIndex(0)
+  }, [])
+
   const stopHtmlAudio = useCallback(() => {
     const a = audioRef.current
     if (!a) return
@@ -205,6 +306,22 @@ export function useYouTubePlayer(
       /* ignore */
     }
     revokeObjectUrl()
+  }, [])
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    const nextRate = Math.min(2, Math.max(0.5, rate))
+    setPlaybackRateState(nextRate)
+    if (audioRef.current) audioRef.current.playbackRate = nextRate
+    playerRef.current?.setPlaybackRate?.(nextRate)
+  }, [])
+
+  const clearHistory = useCallback(() => {
+    setHistory([])
+    try {
+      localStorage.removeItem('zelmir-listening-history')
+    } catch {
+      // Ignore storage failures.
+    }
   }, [])
 
   const handleTrackEnded = useCallback(() => {
@@ -344,6 +461,7 @@ export function useYouTubePlayer(
               try {
                 ev?.target?.unMute?.()
                 ev?.target?.setVolume?.(Math.max(1, volumeRef.current || 80))
+                ev?.target?.setPlaybackRate?.(playbackRateRef.current)
               } catch {
                 /* ignore */
               }
@@ -415,6 +533,7 @@ export function useYouTubePlayer(
       objectUrlRef.current = url
       audio.src = url
       audio.volume = volumeRef.current / 100
+      audio.playbackRate = playbackRateRef.current
       try {
         intendedPlayingRef.current = true
         await audio.play()
@@ -449,6 +568,7 @@ export function useYouTubePlayer(
       // silent start → pause → 0:00 on iPhone PWA.
       audio.muted = false
       audio.volume = Math.max(0.01, volumeRef.current / 100)
+      audio.playbackRate = playbackRateRef.current
       audio.src = streamUrl
       try {
         audio.load()
@@ -489,6 +609,7 @@ export function useYouTubePlayer(
       try {
         audio.muted = false
         audio.volume = Math.max(0.01, volumeRef.current / 100)
+        audio.playbackRate = playbackRateRef.current
         await audio.play()
 
         // Stream is confirmed actually playing — NOW it's safe to hand off
@@ -573,7 +694,12 @@ export function useYouTubePlayer(
           }
         }
 
-        p.loadVideoById({ videoId, startSeconds: 0 })
+        const resumeSeconds =
+          queueRef.current[queueIndexRef.current]?.videoId === videoId && restoredPositionRef.current > 5
+            ? restoredPositionRef.current
+            : 0
+        restoredPositionRef.current = 0
+        p.loadVideoById({ videoId, startSeconds: resumeSeconds })
         p.playVideo?.()
 
         const kick = (delay: number) => {
@@ -1063,14 +1189,21 @@ export function useYouTubePlayer(
     volume,
     shuffle,
     repeatMode,
+    playbackRate,
+    history,
     playTrack,
     playNext,
     addToQueue,
+    removeFromQueue,
+    reorderQueue,
+    clearQueue,
     togglePlay,
     next,
     prev,
     seekTo,
     setVolume,
+    setPlaybackRate,
+    clearHistory,
     toggleShuffle,
     cycleRepeat,
   }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import type { Track } from '../types'
 import { ThumbsUpIcon } from './Icons'
 import { AddToPlaylistMenu } from './AddToPlaylistMenu'
@@ -21,7 +21,7 @@ interface HomeSongGridProps {
   onStartMix?: (track: Track) => void
 }
 
-export function HomeSongGrid({
+export const HomeSongGrid = React.memo(function HomeSongGrid({
   tracks,
   onPlay,
   currentVideoId,
@@ -34,25 +34,31 @@ export function HomeSongGrid({
   onStartMix,
 }: HomeSongGridProps) {
   const { playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist } = usePlaylists()
-  const likedPlaylist = playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME)
+  const likedPlaylist = useMemo(() => playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME), [playlists])
   const [playlistMenuTrack, setPlaylistMenuTrack] = useState<Track | null>(null)
 
   const pageSize = columns * rows
   const pageCount = Math.max(1, Math.ceil(Math.max(tracks.length, 1) / pageSize))
   const [page, setPage] = useState(0)
   const safePage = Math.min(page, pageCount - 1)
-  const slice = tracks.slice(safePage * pageSize, safePage * pageSize + pageSize)
+  const slice = useMemo(() => tracks.slice(safePage * pageSize, safePage * pageSize + pageSize), [tracks, safePage, pageSize])
 
-  const isLiked = (track: Track) => !!likedPlaylist?.tracks.some((t) => t.videoId === track.videoId)
+  const isLiked = useCallback(
+    (track: Track) => !!likedPlaylist?.tracks.some((t) => t.videoId === track.videoId),
+    [likedPlaylist]
+  )
 
-  const toggleLike = (track: Track) => {
-    if (likedPlaylist) {
-      if (isLiked(track)) removeTrackFromPlaylist(likedPlaylist.id, track.videoId)
-      else addTrackToPlaylist(likedPlaylist.id, track)
-    } else {
-      createPlaylist(LIKED_SONGS_PLAYLIST_NAME, [track])
-    }
-  }
+  const toggleLike = useCallback(
+    (track: Track) => {
+      if (likedPlaylist) {
+        if (isLiked(track)) removeTrackFromPlaylist(likedPlaylist.id, track.videoId)
+        else addTrackToPlaylist(likedPlaylist.id, track)
+      } else {
+        createPlaylist(LIKED_SONGS_PLAYLIST_NAME, [track])
+      }
+    },
+    [likedPlaylist, isLiked, removeTrackFromPlaylist, addTrackToPlaylist, createPlaylist]
+  )
 
   if (!tracks.length) {
     return <p className="empty-state">{emptyLabel}</p>
@@ -107,7 +113,7 @@ export function HomeSongGrid({
                 }
               }}
             >
-              <img src={t.thumbnail} alt="" className="home-song-cell-art" />
+              <img src={t.thumbnail} alt="" className="home-song-cell-art" loading="lazy" decoding="async" />
               <div className="home-song-cell-meta">
                 <span className="home-song-cell-title">{t.title}</span>
                 {onOpenArtist ? (
@@ -160,4 +166,4 @@ export function HomeSongGrid({
       )}
     </div>
   )
-}
+})
