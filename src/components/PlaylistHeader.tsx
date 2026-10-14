@@ -1,9 +1,29 @@
+import { useState } from 'react'
 import type { Track } from '../types'
-import { TrackArtwork } from './TrackArtwork'
 
 interface PlaylistHeaderProps {
   name: string
   tracks: Track[]
+}
+
+const COVER_QUALITIES = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault'] as const
+
+/** One cover tile that tries max quality first, then steps down on error. */
+function CoverImage({ videoId, fallback }: { videoId: string; fallback: string }) {
+  const [stage, setStage] = useState(0)
+
+  const src =
+    stage < COVER_QUALITIES.length
+      ? `https://i.ytimg.com/vi/${videoId}/${COVER_QUALITIES[stage]}.jpg`
+      : fallback
+
+  return (
+    <img
+      src={src}
+      alt=""
+      onError={() => setStage((s) => s + 1)}
+    />
+  )
 }
 
 export function PlaylistHeader({ name, tracks }: PlaylistHeaderProps) {
@@ -29,7 +49,7 @@ export function PlaylistHeader({ name, tracks }: PlaylistHeaderProps) {
       {backdropTracks.length > 0 && (
         <div className="playlist-header-backdrop" aria-hidden="true">
           {backdropTracks.map((t, i) => (
-            <TrackArtwork key={`${t.videoId}-${i}`} src={t.thumbnail} videoId={t.videoId} alt="" />
+            <CoverImage key={`${t.videoId}-${i}`} videoId={t.videoId} fallback={t.thumbnail} />
           ))}
           <div className="playlist-header-fade" />
         </div>
@@ -39,7 +59,7 @@ export function PlaylistHeader({ name, tracks }: PlaylistHeaderProps) {
         <div className={`playlist-cover-mosaic ${useMosaic ? '' : 'playlist-cover-single'}`}>
           {coverTracks.length > 0 ? (
             coverTracks.map((t, i) => (
-              <TrackArtwork key={`${t.videoId}-cover-${i}`} src={t.thumbnail} videoId={t.videoId} alt="" />
+              <CoverImage key={`${t.videoId}-cover-${i}`} videoId={t.videoId} fallback={t.thumbnail} />
             ))
           ) : (
             <div className="playlist-cover-mosaic-empty" />

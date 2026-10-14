@@ -15,7 +15,6 @@ import { AmbientParticles } from './components/AmbientParticles'
 import { HomeLyrics } from './components/HomeLyrics'
 import { useTheme } from './theme/ThemeContext'
 import { extractAlbumColors } from './utils/albumColors'
-import { thumbnailFallback } from './utils/thumbnail'
 import { AuthScreen } from './components/AuthScreen'
 import { SpotifyImportModal } from './components/SpotifyImportModal'
 import { useYouTubePlayer } from './hooks/useYouTubePlayer'
@@ -250,7 +249,7 @@ function App() {
 
   // Accent / home-lyrics follow current cover when mode is "album"
   useEffect(() => {
-    const thumb = player.current?.thumbnail || (player.current?.videoId ? thumbnailFallback(player.current.videoId) : '')
+    const thumb = player.current?.thumbnail
     if (!thumb) return
     let cancelled = false
     extractAlbumColors(thumb).then((colors) => {

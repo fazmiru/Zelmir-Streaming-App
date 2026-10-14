@@ -12,7 +12,6 @@ import {
 } from './Icons'
 import { AddToPlaylistMenu } from './AddToPlaylistMenu'
 import { usePlaylists } from '../playlists/PlaylistContext'
-import { TrackArtwork } from './TrackArtwork'
 
 const LIKED_SONGS_PLAYLIST_NAME = 'Liked Songs'
 
@@ -86,7 +85,7 @@ export const PlayerBar = React.memo(function PlayerBar({
       >
         {current ? (
           <>
-            <TrackArtwork key={current.videoId} src={current.thumbnail} videoId={current.videoId} alt={current.title} className="player-thumb" />
+            <img src={current.thumbnail} alt={current.title} className="player-thumb" />
             <div className="player-meta">
               <p className="player-title">{current.title}</p>
               <p className="player-artist">{current.artist}</p>

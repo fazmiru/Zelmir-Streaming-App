@@ -13,7 +13,6 @@ import {
 import { searchPipedTracksSimple } from '../utils/piped'
 import { fetchLyrics, approximateTimedLines, type LyricLine } from '../utils/lyrics'
 import { extractAlbumColors } from '../utils/albumColors'
-import { TrackArtwork } from './TrackArtwork'
 
 const COVER_FALLBACKS = ['maxresdefault', 'sddefault', 'hqdefault', 'mqdefault'] as const
 
@@ -222,7 +221,7 @@ export function NowPlaying({
               tabIndex={0}
               onClick={() => onPlayFromQueue(t, safeQueue)}
             >
-              <TrackArtwork src={t.thumbnail} videoId={t.videoId} alt="" className="now-playing-row-thumb" />
+              <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
               <div className="now-playing-row-meta">
                 <span className="now-playing-row-title">{t.title}</span>
                 <span className="now-playing-row-artist">{t.artist}</span>
@@ -236,7 +235,7 @@ export function NowPlaying({
           })}
           {/* current at top when sheet */}
           <div className="now-playing-row now-playing-row-current" style={{ order: -1 }}>
-            <TrackArtwork src={track.thumbnail || coverSrc} videoId={track.videoId} alt="" className="now-playing-row-thumb" />
+            <img src={track.thumbnail || coverSrc} alt="" className="now-playing-row-thumb" />
             <div className="now-playing-row-meta">
               <span className="now-playing-row-title">{track.title}</span>
               <span className="now-playing-row-artist">{track.artist}</span>
@@ -281,7 +280,7 @@ export function NowPlaying({
                 tabIndex={0}
                 onClick={() => onPlayFromQueue(t, [t, ...recommended])}
               >
-                <TrackArtwork src={t.thumbnail} videoId={t.videoId} alt="" className="now-playing-row-thumb" />
+                <img src={t.thumbnail} alt="" className="now-playing-row-thumb" />
                 <div className="now-playing-row-meta">
                   <span className="now-playing-row-title">{t.title}</span>
                   <span className="now-playing-row-artist">{t.artist}</span>
@@ -304,13 +303,7 @@ export function NowPlaying({
       onTouchEnd={onTouchEnd}
     >
       <div className="now-playing-backdrop" aria-hidden="true">
-        <TrackArtwork
-          key={`backdrop-${track.videoId}-${coverStage}`}
-          src={coverSrc}
-          videoId={track.videoId}
-          className="now-playing-backdrop-img"
-          alt=""
-        />
+        <img className="now-playing-backdrop-img" src={coverSrc} alt="" />
         <div className="now-playing-backdrop-shade" />
       </div>
 
@@ -321,12 +314,11 @@ export function NowPlaying({
             <button type="button" className="now-playing-close" onClick={onClose} aria-label="Close">
               <CloseIcon size={18} />
             </button>
-            <TrackArtwork
-              key={`desktop-cover-${track.videoId}-${coverStage}`}
-              src={coverSrc}
-              videoId={track.videoId}
+            <img
               className="now-playing-cover"
+              src={coverSrc}
               alt=""
+              onError={() => setCoverStage((s) => s + 1)}
             />
           </div>
           <h2 className="now-playing-title">{track.title || 'Unknown'}</h2>
@@ -431,12 +423,11 @@ export function NowPlaying({
         </div>
 
         <div className="np-mobile-cover-wrap">
-          <TrackArtwork
-            key={`mobile-cover-${track.videoId}-${coverStage}`}
-            src={coverSrc}
-            videoId={track.videoId}
+          <img
             className="np-mobile-cover"
+            src={coverSrc}
             alt=""
+            onError={() => setCoverStage((s) => s + 1)}
           />
         </div>
 
@@ -528,7 +519,7 @@ export function NowPlaying({
           <span className="np-handle-bar" />
         </button>
         <div className="np-glass-mini">
-          <TrackArtwork src={track.thumbnail || coverSrc} videoId={track.videoId} alt="" />
+          <img src={track.thumbnail || coverSrc} alt="" />
           <div>
             <div className="np-glass-mini-title">{track.title}</div>
             <div className="np-glass-mini-artist">{track.artist}</div>

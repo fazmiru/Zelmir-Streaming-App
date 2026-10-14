@@ -5,7 +5,6 @@ import { AddToPlaylistMenu } from './AddToPlaylistMenu'
 import { TrackOptionsMenu } from './TrackOptionsMenu'
 import { usePlaylists } from '../playlists/PlaylistContext'
 import './homeExtras.css'
-import { TrackArtwork } from './TrackArtwork'
 
 const LIKED_SONGS_PLAYLIST_NAME = 'Liked Songs'
 
@@ -114,14 +113,7 @@ export const HomeSongGrid = React.memo(function HomeSongGrid({
                 }
               }}
             >
-              <TrackArtwork
-                src={t.thumbnail}
-                videoId={t.videoId}
-                alt=""
-                className="home-song-cell-art"
-                loading="lazy"
-                decoding="async"
-              />
+              <img src={t.thumbnail} alt="" className="home-song-cell-art" loading="lazy" decoding="async" />
               <div className="home-song-cell-meta">
                 <span className="home-song-cell-title">{t.title}</span>
                 {onOpenArtist ? (
