@@ -107,6 +107,7 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
+    img.referrerPolicy = 'no-referrer'
     img.onload = () => resolve(img)
     img.onerror = () => resolve(null)
     img.src = url
@@ -131,13 +132,28 @@ function candidateUrls(imageUrl: string): string[] {
   return [...new Set(urls.filter(Boolean))]
 }
 
-/** Last successful extraction — better than a yellow default. */
-let lastGood: string[] | null = null
-
 const NEUTRAL_FALLBACK = ['#6b7280', '#9ca3af', '#4b5563', '#d1d5db']
+const colorCache = new Map<string, string[]>()
+
+function deterministicFallback(seed: string): string[] {
+  let hash = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  const hue = Math.abs(hash) % 360
+  const colors = [hue, (hue + 42) % 360, (hue + 188) % 360, (hue + 285) % 360]
+  return colors.map((value, index) => {
+    const saturation = index === 2 ? 42 : 62
+    const lightness = index === 3 ? 68 : index === 0 ? 42 : 52
+    return `hsl(${value} ${saturation}% ${lightness}%)`
+  })
+}
 
 export function extractAlbumColors(imageUrl: string): Promise<string[]> {
-  if (!imageUrl) return Promise.resolve(lastGood || NEUTRAL_FALLBACK)
+  if (!imageUrl) return Promise.resolve(NEUTRAL_FALLBACK)
+  const cached = colorCache.get(imageUrl)
+  if (cached) return Promise.resolve(cached)
 
   return (async () => {
     for (const url of candidateUrls(imageUrl)) {
@@ -160,14 +176,15 @@ export function extractAlbumColors(imageUrl: string): Promise<string[]> {
         }
         const colors = sampleDominant(data.data)
         if (colors.length >= 2) {
-          lastGood = colors
+          colorCache.set(imageUrl, colors)
           return colors
         }
       } catch {
         /* try next url */
       }
     }
-    // Prefer previous track's palette over yellow defaults
-    return lastGood || NEUTRAL_FALLBACK
+    const fallback = deterministicFallback(imageUrl)
+    colorCache.set(imageUrl, fallback)
+    return fallback
   })()
 }

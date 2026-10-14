@@ -4,6 +4,7 @@ import { PlayIcon, GripIcon, ThumbsUpIcon } from './Icons'
 import { AddToPlaylistMenu } from './AddToPlaylistMenu'
 import { TrackOptionsMenu } from './TrackOptionsMenu'
 import { usePlaylists } from '../playlists/PlaylistContext'
+import { TrackArtwork } from './TrackArtwork'
 
 const LIKED_SONGS_PLAYLIST_NAME = 'Liked Songs'
 const INITIAL_CHUNK_SIZE = 50
@@ -194,23 +195,13 @@ export function VideoGrid({
             </div>
 
             <div className="track-col-title">
-              <img
-                src={
-                  track.thumbnail && /^https?:\/\//i.test(track.thumbnail)
-                    ? track.thumbnail
-                    : `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
-                }
+              <TrackArtwork
+                src={track.thumbnail}
+                videoId={track.videoId}
                 alt=""
                 className="track-thumb"
                 loading="lazy"
                 decoding="async"
-                onError={(e) => {
-                  const el = e.currentTarget
-                  if (!el.dataset.fallback) {
-                    el.dataset.fallback = '1'
-                    el.src = `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`
-                  }
-                }}
               />
               <div className="track-details">
                 <span className={`track-name ${isActive ? 'accent-text' : ''}`}>{track.title}</span>
