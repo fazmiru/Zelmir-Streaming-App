@@ -111,7 +111,6 @@ export function useYouTubePlayer(
   const objectUrlRef = useRef<string | null>(null)
   const sourceRef = useRef<PlaybackSource>('youtube')
   const intendedPlayingRef = useRef(false)
-  const suppressAudioResumeRef = useRef(false)
 
   const [ready, setReady] = useState(false)
   const [queue, setQueue] = useState<Track[]>([])
@@ -218,7 +217,7 @@ export function useYouTubePlayer(
     } catch {
       // Storage can be unavailable in private browsing; playback still works.
     }
-  }, [queue, queueIndex, volume, shuffle, repeatMode, playbackRate, currentTime])
+  }, [queue, queueIndex, volume, shuffle, repeatMode, playbackRate])
 
   const current = queue[queueIndex] ?? null
 
@@ -299,7 +298,6 @@ export function useYouTubePlayer(
   const stopHtmlAudio = useCallback(() => {
     const a = audioRef.current
     if (!a) return
-    suppressAudioResumeRef.current = true
     try {
       a.pause()
       a.removeAttribute('src')
@@ -308,7 +306,6 @@ export function useYouTubePlayer(
       /* ignore */
     }
     revokeObjectUrl()
-    suppressAudioResumeRef.current = false
   }, [])
 
   const setPlaybackRate = useCallback((rate: number) => {
@@ -368,7 +365,6 @@ export function useYouTubePlayer(
     const onPause = () => {
       // Ignore transient pauses during src changes. Only resume if we still own stream/offline.
       if (
-        !suppressAudioResumeRef.current &&
         intendedPlayingRef.current &&
         (sourceRef.current === 'stream' || sourceRef.current === 'offline') &&
         audio.src &&
@@ -396,22 +392,12 @@ export function useYouTubePlayer(
       setCurrentTime(audio.currentTime)
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration)
-        setMediaSessionPosition({
-          duration: audio.duration,
-          position: audio.currentTime || 0,
-          playbackRate: audio.playbackRate || 1,
-        })
       }
     }
     const onMeta = () => {
       if (sourceRef.current !== 'offline' && sourceRef.current !== 'stream') return
       if (Number.isFinite(audio.duration) && audio.duration > 0) {
         setDuration(audio.duration)
-        setMediaSessionPosition({
-          duration: audio.duration,
-          position: audio.currentTime || 0,
-          playbackRate: audio.playbackRate || 1,
-        })
       }
     }
     const onError = () => {
@@ -425,7 +411,6 @@ export function useYouTubePlayer(
     audio.addEventListener('ended', onEnded)
     audio.addEventListener('timeupdate', onTime)
     audio.addEventListener('loadedmetadata', onMeta)
-    audio.addEventListener('durationchange', onMeta)
     audio.addEventListener('error', onError)
 
     return () => {
@@ -434,7 +419,6 @@ export function useYouTubePlayer(
       audio.removeEventListener('ended', onEnded)
       audio.removeEventListener('timeupdate', onTime)
       audio.removeEventListener('loadedmetadata', onMeta)
-      audio.removeEventListener('durationchange', onMeta)
       audio.removeEventListener('error', onError)
       audio.pause()
       revokeObjectUrl()
@@ -544,14 +528,12 @@ export function useYouTubePlayer(
       const audio = audioRef.current
       if (!audio) return false
 
-      suppressAudioResumeRef.current = true
       revokeObjectUrl()
       const url = URL.createObjectURL(blob)
       objectUrlRef.current = url
       audio.src = url
       audio.volume = volumeRef.current / 100
       audio.playbackRate = playbackRateRef.current
-      suppressAudioResumeRef.current = false
       try {
         intendedPlayingRef.current = true
         await audio.play()
@@ -584,7 +566,6 @@ export function useYouTubePlayer(
 
       // Unmuted from the start — muted HTML5 "play then unmute" is what caused
       // silent start → pause → 0:00 on iPhone PWA.
-      suppressAudioResumeRef.current = true
       audio.muted = false
       audio.volume = Math.max(0.01, volumeRef.current / 100)
       audio.playbackRate = playbackRateRef.current
@@ -669,8 +650,6 @@ export function useYouTubePlayer(
           /* ignore */
         }
         return false
-      } finally {
-        suppressAudioResumeRef.current = false
       }
     },
     [stopYouTube]
@@ -870,17 +849,6 @@ export function useYouTubePlayer(
 
   useEffect(() => {
     if (!current) return
-    setCurrentTime(0)
-    setDuration(0)
-    try {
-      if ('mediaSession' in navigator) navigator.mediaSession.setPositionState?.({
-        duration: 1,
-        position: 0,
-        playbackRate: playbackRateRef.current,
-      })
-    } catch {
-      /* The next metadata/time update will establish the real timeline. */
-    }
     if (requestedVideoIdRef.current === current.videoId) return
     void loadAndPlay(current.videoId)
   }, [ready, current?.videoId, loadAndPlay])
@@ -962,29 +930,17 @@ export function useYouTubePlayer(
       seekForward: (off) => {
         if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
           const a = audioRef.current
-          if (a) {
-            const next = Math.min(a.duration || 1e9, (a.currentTime || 0) + off)
-            a.currentTime = next
-            setCurrentTime(next)
-          }
+          if (a) a.currentTime = Math.min(a.duration || 1e9, (a.currentTime || 0) + off)
         } else {
-          const p = playerRef.current
-          const currentPosition = Number(p?.getCurrentTime?.() || 0)
-          const trackDuration = Number(p?.getDuration?.() || 0)
-          seekRef.current(Math.min(trackDuration || Number.MAX_SAFE_INTEGER, currentPosition + off))
+          seekRef.current((audioRef.current?.currentTime ?? 0) + off)
         }
       },
       seekBackward: (off) => {
         if (sourceRef.current === 'offline' || sourceRef.current === 'stream') {
           const a = audioRef.current
-          if (a) {
-            const next = Math.max(0, (a.currentTime || 0) - off)
-            a.currentTime = next
-            setCurrentTime(next)
-          }
+          if (a) a.currentTime = Math.max(0, (a.currentTime || 0) - off)
         } else {
-          const currentPosition = Number(playerRef.current?.getCurrentTime?.() || 0)
-          seekRef.current(Math.max(0, currentPosition - off))
+          seekRef.current(Math.max(0, (audioRef.current?.currentTime ?? 0) - off))
         }
       },
     })
@@ -993,11 +949,10 @@ export function useYouTubePlayer(
   // Keep position updated for lock screen scrubber
   useEffect(() => {
     if (!isPlaying) return
-    if (duration <= 0) return
     setMediaSessionPosition({
-      duration,
+      duration: duration || 0,
       position: currentTime,
-      playbackRate: playbackRateRef.current,
+      playbackRate: 1,
     })
   }, [currentTime, duration, isPlaying])
 
