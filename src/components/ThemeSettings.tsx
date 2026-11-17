@@ -369,6 +369,8 @@ export function ThemeSettings() {
                 options={[
                   { id: 'glow' as BackgroundStyle, label: 'Glow orbs' },
                   { id: 'halftone' as BackgroundStyle, label: 'Halftone mesh' },
+                  { id: 'aurora' as BackgroundStyle, label: 'Aurora wash' },
+                  { id: 'grid' as BackgroundStyle, label: 'Midnight grid' },
                 ]}
                 onChange={(id) => setBackgroundStyle(id)}
               />

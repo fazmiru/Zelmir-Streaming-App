@@ -90,7 +90,7 @@ export const DEFAULT_AMBIENT: AmbientTheme = {
 }
 
 /** Visual treatment for the background layer (Appearance → Background). */
-export type BackgroundStyle = 'glow' | 'halftone'
+export type BackgroundStyle = 'glow' | 'halftone' | 'aurora' | 'grid'
 
 export const DEFAULT_BACKGROUND_STYLE: BackgroundStyle = 'glow'
 

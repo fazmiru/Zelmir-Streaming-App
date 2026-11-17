@@ -222,7 +222,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [backgroundStyle, setBackgroundStyleState] = useState<BackgroundStyle>(() => {
     try {
       const raw = localStorage.getItem(BG_STYLE_STORAGE_KEY)
-      if (raw === 'halftone' || raw === 'glow') return raw
+      if (raw === 'halftone' || raw === 'glow' || raw === 'aurora' || raw === 'grid') return raw
       return DEFAULT_BACKGROUND_STYLE
     } catch {
       return DEFAULT_BACKGROUND_STYLE
@@ -421,6 +421,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement
     root.classList.toggle('bg-style-halftone', backgroundStyle === 'halftone')
     root.classList.toggle('bg-style-glow', backgroundStyle === 'glow')
+    root.classList.toggle('bg-style-aurora', backgroundStyle === 'aurora')
+    root.classList.toggle('bg-style-grid', backgroundStyle === 'grid')
   }, [backgroundStyle])
 
   useEffect(() => {

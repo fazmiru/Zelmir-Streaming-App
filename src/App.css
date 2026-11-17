@@ -8870,6 +8870,251 @@ html.theme-cycle .mode-button-active.accent-fill {
       color-mix(in srgb, var(--np-c0, var(--accent-solid)) calc(25% + var(--beat-glow, 0) * 50%), transparent);
 }
 
+/* ============================================================
+   Reference layout polish — settings-driven glass dock/sidebar
+   ============================================================ */
+
+@media (min-width: 901px) {
+  .app-shell {
+    grid-template-columns: 252px 1fr !important;
+  }
+
+  .sidebar {
+    position: relative;
+    isolation: isolate;
+    padding: 18px 14px 14px !important;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--accent-a) 7%, #101014) 0%, #0d0d11 38%, #09090c 100%) !important;
+    border-right: 1px solid color-mix(in srgb, var(--accent-solid) 18%, transparent) !important;
+    box-shadow: 12px 0 42px rgba(0, 0, 0, 0.18);
+  }
+
+  .sidebar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 0% 8%, color-mix(in srgb, var(--accent-a) 24%, transparent), transparent 32%),
+      linear-gradient(135deg, transparent 40%, color-mix(in srgb, var(--accent-b) 7%, transparent));
+    opacity: 0.75;
+  }
+
+  .sidebar-brand {
+    min-height: 48px;
+    padding: 0 4px 8px !important;
+  }
+
+  .sidebar .wordmark {
+    font-size: 24px !important;
+  }
+
+  .sidebar .nav {
+    gap: 6px !important;
+    padding: 0 !important;
+  }
+
+  .sidebar .nav-item {
+    min-height: 46px;
+    padding: 11px 14px !important;
+    border-radius: 14px !important;
+    letter-spacing: 0.01em;
+  }
+
+  .sidebar .nav-item-active {
+    background:
+      linear-gradient(100deg, color-mix(in srgb, var(--accent-solid) 19%, transparent), rgba(255,255,255,.06)) !important;
+    box-shadow:
+      inset 3px 0 0 var(--accent-solid),
+      0 8px 22px color-mix(in srgb, var(--accent-solid) 12%, transparent) !important;
+  }
+
+  .sidebar .nav-item-active::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    margin-left: auto;
+    border-radius: 50%;
+    background: var(--accent-solid);
+    box-shadow: 0 0 10px var(--accent-solid);
+  }
+
+  .playlists-section {
+    min-height: 0;
+    padding: 4px 2px 0;
+  }
+
+  .sidebar-new-playlist,
+  .sidebar-spotify-import {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    min-height: 42px;
+    border-radius: 13px !important;
+  }
+
+  .sidebar-new-playlist {
+    background: color-mix(in srgb, var(--accent-solid) 16%, rgba(255,255,255,.06)) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-solid) 24%, transparent);
+  }
+
+  .sidebar-new-playlist:hover {
+    background: color-mix(in srgb, var(--accent-solid) 24%, rgba(255,255,255,.08)) !important;
+  }
+
+  .sidebar-spotify-import {
+    background: rgba(255,255,255,.025) !important;
+  }
+
+  .playlists-header {
+    margin-top: 8px;
+    padding: 12px 10px 8px !important;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+
+  .playlist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 36vh;
+    overflow-y: auto;
+    padding: 0 2px;
+  }
+
+  .playlist-item {
+    min-height: 38px;
+    padding: 8px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .playlist-item:hover,
+  .playlist-item-active {
+    background: color-mix(in srgb, var(--accent-solid) 12%, rgba(255,255,255,.05)) !important;
+  }
+
+  .sidebar-footer {
+    margin: auto -2px 0 !important;
+    padding: 14px 8px 4px !important;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+
+  .sidebar-user {
+    padding: 8px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.045);
+  }
+}
+
+.player-bar {
+  height: 78px !important;
+  grid-template-columns: minmax(250px, 310px) minmax(360px, 1fr) minmax(190px, 250px) !important;
+  gap: 26px !important;
+  padding: 0 28px !important;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-a) 10%, #0d0d10) 0%, rgba(13,13,16,.96) 32%, rgba(13,13,16,.98) 70%, color-mix(in srgb, var(--accent-b) 8%, #0d0d10) 100%) !important;
+  border-top: 1px solid color-mix(in srgb, var(--accent-solid) 24%, rgba(255,255,255,.1)) !important;
+  box-shadow: 0 -12px 36px rgba(0,0,0,.26) !important;
+  backdrop-filter: blur(22px) saturate(1.25);
+}
+
+.player-bar::before {
+  content: '';
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b), var(--accent-c), var(--accent-d), var(--accent-a));
+  background-size: 200% 100%;
+  animation: accent-slide var(--accent-speed, 6s) linear infinite;
+  opacity: .9;
+}
+
+.player-now-playing {
+  gap: 13px !important;
+  padding: 7px 10px !important;
+}
+
+.player-thumb {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 10px !important;
+}
+
+.player-title {
+  font-weight: 700 !important;
+}
+
+.player-artist {
+  opacity: .72;
+}
+
+.player-controls {
+  gap: 16px !important;
+}
+
+.transport-button-main {
+  width: 42px !important;
+  height: 42px !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent-solid) 34%, transparent) !important;
+}
+
+.transport-button:hover {
+  transform: translateY(-1px) scale(1.05);
+}
+
+.player-volume {
+  gap: 12px !important;
+}
+
+/* Additional user-selectable backdrop treatments. */
+.bg-style-aurora .home-theme-backdrop {
+  background:
+    radial-gradient(ellipse at 12% 18%, color-mix(in srgb, var(--bg-a) 58%, transparent), transparent 43%),
+    radial-gradient(ellipse at 72% 14%, color-mix(in srgb, var(--bg-b) 48%, transparent), transparent 42%),
+    radial-gradient(ellipse at 48% 80%, color-mix(in srgb, var(--bg-c) 38%, transparent), transparent 52%),
+    linear-gradient(135deg, #090a10, color-mix(in srgb, var(--bg-d) 18%, #090a10)) !important;
+    filter: blur(0) saturate(1.25) !important;
+}
+
+.bg-style-aurora .home-theme-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(118deg, transparent 25%, color-mix(in srgb, var(--bg-a) 24%, transparent) 43%, transparent 58%, color-mix(in srgb, var(--bg-b) 20%, transparent) 73%, transparent 86%);
+  filter: blur(42px);
+  transform: rotate(-8deg);
+  animation: aurora-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift {
+  from { transform: translate3d(-3%, 2%, 0) rotate(-8deg) scale(1); }
+  to { transform: translate3d(4%, -3%, 0) rotate(-2deg) scale(1.08); }
+}
+
+.bg-style-grid .home-theme-backdrop {
+  background:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--bg-a) 28%, transparent), transparent 65%),
+    #090a0d !important;
+  background-size: 36px 36px, 36px 36px, auto, auto !important;
+  filter: none !important;
+}
+
+.bg-style-grid .home-theme-orb {
+  opacity: .16 !important;
+  filter: blur(90px) !important;
+}
+
+@media (max-width: 600px) {
+  .player-bar {
+    height: 66px !important;
+    grid-template-columns: 1fr auto !important;
+    padding: 0 12px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .audio-pulse-on .player-thumb,
   .audio-pulse-on .home-theme-orb,
