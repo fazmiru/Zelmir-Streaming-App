@@ -149,6 +149,9 @@ export function useYouTubePlayer(
   // True while a freshly loadVideoById()'d video is muted and waiting for
   // onStateChange to confirm it's actually PLAYING, at which point we unmute.
   const pendingUnmuteRef = useRef(false)
+  const streamFallbackRef = useRef<(videoId: string) => Promise<boolean>>(async () => false)
+  const youtubeFallbackRef = useRef<(videoId: string) => void>(() => {})
+  const youtubeErrorHandledRef = useRef<string | null>(null)
 
   const forceYtUnmute = () => {
     const p = playerRef.current
@@ -403,6 +406,27 @@ export function useYouTubePlayer(
     const onError = () => {
       if (sourceRef.current === 'stream' || sourceRef.current === 'offline') {
         console.warn('HTML audio error', audio.error)
+        const failedId =
+          requestedVideoIdRef.current ||
+          queueRef.current[queueIndexRef.current]?.videoId ||
+          null
+        if (!failedId) {
+          intendedPlayingRef.current = false
+          setIsPlaying(false)
+          setMediaSessionPlaybackState('paused')
+          return
+        }
+
+        intendedPlayingRef.current = false
+        setIsPlaying(false)
+        setMediaSessionPlaybackState('paused')
+        if (sourceRef.current === 'stream') {
+          window.setTimeout(() => youtubeFallbackRef.current(failedId), 0)
+        } else {
+          void streamFallbackRef.current(failedId).then((ok) => {
+            if (!ok) youtubeFallbackRef.current(failedId)
+          })
+        }
       }
     }
 
@@ -473,6 +497,7 @@ export function useYouTubePlayer(
               if (e.data === YT.PlayerState.PLAYING) {
                 setIsPlaying(true)
                 intendedPlayingRef.current = true
+                youtubeErrorHandledRef.current = null
                 // Always force audible when we intend to play — pending flag
                 // alone was leaving many sessions permanently muted.
                 pendingUnmuteRef.current = false
@@ -496,6 +521,24 @@ export function useYouTubePlayer(
               } else if (e.data === YT.PlayerState.PAUSED) {
                 setIsPlaying(false)
               }
+            },
+            onError: (e: any) => {
+              if (sourceRef.current !== 'youtube') return
+              const videoId =
+                requestedVideoIdRef.current ||
+                queueRef.current[queueIndexRef.current]?.videoId ||
+                null
+              if (!videoId || youtubeErrorHandledRef.current === videoId) return
+              youtubeErrorHandledRef.current = videoId
+              console.warn('YouTube playback error, trying stream fallback', e?.data)
+              intendedPlayingRef.current = true
+              setIsPlaying(false)
+              void streamFallbackRef.current(videoId).then((ok) => {
+                if (ok) return
+                intendedPlayingRef.current = false
+                setIsPlaying(false)
+                setMediaSessionPlaybackState('paused')
+              })
             },
           },
         })
@@ -660,6 +703,7 @@ export function useYouTubePlayer(
     (videoId: string) => {
       stopHtmlAudio()
       sourceRef.current = 'youtube'
+      youtubeErrorHandledRef.current = null
       const p = playerRef.current
       if (!p?.loadVideoById) {
         console.warn('YouTube player not ready')
@@ -730,6 +774,22 @@ export function useYouTubePlayer(
     },
     [stopHtmlAudio]
   )
+
+  streamFallbackRef.current = async (videoId: string): Promise<boolean> => {
+    if (!intendedPlayingRef.current) intendedPlayingRef.current = true
+    const streamUrl = await fetchStreamUrl(videoId)
+    if (!streamUrl) return false
+    const currentId = queueRef.current[queueIndexRef.current]?.videoId
+    if (currentId && currentId !== videoId) return false
+    return playStreamUrl(videoId, streamUrl)
+  }
+
+  youtubeFallbackRef.current = (videoId: string) => {
+    if (!ready || !playerRef.current?.loadVideoById) return
+    if (!intendedPlayingRef.current) intendedPlayingRef.current = true
+    setIsPlaying(true)
+    playYouTube(videoId)
+  }
 
 
   /**

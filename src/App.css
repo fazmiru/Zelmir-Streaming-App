@@ -788,6 +788,11 @@ select:focus-visible {
   background: var(--accent-solid);
 }
 
+.player-progress-line[data-empty="true"] {
+  display: none !important;
+  width: 0 !important;
+}
+
 /* Progress hairline cycles left→right with accent (seamless) */
 .theme-cycle .player-progress-line,
 .theme-cycle .player-progress-line.accent-fill {
@@ -3735,6 +3740,37 @@ button.now-playing-artist-link:hover {
 }
 
 @media (min-width: 901px) {
+  .sidebar.sidebar-rail .nav-item::after,
+  .sidebar.sidebar-rail .nav-item.nav-item-active::after,
+  .sidebar.sidebar-rail .nav-item-active::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .sidebar.sidebar-rail .nav,
+  .sidebar.sidebar-rail .sidebar-brand,
+  .sidebar.sidebar-rail .sidebar-footer,
+  .sidebar.sidebar-rail .sidebar-user,
+  .sidebar.sidebar-rail .sidebar-rail-actions,
+  .sidebar-rail-playlists {
+    width: 100%;
+  }
+
+  .sidebar.sidebar-rail .nav-item,
+  .sidebar.sidebar-rail .sidebar-rail-toggle,
+  .sidebar.sidebar-rail .sidebar-rail-icon-btn,
+  .sidebar.sidebar-rail .sidebar-user-avatar,
+  .sidebar-rail-pl {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .sidebar.sidebar-rail .nav-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
   /* Desktop: keep FAB in flow near bottom of library panel */
   .library-fab {
     position: sticky;

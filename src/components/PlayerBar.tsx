@@ -59,7 +59,8 @@ export const PlayerBar = React.memo(function PlayerBar({
 }: PlayerBarProps) {
   const { playlists, createPlaylist, addTrackToPlaylist, removeTrackFromPlaylist } = usePlaylists()
   const likedPlaylist = playlists.find((p) => p.name === LIKED_SONGS_PLAYLIST_NAME)
-  const seekProgress = duration > 0 ? (currentTime / duration) * 100 : 0
+  const emptyProgress = !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime) || currentTime <= 0
+  const seekProgress = emptyProgress ? 0 : Math.min(100, Math.max(0, (currentTime / duration) * 100))
 
   const isLiked = current
     ? !!likedPlaylist?.tracks.some((t) => t.videoId === current.videoId)
@@ -159,7 +160,7 @@ export const PlayerBar = React.memo(function PlayerBar({
             min={0}
             max={duration > 0 ? duration : 100}
             step={0.1}
-            value={currentTime}
+            value={emptyProgress ? 0 : currentTime}
             onChange={(e) => onSeek(Number(e.target.value))}
             style={{ '--progress': `${seekProgress}%` } as React.CSSProperties}
           />
@@ -182,7 +183,11 @@ export const PlayerBar = React.memo(function PlayerBar({
       </div>
 
       {/* Top Hairline Indicator */}
-      <div className="player-progress-line accent-fill" style={{ width: `${seekProgress}%` }} />
+      <div
+        className="player-progress-line accent-fill"
+        data-empty={emptyProgress ? 'true' : 'false'}
+        style={{ width: `${seekProgress}%`, display: emptyProgress ? 'none' : undefined }}
+      />
     </div>
   )
 })
